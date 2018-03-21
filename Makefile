@@ -11,3 +11,9 @@ test.dot: sa
 
 test.pdf: test.dot
 	dot -Tpdf < test.dot > test.pdf
+
+dot: test.pdf
+	evince test.pdf
+
+clean:
+	rm test.pdf test.dot

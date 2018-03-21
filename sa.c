@@ -1,3 +1,12 @@
+// ideas:
+// - mutation/crossover
+// - option to output dot (given organism/generation)
+// - then hill climb (from given organism/generation)
+// - fitness function
+// - change fitness function over time
+// - option to output data on fitness over generations
+// (if it's fast enough, maybe no need to save?)
+#include <assert.h>
 #include <math.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -5,12 +14,13 @@
 #include <string.h>
 #include <strings.h>
 
-bool verbose;
+bool verbose = false;
+bool dot = false;
 
-// ---------------------------------------------------------------------------
+// -- graph ------------------------------------------------------------------
 
 double step(double x) {
-  return x > 0. ? 1. : -1.;
+  return x > 0.0 ? 1.0 : -1.0;
 }
 
 double sigmoid(double x) {
@@ -19,7 +29,11 @@ double sigmoid(double x) {
   double yscale = ymax - ymin;
   double ycenter = (ymax + ymin) / 2.0;
   double yoffset =- ycenter - (yscale / 2.0);
-  return (yscale / (1.0 + exp(slope * (xcenter - x)))) + yoffset;
+  double denom = (1.0 + exp(slope * (xcenter - x)));
+  if (verbose)
+    printf("x = %lf; denom = %lf\n", x, denom);
+  assert(denom != 0.0);
+  return (yscale / denom) + yoffset;
 }
 
 typedef struct {
@@ -53,9 +67,15 @@ void print_dot(Organism *o) {
   Genotype *g = o->genotype;
   double *activations = o->activations;
 
-  printf("digraph g {\n\
-  { rank=source edge [style=\"invis\"] n0 -> n1 }\n\
-  { rank=sink edge [style=\"invis\"] n2 -> n3 }\n");
+  printf("digraph g {\n");
+  printf("  { rank=source edge [style=\"invis\"] ");
+  for (int i = 0; i < g->num_in-1; i++)
+    printf("n%d ->", i);
+  printf(" n%d }\n", g->num_in-1);
+  printf("  { rank=sink edge [style=\"invis\"] ");
+  for (int o = 0; o < g->num_out-1; o++)
+    printf("n%d ->", g->num_in + o);
+  printf(" n%d }\n", g->num_in + g->num_out-1);
   for (int n = 0; n < g->num_nodes; n++)
     printf("  n%d [label=%.3lf]\n", n, activations[n]);
   for (int e = 0; e < g->num_edges; e++)
@@ -64,7 +84,7 @@ void print_dot(Organism *o) {
   printf("}\n");
 }
 
-// ---------------------------------------------------------------------------
+// -- spreading activation ---------------------------------------------------
 
 #define EDGE_INFO_NEXT -1
 #define EDGE_INFO_STOP -2
@@ -79,10 +99,10 @@ void init_edge_info(edge_info_t *edge_info, Genotype *g) {
   for (int n=0; n<g->num_nodes; n++) {
     for (int e=0; e<g->num_edges; e++) {
       if (g->edges[e].dst == n) {
-        ei->node_idx = e;
+        ei->node_idx = g->edges[e].src;
         ei->weight = g->edges[e].weight;
         if (verbose)
-          printf("ei: %d (from %d, %4.2f)\n", n, e, ei->weight);
+          printf("ei: n%d (from %d, %4.2f)\n", n, g->edges[e].src, ei->weight);
         ei++;
       }
     }
@@ -105,34 +125,39 @@ void print_out_values(double *current_values, Genotype *g) {
   printf("\n");
 }
 
-//void sa(Genotype *g, int iterations, double decay) {
 void sa(Organism *o, int iterations, double decay) {
   Genotype *g = o->genotype;
   double *current_values = o->activations;
-
-  edge_info_t edge_info[g->num_edges + g->num_nodes + 1];
-  init_edge_info(edge_info, g);
-  double next_values[g->num_nodes];
-  bzero(next_values, sizeof(next_values));
-  //double current_values[g->num_nodes];
   bzero(current_values, sizeof(current_values));
   init_in_values(current_values, g);
 
+  edge_info_t edge_info[g->num_edges + g->num_nodes + 1];
+  init_edge_info(edge_info, g);
+
+  double next_values[g->num_nodes];
+  bzero(next_values, sizeof(next_values));
+
   while (iterations-- > 0) {
-    double acc = 0.;
+    double acc = 0.0;
     double *current_value = current_values;
     double *next_value = next_values;
     edge_info_t *to_node = edge_info;
     Node *cur_node = g->nodes;
-    while (to_node->node_idx != EDGE_INFO_STOP) {
-      acc += current_values[to_node->node_idx] * to_node->weight;
-      if (verbose)
-        printf("n%ld acc=%4.2f\n", (cur_node - g->nodes), acc);
-      if (to_node->node_idx == EDGE_INFO_NEXT) {
+    for (;;) {
+      while (to_node->node_idx == EDGE_INFO_NEXT) {
         *next_value++ = cur_node->threshold_func(decay * (*current_value++ + acc));
         cur_node++;
-        acc = 0.;
+        to_node++;
+        acc = 0.0;
       }
+      if (to_node->node_idx == EDGE_INFO_STOP) {
+        break;
+      }
+      assert(to_node->node_idx >= 0 && to_node->node_idx < g->num_nodes);
+      acc += current_values[to_node->node_idx] * to_node->weight;
+      if (verbose)
+        printf("n%ld acc=%4.2lf to=%d cur=%4.2lf weight=%4.2lf\n", (cur_node - g->nodes), acc,
+            to_node->node_idx, current_values[to_node->node_idx], to_node->weight);
       to_node++;
     }
     memcpy(current_values, next_values, sizeof(next_values));
@@ -142,10 +167,15 @@ void sa(Organism *o, int iterations, double decay) {
     print_out_values(current_values, g);
 }
 
-// ---------------------------------------------------------------------------
+// -- init and test ----------------------------------------------------------
 
 double rand_edge_weight() {
   return rand() & 1 ? 1.0 : -1.0;
+}
+
+// float in range -1 to 1
+double rand_value() {
+  return (double)rand()/RAND_MAX*2.0-1.0;
 }
 
 void init_random_genotype(Genotype *g, int num_edges, int num_nodes, int num_in,
@@ -157,7 +187,7 @@ void init_random_genotype(Genotype *g, int num_edges, int num_nodes, int num_in,
   g->num_in = num_in;
   g->num_out = num_out;
   for (int i=0; i<num_in; i++) {
-    g->nodes[i].value =  (double)rand()/RAND_MAX*2.0-1.0;//float in range -1 to 1
+    g->nodes[i].value = rand_value();
   }
   for (int n=0; n<num_nodes; n++) {
     g->nodes[n].threshold_func = (rand() & 1) ? sigmoid : step;
@@ -193,7 +223,8 @@ void free_organism(Organism *o) {
 void test(int population, int num_edges, int num_nodes, int iterations,
           int epochs, double decay) {
   for (int e=0; e<epochs; e++) {
-    //printf("epoch %d\n", e);
+    if (!dot)
+      printf("epoch %d\n", e);
     Genotype pop[population];
     for (int p=0; p<population; p++) {
       init_random_genotype(&pop[p], num_edges, num_nodes, 2, 2);
@@ -204,7 +235,8 @@ void test(int population, int num_edges, int num_nodes, int iterations,
     for (int p=0; p<population; p++) {
       init_organism(&organisms[p], &pop[p]);
       sa(&organisms[p], iterations, decay);
-      print_dot(&organisms[p]);
+      if (dot)
+        print_dot(&organisms[p]);
     }
     for (int p=0; p<population; p++) {
       free_organism(&organisms[p]);
@@ -212,10 +244,13 @@ void test(int population, int num_edges, int num_nodes, int iterations,
   }
 }
 
+// ---------------------------------------------------------------------------
+
 int main() {
   srand(0);
   //verbose = true;
-  test(1, 30, 10, 20, 1, 1.);
-  //test(100, 400, 100, 50, 100, 1.);
+  dot = true;
+  test(1, 30, 10, 20, 1, 1.0);
+  //test(100, 400, 100, 50, 100, 1.0);
   return 0;
 }
