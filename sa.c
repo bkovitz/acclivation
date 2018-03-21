@@ -57,11 +57,11 @@ void print_dot(Organism *o) {
 { rank=source edge [style=\"invis\"] n0 -> n1 }\
 { rank=sink edge [style=\"invis\"] n2 -> n3 }\n");
   for (int n = 0; n < g->num_nodes; n++)
-    printf("  n%d [label=%lf]\n", n, activations[n]);
+    printf("  n%d [label=%.3lf]\n", n, activations[n]);
   for (int e = 0; e < g->num_edges; e++)
-    printf("  n%d -> n%d [label=%lf];\n", g->edges[e].src, g->edges[e].dst,
+    printf("  n%d -> n%d [label=%.3lf];\n", g->edges[e].src, g->edges[e].dst,
       g->edges[e].weight);
-  printf("; }\n");
+  printf("}\n");
 }
 
 // ---------------------------------------------------------------------------
@@ -193,7 +193,7 @@ void free_organism(Organism *o) {
 void test(int population, int num_edges, int num_nodes, int iterations,
           int epochs, double decay) {
   for (int e=0; e<epochs; e++) {
-    printf("epoch %d\n", e);
+    //printf("epoch %d\n", e);
     Genotype pop[population];
     for (int p=0; p<population; p++) {
       init_random_genotype(&pop[p], num_edges, num_nodes, 2, 2);
