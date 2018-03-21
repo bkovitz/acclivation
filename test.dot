@@ -1,4 +1,6 @@
-digraph g {{ rank=source edge [style="invis"] n0 -> n1 }{ rank=sink edge [style="invis"] n2 -> n3 }
+digraph g {
+  { rank=source edge [style="invis"] n0 -> n1 }
+  { rank=sink edge [style="invis"] n2 -> n3 }
   n0 [label=0.991]
   n1 [label=-0.477]
   n2 [label=0.942]

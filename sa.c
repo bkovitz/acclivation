@@ -53,9 +53,9 @@ void print_dot(Organism *o) {
   Genotype *g = o->genotype;
   double *activations = o->activations;
 
-  printf("digraph g {\
-{ rank=source edge [style=\"invis\"] n0 -> n1 }\
-{ rank=sink edge [style=\"invis\"] n2 -> n3 }\n");
+  printf("digraph g {\n\
+  { rank=source edge [style=\"invis\"] n0 -> n1 }\n\
+  { rank=sink edge [style=\"invis\"] n2 -> n3 }\n");
   for (int n = 0; n < g->num_nodes; n++)
     printf("  n%d [label=%.3lf]\n", n, activations[n]);
   for (int e = 0; e < g->num_edges; e++)
