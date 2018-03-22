@@ -46,6 +46,7 @@ double sigmoid(double x) {
 }
 
 typedef struct {
+  bool in_use;
   double value;
   double (*threshold_func)(double);
 } Node;
@@ -76,6 +77,25 @@ double rand_value() {
   return (double)rand()/RAND_MAX*2.0-1.0;
 }
 
+// FIXME: shuffle and take without replace
+int select_in_use_node(Genotype *g) {
+  for (;;) {
+    int index = rand() % g->num_nodes;
+    if (g->nodes[index].in_use)
+      return index;
+  }
+}
+
+int get_first_unused_node(Genotype *g) {
+  for (int n=0; n<g->num_nodes; n++) {
+    if (!g->nodes[n].in_use) {
+      g->nodes[n].in_use = true;
+      return n;
+    }
+  }
+  return -1;
+}
+
 void init_random_genotype(Genotype *g, int num_edges, int num_nodes, int num_in,
         int num_out) {
   assert(num_in >= 1);
@@ -91,6 +111,7 @@ void init_random_genotype(Genotype *g, int num_edges, int num_nodes, int num_in,
     g->nodes[i].value = rand_value();
   }
   for (int n=0; n<num_nodes; n++) {
+    g->nodes[n].in_use = true;
     g->nodes[n].threshold_func = (rand() & 1) ? sigmoid : step;
   }
   for (int e=0; e<num_edges; e++) {
@@ -158,29 +179,36 @@ void print_organism_dot(Organism *o) {
 
 typedef struct {
   int node_idx;
-  double weight;
+  union {
+    double weight;
+    double (*threshold_func)(double);
+  };
 } Edgeinfo;
 
 void init_edge_info(Edgeinfo *edge_info, Genotype *g) {
   Edgeinfo *ei = edge_info;
   for (int n=0; n<g->num_nodes; n++) {
-    for (int e=0; e<g->num_edges; e++) {
-      if (g->edges[e].dst == n) {
-        ei->node_idx = g->edges[e].src;
-        ei->weight = g->edges[e].weight;
-        if (verbose > 1)
-          printf("ei: n%d (from %d, %4.2f)\n", n, g->edges[e].src, ei->weight);
-        ei++;
+    if (g->nodes[n].in_use) {
+      for (int e=0; e<g->num_edges; e++) {
+        if (g->edges[e].dst == n) {
+          ei->node_idx = g->edges[e].src;
+          ei->weight = g->edges[e].weight;
+          if (verbose > 1)
+            printf("ei: n%d (from %d, %4.2f)\n", n, g->edges[e].src, ei->weight);
+          ei++;
+        }
       }
+      ei->node_idx = EDGE_INFO_NEXT;
+      ei->threshold_func = g->nodes[n].threshold_func;
+      ei++;
     }
-    ei->node_idx = EDGE_INFO_NEXT;
-    ei++;
   }
   ei->node_idx = EDGE_INFO_STOP;
 }
 
 void init_in_activations(double *activations, Genotype *g) {
   for (int i=0; i<g->num_in; i++) {
+    assert(g->nodes[i].in_use);
     activations[i] = g->nodes[i].value;
   }
 }
@@ -217,11 +245,10 @@ void sa(Organism *o, int timesteps, double decay) {
     double *activation = activations;
     double *next_activation = next_activations;
     Edgeinfo *to_node = edge_info;
-    Node *cur_node = g->nodes;
+    int node_num = 0;
     for (;;) {
       while (to_node->node_idx == EDGE_INFO_NEXT) {
-        *next_activation++ = cur_node->threshold_func(decay * (*activation++ + acc));
-        cur_node++;
+        *next_activation++ = to_node->threshold_func(decay * (*activation++ + acc));
         to_node++;
         acc = 0.0;
       }
@@ -231,13 +258,15 @@ void sa(Organism *o, int timesteps, double decay) {
       assert(to_node->node_idx >= 0 && to_node->node_idx < g->num_nodes);
       acc += activations[to_node->node_idx] * to_node->weight;
       if (verbose > 1)
-        printf("n%ld acc=%4.2lf to=%d cur=%4.2lf weight=%4.2lf\n", (cur_node - g->nodes), acc,
+        printf("n%d acc=%4.2lf to=%d cur=%4.2lf weight=%4.2lf\n", node_num, acc,
             to_node->node_idx, activations[to_node->node_idx], to_node->weight);
       to_node++;
+      node_num++;
     }
-    if (verbose >= 9)
+    if (verbose >= 9) {
       printf("timestep: %d\n", timestep);
       print_all_activations(next_activations, g->num_nodes);
+    }
     memcpy(activations, next_activations, sizeof(next_activations));
   }
 
@@ -317,16 +346,14 @@ void set_phenotypes_and_fitnesses(World *w) {
   }
 }
 
-Organism *mutate(Organism *);
+void mutate(Organism *);
 
 void run_generation(World *w) {
   set_phenotypes_and_fitnesses(w);
-  int i = 0; // why?
+  int i = 0;
   Organism *o;
   for (o = w->organisms, i = 0; i < w->num_organisms; o++, i++) {
-    Organism *new_o = mutate(o);
-    free_organism(o);
-    w->organisms[i] = *new_o;
+    mutate(o);
   }
 }
 
@@ -369,16 +396,9 @@ double phenotype_fitness(World *w, Organism *o) {
 // -- next generation via crossover and mutation -----------------------------
 
 // select from previous population by fitness (no replacement)
-// mutants = 70%
-//   weighted choice
-//     move-edge   1
-//     add-node    1
-//     remove-node 1
-//     add-edge    1
-//     remove-edge 1
-//     turn-knob   10
+// mutants/crossover = 70%/30%
 
-Genotype *copy_genotype(Genotype *g) {
+/*Genotype *copy_genotype(Genotype *g) {
   Genotype *new_g = calloc(sizeof(Genotype), 1);
   new_g->num_nodes = g->num_nodes;
   new_g->num_edges = g->num_edges;
@@ -397,77 +417,108 @@ Organism *copy_organism(Organism *o) {
   new_o->activations = calloc(sizeof(double), new_o->genotype->num_nodes);
   new_o->fitness = 0.0;
   return new_o;
+}*/
+
+void add_edge(Organism *o) {
+  Genotype *g = o->genotype;
+  g->num_edges++;
+  g->edges = realloc(g->edges, sizeof(Edge) * g->num_edges);
+  int add_index = g->num_edges-1;
+  g->edges[add_index].src = select_in_use_node(g);
+  g->edges[add_index].dst = select_in_use_node(g);
+  g->edges[add_index].weight = rand_edge_weight();
 }
 
-Organism *add_edge(Organism *o) {
-  return copy_organism(o);
+void remove_edge(Organism *o) {
+  Genotype *g = o->genotype;
+  int selected = rand() % g->num_edges;
+  if (selected < g->num_edges-1)
+    memcpy(&g->edges[selected], &g->edges[selected+1], sizeof(Edge) *
+        g->num_edges - selected - 1);
+  g->num_edges--;
 }
 
-Organism *move_edge(Organism *o) {
-  if (o->genotype->num_edges == 0)
+void move_edge(Organism *o) {
+  Genotype *g = o->genotype;
+  if (g->num_edges == 0)
     return add_edge(o);
-  Organism *new_o = copy_organism(o);
-  Genotype *g = new_o->genotype;
   int selected_edge = rand() % g->num_edges;
-  g->edges[selected_edge].src = rand() % g->num_nodes;
-  g->edges[selected_edge].dst = rand() % g->num_nodes;
-  return new_o;
+  g->edges[selected_edge].src = select_in_use_node(g);
+  g->edges[selected_edge].dst = select_in_use_node(g);
 }
 
-// NEXT do the rest of these
-
-Organism *add_node(Organism *o) {
-  return copy_organism(o);
+void add_node(Organism *o) {
+  Genotype *g = o->genotype;
+  int add_index = get_first_unused_node(g);
+  g->num_nodes++;
+  if (add_index == -1) {
+    g->nodes = realloc(g->nodes, sizeof(Node) * g->num_nodes);
+    add_index = g->num_nodes-1;
+  }
+  g->nodes[add_index].value = rand_value();
+  g->nodes[add_index].threshold_func = (rand() & 1) ? sigmoid : step;
+  o->activations = calloc(sizeof(double), g->num_nodes);
 }
 
-Organism *remove_node(Organism *o) {
-  return copy_organism(o);
+void remove_node(Organism *o) {
+  Genotype *g = o->genotype;
+  int unremovable = g->num_in + g->num_out;
+  if (g->num_nodes - unremovable <= 0)
+    return add_node(o);
+  int selected = unremovable + rand() % (g->num_nodes - unremovable);
+  // mark unused
+  g->nodes[selected].in_use = false;
+  g->num_nodes--;
+  // redirect any affected edges
+  for (Edge *e=g->edges; (e - g->edges) < g->num_edges; e++) {
+    if (e->src == selected)
+      e->src = select_in_use_node(g);
+    if (e->dst == selected)
+      e->dst = select_in_use_node(g);
+  }
+  o->activations = calloc(sizeof(double), g->num_nodes);
 }
 
-Organism *remove_edge(Organism *o) {
-  return copy_organism(o);
+void turn_knob(Organism *o) {
+  int genotype_index = rand() & o->genotype->num_in;
+  double nudge = sigmoid(rand_value() * 0.02);
+  o->genotype->nodes[genotype_index].value += nudge;
 }
 
-Organism *turn_knob(Organism *o) {
-  return copy_organism(o);
-}
-
-Organism *mutate(Organism *o) {
+void mutate(Organism *o) {
   int mutation_type = rand() % 16;
   switch (mutation_type) {
   case 0:
-    return move_edge(o);
+    move_edge(o);
     break;
   case 1:
-    return add_node(o);
+    //add_node(o); CORE DUMP
     break;
   case 2:
-    return remove_node(o);
+    //remove_node(o); CORE DUMP
     break;
   case 3:
-    return add_edge(o);
+    add_edge(o);
     break;
   case 4:
-    return remove_edge(o);
+    //remove_edge(o); CORE DUMP
     break;
   default:
-    return turn_knob(o);
+    turn_knob(o);
     break;
   }
 }
-
-// crossovers = 30%
 
 // ---------------------------------------------------------------------------
 
 void sa_test() {
   Node nodes[6] = {
-    { 0.2, clamp },
-    { 0.4, clamp },
-    { 0.0, clamp },
-    { 0.0, clamp },
-    { 0.0, clamp },
-    { 0.0, clamp }
+    { true, 0.2, clamp },
+    { true, 0.4, clamp },
+    { true, 0.0, clamp },
+    { true, 0.0, clamp },
+    { true, 0.0, clamp },
+    { true, 0.0, clamp }
   };
   Edge edges[6] = {
     { 0, 4, 1.0 },
@@ -503,9 +554,9 @@ void long_test() {
 }
 
 int main() {
-  quick_test();
+  //quick_test();
   //dot_test();
-  //long_test();
+  long_test();
   //sa_test();
   return 0;
 }
