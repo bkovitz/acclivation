@@ -1,13 +1,14 @@
-// ideas:
+// todo:
 // + world (contains pop, seed, options)
 // + run world
 // + generations per epoch
+// - fitness function
 // - mutation/crossover
 // - option to output dot (given organism/generation)
 // - hill climb (from given organism/generation)
-// - fitness function
 // - change fitness function over time
 // - option to output data on fitness over generations
+// - command line args (or separate mains)
 // (if it's fast enough, maybe no need to save?)
 #include <assert.h>
 #include <math.h>
@@ -24,6 +25,10 @@ bool dot = false;
 
 double step(double x) {
   return x > 0.0 ? 1.0 : -1.0;
+}
+
+double clamp(double x) {
+  return x <= -1.0 ? -1.0 : (x >= 1.0 ? 1.0 : x);
 }
 
 double sigmoid(double x) {
@@ -110,11 +115,13 @@ void free_genotype(Genotype *g) {
 typedef struct {
   Genotype *genotype;
   double *activations;
+  double phenotype_fitness;
 } Organism;
 
 void init_organism(Organism *o, Genotype *g) {
   o->genotype = g;
   o->activations = calloc(sizeof(double), g->num_nodes);
+  o->phenotype_fitness = 0.0;
 }
 
 void free_organism(Organism *o) {
@@ -171,40 +178,47 @@ void init_edge_info(Edgeinfo *edge_info, Genotype *g) {
   ei->node_idx = EDGE_INFO_STOP;
 }
 
-void init_in_values(double *current_values, Genotype *g) {
+void init_in_activations(double *activations, Genotype *g) {
   for (int i=0; i<g->num_in; i++) {
-    current_values[i] = g->nodes[i].value;
+    activations[i] = g->nodes[i].value;
   }
 }
 
-void print_out_values(double *current_values, Genotype *g) {
+void print_out_activations(double *activations, Genotype *g) {
   for (int i=g->num_in; i<g->num_in + g->num_out; i++) {
-    printf("%4.2f ", current_values[i]);
+    printf("%4.2f ", activations[i]);
   }
   printf("\n");
 }
 
-void sa(Organism *o, int iterations, double decay) {
+void print_all_activations(double *activations, int num_nodes) {
+  for (int i=0; i<num_nodes; i++) {
+    printf("%4.2f ", activations[i]);
+  }
+  printf("\n");
+}
+
+void sa(Organism *o, int timesteps, double decay) {
   Genotype *g = o->genotype;
-  double *current_values = o->activations;
-  bzero(current_values, sizeof(current_values));
-  init_in_values(current_values, g);
+  double *activations = o->activations;
+  bzero(activations, sizeof(activations));
+  init_in_activations(activations, g);
 
   Edgeinfo edge_info[g->num_edges + g->num_nodes + 1];
   init_edge_info(edge_info, g);
 
-  double next_values[g->num_nodes];
-  bzero(next_values, sizeof(next_values));
+  double next_activations[g->num_nodes];
+  bzero(next_activations, sizeof(next_activations));
 
-  while (iterations-- > 0) {
+  for (int timestep=1; timestep<=timesteps; timestep++) {
     double acc = 0.0;
-    double *current_value = current_values;
-    double *next_value = next_values;
+    double *activation = activations;
+    double *next_activation = next_activations;
     Edgeinfo *to_node = edge_info;
     Node *cur_node = g->nodes;
     for (;;) {
       while (to_node->node_idx == EDGE_INFO_NEXT) {
-        *next_value++ = cur_node->threshold_func(decay * (*current_value++ + acc));
+        *next_activation++ = cur_node->threshold_func(decay * (*activation++ + acc));
         cur_node++;
         to_node++;
         acc = 0.0;
@@ -213,53 +227,76 @@ void sa(Organism *o, int iterations, double decay) {
         break;
       }
       assert(to_node->node_idx >= 0 && to_node->node_idx < g->num_nodes);
-      acc += current_values[to_node->node_idx] * to_node->weight;
+      acc += activations[to_node->node_idx] * to_node->weight;
       if (verbose > 1)
         printf("n%ld acc=%4.2lf to=%d cur=%4.2lf weight=%4.2lf\n", (cur_node - g->nodes), acc,
-            to_node->node_idx, current_values[to_node->node_idx], to_node->weight);
+            to_node->node_idx, activations[to_node->node_idx], to_node->weight);
       to_node++;
     }
-    memcpy(current_values, next_values, sizeof(next_values));
+    if (verbose >= 9)
+      printf("timestep: %d\n", timestep);
+      print_all_activations(next_activations, g->num_nodes);
+    memcpy(activations, next_activations, sizeof(next_activations));
   }
 
   if (verbose)
-    print_out_values(current_values, g);
+    print_out_activations(activations, g);
 }
+
+// -- fitness ----------------------------------------------------------------
+
+// -- next generation via crossover and mutation -----------------------------
+// select from previous population by fitness (no replacement)
+// mutants = 70%
+//   weighted choice
+//     turn-knob   10
+//     move-edge   1
+//     add-node    1
+//     remove-node 1
+//     add-edge    1
+//     remove-edge 1
+// crossovers = 30%
 
 // -- world ------------------------------------------------------------------
 
 typedef struct world {
   int random_seed;
   int num_organisms;
-  int iterations_per_generation;
+  int sa_timesteps;
   int generations_per_epoch;
   int num_epochs;
-  int num_in;
-  int num_out;
   int num_nodes;
   int num_edges;
+  int num_in;
+  int num_out;
   double decay_rate;
   Genotype *genotypes;
   Organism *organisms;
 } World;
 
-World *create_world(int random_seed, int num_organisms, int iterations_per_generation,
-                    int generations_per_epoch, int num_epochs,
-                    int num_in, int num_out, int num_nodes, int num_edges, double decay_rate) {
+World *create_world_full(int random_seed, int num_organisms, int sa_timesteps,
+                         int generations_per_epoch, int num_epochs, int num_nodes, int num_edges,
+                         int num_in, int num_out, double decay_rate) {
   World *w = calloc(sizeof(World), 1);
   w->random_seed = random_seed;
   w->num_organisms = num_organisms;
-  w->iterations_per_generation = iterations_per_generation;
+  w->sa_timesteps = sa_timesteps;
   w->generations_per_epoch = generations_per_epoch;
   w->num_epochs = num_epochs;
-  w->num_in = num_in;
-  w->num_out = num_out;
   w->num_nodes = num_nodes;
   w->num_edges = num_edges;
+  w->num_in = num_in;
+  w->num_out = num_out;
   w->decay_rate = decay_rate;
   w->genotypes = calloc(sizeof(Genotype), num_organisms);
   w->organisms = calloc(sizeof(Organism), num_organisms);
   return w;
+}
+
+World *create_world(int random_seed, int num_organisms, int sa_timesteps,
+                    int generations_per_epoch, int num_epochs, int num_nodes, int num_edges) {
+  return create_world_full(random_seed, num_organisms, sa_timesteps,
+      generations_per_epoch, num_epochs, num_nodes, num_edges, 2, 2, 1.0);
 }
 
 void init_random_population(World *w) {
@@ -276,16 +313,18 @@ void run_world(World *w) {
   for (int e=0; e<w->num_epochs; e++) {
     if (!dot)
       printf("epoch %d\n", e);
+    // generate initial population
     for (int g=0; g<w->generations_per_epoch; g++) {
       if (!dot)
         printf("  generation %d\n", g);
-      init_random_population(w);
+      init_random_population(w); //  tmp
       for (int n=0; n<w->num_organisms; n++) {
-        sa(&w->organisms[n], w->iterations_per_generation, w->decay_rate);
+        sa(&w->organisms[n], w->sa_timesteps, w->decay_rate);
         if (dot)
           print_organism_dot(&w->organisms[n]);
-        free_organism(&w->organisms[n]);
+        free_organism(&w->organisms[n]); // tmp
       }
+      // generate next population using mutation and crossover
     }
   }
 }
@@ -297,26 +336,52 @@ void free_world(World *w) {
 
 // ---------------------------------------------------------------------------
 
+void sa_test() {
+  Node nodes[6] = {
+    { 0.2, clamp },
+    { 0.4, clamp },
+    { 0.0, clamp },
+    { 0.0, clamp },
+    { 0.0, clamp },
+    { 0.0, clamp }
+  };
+  Edge edges[6] = {
+    { 0, 4, 1.0 },
+    { 1, 4, 1.0 },
+    { 4, 2, 1.0 },
+    { 4, 5, 1.0 },
+    { 5, 0, -1.0 },
+    { 5, 3, -1.0 }
+  };
+  Genotype genotype = { nodes, edges, 6, 6, 2, 2 };
+  double activations[6];
+  Organism o = { &genotype, activations, 0.0 };
+  
+  verbose = 9;
+  sa(&o, 13, 1.0);
+}
+
 void quick_test() {
   verbose = 1;
-  World *w = create_world(0, 1, 20, 1, 1, 2, 2, 30, 10, 1.0);
+  World *w = create_world(0, 1, 20, 1, 1, 30, 10);
   run_world(w);
 }
 
 void dot_test() {
   dot = true;
-  World *w = create_world(0, 1, 20, 1, 1, 2, 2, 30, 10, 1.0);
+  World *w = create_world(0, 1, 20, 1, 1, 30, 10);
   run_world(w);
 }
 
 void long_test() {
-  World *w = create_world(0, 50, 20, 20, 10, 2, 2, 200, 70, 1.0);
+  World *w = create_world(0, 50, 20, 20, 10, 200, 70);
   run_world(w);
 }
 
 int main() {
   //quick_test();
   //dot_test();
-  long_test();
+  //long_test();
+  sa_test();
   return 0;
 }
