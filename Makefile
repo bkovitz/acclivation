@@ -21,4 +21,4 @@ clean:
 tags:
 	ctags *.[ch]
 
-.PHONY: tags run all
+.PHONY: tags run all dot clean
