@@ -17,3 +17,8 @@ dot: test.pdf
 
 clean:
 	rm test.pdf test.dot
+
+tags:
+	ctags *.[ch]
+
+.PHONY: tags run all

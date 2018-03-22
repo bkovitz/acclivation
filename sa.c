@@ -115,13 +115,13 @@ void free_genotype(Genotype *g) {
 typedef struct {
   Genotype *genotype;
   double *activations;
-  double phenotype_fitness;
+  double fitness;
 } Organism;
 
 void init_organism(Organism *o, Genotype *g) {
   o->genotype = g;
   o->activations = calloc(sizeof(double), g->num_nodes);
-  o->phenotype_fitness = 0.0;
+  o->fitness = 0.0;
 }
 
 void free_organism(Organism *o) {
@@ -185,8 +185,9 @@ void init_in_activations(double *activations, Genotype *g) {
 }
 
 void print_out_activations(double *activations, Genotype *g) {
+  printf("phenotype: ");
   for (int i=g->num_in; i<g->num_in + g->num_out; i++) {
-    printf("%4.2f ", activations[i]);
+    printf("%4.4f ", activations[i]);
   }
   printf("\n");
 }
@@ -243,23 +244,9 @@ void sa(Organism *o, int timesteps, double decay) {
     print_out_activations(activations, g);
 }
 
-// -- fitness ----------------------------------------------------------------
-
-// -- next generation via crossover and mutation -----------------------------
-// select from previous population by fitness (no replacement)
-// mutants = 70%
-//   weighted choice
-//     turn-knob   10
-//     move-edge   1
-//     add-node    1
-//     remove-node 1
-//     add-edge    1
-//     remove-edge 1
-// crossovers = 30%
-
 // -- world ------------------------------------------------------------------
 
-typedef struct world {
+typedef struct world_t {
   int random_seed;
   int num_organisms;
   int sa_timesteps;
@@ -272,7 +259,12 @@ typedef struct world {
   double decay_rate;
   Genotype *genotypes;
   Organism *organisms;
+  double (*phenotype_fitness_func)(struct world_t *, Organism *);
+  int generation;
+  double c;
 } World;
+
+double phenotype_fitness(World *, Organism *);
 
 World *create_world_full(int random_seed, int num_organisms, int sa_timesteps,
                          int generations_per_epoch, int num_epochs, int num_nodes, int num_edges,
@@ -290,6 +282,8 @@ World *create_world_full(int random_seed, int num_organisms, int sa_timesteps,
   w->decay_rate = decay_rate;
   w->genotypes = calloc(sizeof(Genotype), num_organisms);
   w->organisms = calloc(sizeof(Organism), num_organisms);
+  w->phenotype_fitness_func = phenotype_fitness;
+  w->c = 0.0;
   return w;
 }
 
@@ -308,22 +302,30 @@ void init_random_population(World *w) {
   }
 }
 
+void run_generation(World *w) {
+  if (!dot)
+    printf("  generation %d\n", w->generation);
+  init_random_population(w); //  tmp
+  for (int n=0; n<w->num_organisms; n++) {
+    Organism *o = &w->organisms[n];
+    sa(o, w->sa_timesteps, w->decay_rate);
+    if (dot)
+      print_organism_dot(o);
+    o->fitness = w->phenotype_fitness_func(w, o);
+    if (verbose)
+      printf("fitness: %lf\n", o->fitness);
+    free_organism(o); // tmp
+  }
+}
+
 void run_world(World *w) {
   srand(w->random_seed);
   for (int e=0; e<w->num_epochs; e++) {
     if (!dot)
       printf("epoch %d\n", e);
     // generate initial population
-    for (int g=0; g<w->generations_per_epoch; g++) {
-      if (!dot)
-        printf("  generation %d\n", g);
-      init_random_population(w); //  tmp
-      for (int n=0; n<w->num_organisms; n++) {
-        sa(&w->organisms[n], w->sa_timesteps, w->decay_rate);
-        if (dot)
-          print_organism_dot(&w->organisms[n]);
-        free_organism(&w->organisms[n]); // tmp
-      }
+    for (w->generation=0; w->generation<w->generations_per_epoch; w->generation++) {
+      run_generation(w);
       // generate next population using mutation and crossover
     }
   }
@@ -333,6 +335,37 @@ void free_world(World *w) {
   for (int i=0; i<w->num_organisms; i++)
     free_organism(&w->organisms[i]); // will free associated genotype
 }
+
+// -- fitness ----------------------------------------------------------------
+
+double many_small_hills(double *phenotype) { // length is 2
+  return cos(phenotype[0] * 20.0) * sin(phenotype[1] * 20.0);
+}
+
+double distance(double x1, double y1, double x2, double y2) {
+  return sqrt((x2-x1)*(x2-x1) + (y2-y1)*(y2-y1));
+}
+
+double phenotype_fitness(World *w, Organism *o) {
+  double phenotype[2] = {
+    o->activations[o->genotype->num_in],
+    o->activations[o->genotype->num_in+1]
+  };
+  return //many_small_hills(phenotype) +
+    (1.0 - distance(w->c, w->c, phenotype[0], phenotype[1]));
+}
+
+// -- next generation via crossover and mutation -----------------------------
+// select from previous population by fitness (no replacement)
+// mutants = 70%
+//   weighted choice
+//     turn-knob   10
+//     move-edge   1
+//     add-node    1
+//     remove-node 1
+//     add-edge    1
+//     remove-edge 1
+// crossovers = 30%
 
 // ---------------------------------------------------------------------------
 
@@ -363,25 +396,25 @@ void sa_test() {
 
 void quick_test() {
   verbose = 1;
-  World *w = create_world(0, 1, 20, 1, 1, 30, 10);
+  World *w = create_world(0, 1, 20, 1, 1, 10, 30);
   run_world(w);
 }
 
 void dot_test() {
   dot = true;
-  World *w = create_world(0, 1, 20, 1, 1, 30, 10);
+  World *w = create_world(0, 1, 20, 1, 1, 10, 30);
   run_world(w);
 }
 
 void long_test() {
-  World *w = create_world(0, 50, 20, 20, 10, 200, 70);
+  World *w = create_world(0, 50, 20, 20, 10, 70, 200);
   run_world(w);
 }
 
 int main() {
-  //quick_test();
+  quick_test();
   //dot_test();
   //long_test();
-  sa_test();
+  //sa_test();
   return 0;
 }
