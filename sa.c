@@ -2,8 +2,9 @@
 // + world (contains pop, seed, options)
 // + run world
 // + generations per epoch
-// - fitness function
-// - mutation/crossover
+// + fitness function
+// - mutation
+// - crossover
 // - option to output dot (given organism/generation)
 // - hill climb (from given organism/generation)
 // - change fitness function over time
@@ -302,10 +303,9 @@ void init_random_population(World *w) {
   }
 }
 
-void run_generation(World *w) {
+void set_phenotypes_and_fitnesses(World *w) {
   if (!dot)
     printf("  generation %d\n", w->generation);
-  init_random_population(w); //  tmp
   for (int n=0; n<w->num_organisms; n++) {
     Organism *o = &w->organisms[n];
     sa(o, w->sa_timesteps, w->decay_rate);
@@ -314,19 +314,30 @@ void run_generation(World *w) {
     o->fitness = w->phenotype_fitness_func(w, o);
     if (verbose)
       printf("fitness: %lf\n", o->fitness);
-    free_organism(o); // tmp
+  }
+}
+
+Organism *mutate(Organism *);
+
+void run_generation(World *w) {
+  set_phenotypes_and_fitnesses(w);
+  int i = 0; // why?
+  Organism *o;
+  for (o = w->organisms, i = 0; i < w->num_organisms; o++, i++) {
+    Organism *new_o = mutate(o);
+    free_organism(o);
+    w->organisms[i] = *new_o;
   }
 }
 
 void run_world(World *w) {
   srand(w->random_seed);
+  init_random_population(w);
   for (int e=0; e<w->num_epochs; e++) {
     if (!dot)
       printf("epoch %d\n", e);
-    // generate initial population
     for (w->generation=0; w->generation<w->generations_per_epoch; w->generation++) {
       run_generation(w);
-      // generate next population using mutation and crossover
     }
   }
 }
@@ -356,15 +367,95 @@ double phenotype_fitness(World *w, Organism *o) {
 }
 
 // -- next generation via crossover and mutation -----------------------------
+
 // select from previous population by fitness (no replacement)
 // mutants = 70%
 //   weighted choice
-//     turn-knob   10
 //     move-edge   1
 //     add-node    1
 //     remove-node 1
 //     add-edge    1
 //     remove-edge 1
+//     turn-knob   10
+
+Genotype *copy_genotype(Genotype *g) {
+  Genotype *new_g = calloc(sizeof(Genotype), 1);
+  new_g->num_nodes = g->num_nodes;
+  new_g->num_edges = g->num_edges;
+  new_g->num_in = g->num_in;
+  new_g->num_out = g->num_out;
+  new_g->nodes = calloc(sizeof(Node), new_g->num_nodes);
+  memcpy(new_g->nodes, g->nodes, sizeof(Node) * new_g->num_nodes);
+  new_g->edges = calloc(sizeof(Edge), new_g->num_edges);
+  memcpy(new_g->edges, g->edges, sizeof(Edge) * new_g->num_edges);
+  return new_g;
+}
+
+Organism *copy_organism(Organism *o) {
+  Organism *new_o = calloc(sizeof(Organism), 1);
+  new_o->genotype = copy_genotype(o->genotype);
+  new_o->activations = calloc(sizeof(double), new_o->genotype->num_nodes);
+  new_o->fitness = 0.0;
+  return new_o;
+}
+
+Organism *add_edge(Organism *o) {
+  return copy_organism(o);
+}
+
+Organism *move_edge(Organism *o) {
+  if (o->genotype->num_edges == 0)
+    return add_edge(o);
+  Organism *new_o = copy_organism(o);
+  Genotype *g = new_o->genotype;
+  int selected_edge = rand() % g->num_edges;
+  g->edges[selected_edge].src = rand() % g->num_nodes;
+  g->edges[selected_edge].dst = rand() % g->num_nodes;
+  return new_o;
+}
+
+// NEXT do the rest of these
+
+Organism *add_node(Organism *o) {
+  return copy_organism(o);
+}
+
+Organism *remove_node(Organism *o) {
+  return copy_organism(o);
+}
+
+Organism *remove_edge(Organism *o) {
+  return copy_organism(o);
+}
+
+Organism *turn_knob(Organism *o) {
+  return copy_organism(o);
+}
+
+Organism *mutate(Organism *o) {
+  int mutation_type = rand() % 16;
+  switch (mutation_type) {
+  case 0:
+    return move_edge(o);
+    break;
+  case 1:
+    return add_node(o);
+    break;
+  case 2:
+    return remove_node(o);
+    break;
+  case 3:
+    return add_edge(o);
+    break;
+  case 4:
+    return remove_edge(o);
+    break;
+  default:
+    return turn_knob(o);
+    break;
+  }
+}
+
 // crossovers = 30%
 
 // ---------------------------------------------------------------------------
@@ -396,7 +487,7 @@ void sa_test() {
 
 void quick_test() {
   verbose = 1;
-  World *w = create_world(0, 1, 20, 1, 1, 10, 30);
+  World *w = create_world(0, 2, 20, 1, 1, 10, 30);
   run_world(w);
 }
 
