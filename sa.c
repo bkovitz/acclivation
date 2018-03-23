@@ -3,8 +3,8 @@
 // + run world
 // + generations per epoch
 // + fitness function
-// - mutation
-// - crossover
+// + mutation
+// ~ crossover [push]
 // - option to output dot (given organism/generation)
 // - hill climb (from given organism/generation)
 // - change fitness function over time
@@ -275,6 +275,7 @@ typedef struct world_t {
   double (*phenotype_fitness_func)(struct world_t *, Organism *);
   int generation;
   double c;
+  int num_candidates;
 } World;
 
 double phenotype_fitness(World *, Organism *);
@@ -297,6 +298,7 @@ World *create_world_full(int random_seed, int num_organisms, int sa_timesteps,
   w->organisms = calloc(num_organisms, sizeof(Organism));
   w->phenotype_fitness_func = phenotype_fitness;
   w->c = 0.0;
+  w->num_candidates = 5;
   return w;
 }
 
@@ -331,13 +333,50 @@ void set_phenotypes_and_fitnesses(World *w) {
 
 void mutate(Organism *);
 
+int tournament_select(World *w) {
+  int pool[w->num_candidates];
+  for (int n = 0; n < w->num_candidates; n++) {
+    pool[n] = rand() % w->num_organisms;
+  }
+  double max_fitness = -1e20;
+  int max_fitness_index = -1;
+  for (int n = 0; n < w->num_candidates; n++) {
+    if (w->organisms[pool[n]].fitness > max_fitness) {
+      max_fitness = w->organisms[pool[n]].fitness;
+      max_fitness_index = pool[n];
+    }
+  }
+  assert(max_fitness_index > -1);
+  return max_fitness_index;
+}
+
+void copy_organism(Organism *, Organism *);
+
 void run_generation(World *w) {
   set_phenotypes_and_fitnesses(w);
-  int i = 0;
-  Organism *o;
-  for (o = w->organisms, i = 0; i < w->num_organisms; o++, i++) {
-    mutate(o);
+  Organism new_population[w->num_organisms];
+  for (int p = 0; p < w->num_organisms; p++) {
+    int selected_organism = tournament_select(w);
+    //printf("sel->%d\n", selected_organism);
+    copy_organism(&new_population[p], &w->organisms[selected_organism]);
+    mutate(&new_population[p]);
   }
+  //for (int p = 0; p < w->num_organisms; p++)
+    //free_organism(&w->organisms[p]);
+  w->organisms = new_population;
+}
+
+void print_best_fitness(World *w) {
+  double max_fitness = -1e20;
+  int max_fitness_index = -1;
+  for (int n = 0; n < w->num_organisms; n++) {
+    if (w->organisms[n].fitness > max_fitness) {
+      max_fitness = w->organisms[n].fitness;
+      max_fitness_index = n;
+    }
+  }
+  assert(max_fitness_index > -1);
+  printf("    best fitness: %d %lf\n", max_fitness_index, max_fitness);
 }
 
 void run_world(World *w) {
@@ -348,6 +387,7 @@ void run_world(World *w) {
       printf("epoch %d\n", e);
     for (w->generation=0; w->generation<w->generations_per_epoch; w->generation++) {
       run_generation(w);
+      print_best_fitness(w);
     }
   }
 }
@@ -381,26 +421,30 @@ double phenotype_fitness(World *w, Organism *o) {
 // select from previous population by fitness (no replacement)
 // mutants/crossover = 70%/30%
 
-/*Genotype *copy_genotype(Genotype *g) {
+Genotype *copy_genotype(Genotype *g) {
   Genotype *new_g = calloc(sizeof(Genotype), 1);
   new_g->num_nodes = g->num_nodes;
+  new_g->num_nodes_in_use = g->num_nodes_in_use;
   new_g->num_edges = g->num_edges;
   new_g->num_in = g->num_in;
   new_g->num_out = g->num_out;
-  new_g->nodes = calloc(sizeof(Node), new_g->num_nodes);
+  new_g->nodes = malloc(new_g->num_nodes * sizeof(Node));
   memcpy(new_g->nodes, g->nodes, sizeof(Node) * new_g->num_nodes);
-  new_g->edges = calloc(sizeof(Edge), new_g->num_edges);
+  new_g->edges = malloc(new_g->num_edges * sizeof(Edge));
   memcpy(new_g->edges, g->edges, sizeof(Edge) * new_g->num_edges);
   return new_g;
 }
 
-Organism *copy_organism(Organism *o) {
-  Organism *new_o = calloc(sizeof(Organism), 1);
-  new_o->genotype = copy_genotype(o->genotype);
-  new_o->activations = calloc(sizeof(double), new_o->genotype->num_nodes);
-  new_o->fitness = 0.0;
-  return new_o;
-}*/
+void copy_organism(Organism *new_o, Organism *old_o) {
+  //Organism *new_o = calloc(1, sizeof(Organism));
+  new_o->genotype = copy_genotype(old_o->genotype);
+  //new_o->activations = NULL;
+  new_o->activations = malloc(new_o->genotype->num_nodes * sizeof(double));
+  memcpy(new_o->activations, old_o->activations, sizeof(double) *
+      new_o->genotype->num_nodes);
+  new_o->fitness = old_o->fitness;
+  //return new_o;
+}
 
 void mut_add_edge(Organism *o) {
   Genotype *g = o->genotype;
@@ -415,7 +459,6 @@ void mut_add_edge(Organism *o) {
 void remove_edge(Genotype *g, int e) {
   if (e < g->num_edges-1)
     memmove(&g->edges[e], &g->edges[e+1], sizeof(Edge) * (g->num_edges - e - 1));
-  //printf("-> %d, %p, %p, %ld %ld\n", e, &g->edges[e], &g->edges[e+1], sizeof(Edge) * (g->num_edges - e - 1), sizeof(Edge));
   g->num_edges--;
 }
 
@@ -423,7 +466,6 @@ void mut_remove_edge(Organism *o) {
   Genotype *g = o->genotype;
   if (g->num_edges > 0) {
     int selected_edge = rand() % g->num_edges;
-    //printf("selected_edge=%d %d\n", selected_edge, g->num_edges);
     remove_edge(g, selected_edge);
   }
 }
@@ -442,16 +484,12 @@ void mut_move_edge(Organism *o) {
 void mut_add_node(Organism *o) {
   Genotype *g = o->genotype;
   int add_index = take_first_unused_node(g);
-  //printf("%p add_index=%d %d %d\n", o, add_index, g->num_nodes,
-      //g->num_nodes_in_use);
   g->num_nodes_in_use++;
   if (add_index == -1) {
     g->num_nodes++;
     g->nodes = realloc(g->nodes, sizeof(Node) * g->num_nodes);
     add_index = g->num_nodes - 1;
   }
-  //printf("add_index: %d num_nodes: %d\n", add_index, g->num_nodes);
-  //fflush(stdout);
   g->nodes[add_index].initial_activation = 0.0;
   g->nodes[add_index].threshold_func = (rand() & 1) ? sigmoid : step;
   g->nodes[add_index].in_use = true;
@@ -465,7 +503,6 @@ void mut_remove_node(Organism *o) {
   int selected_node = select_in_use_removable_node(g);
   if (selected_node == -1)
     return;
-  //printf("%p selected_node=%d %d\n", o, selected_node, g->num_nodes);
   // mark unused
   g->nodes[selected_node].in_use = false;
   g->num_nodes_in_use--;
@@ -478,8 +515,10 @@ void mut_remove_node(Organism *o) {
 
 void mut_turn_knob(Organism *o) {
   int genotype_index = rand() & o->genotype->num_in;
-  double nudge = sigmoid(rand_value() * 0.02);
-  o->genotype->nodes[genotype_index].initial_activation += nudge;
+  double nudge = rand_value() * 0.02;
+  double old_activation = o->genotype->nodes[genotype_index].initial_activation;
+  o->genotype->nodes[genotype_index].initial_activation =
+    clamp(old_activation + nudge);
 }
 
 void mutate(Organism *o) {
