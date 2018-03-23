@@ -5,6 +5,7 @@
 // + fitness function
 // + mutation
 // ~ crossover [push]
+// + tournament_select
 // - option to output dot (given organism/generation)
 // - hill climb (from given organism/generation)
 // - change fitness function over time
@@ -18,6 +19,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
+#include <time.h>
 
 int verbose = 0;
 bool dot = false;
@@ -144,6 +146,8 @@ void free_genotype(Genotype *g) {
   free(g->nodes);
   free(g->edges);
 }
+
+// NEXT: print_phenotype
 
 // -- organism ---------------------------------------------------------------
 
@@ -354,7 +358,8 @@ void copy_organism(Organism *, Organism *);
 
 void run_generation(World *w) {
   set_phenotypes_and_fitnesses(w);
-  Organism new_population[w->num_organisms];
+  //Organism new_population[w->num_organisms];
+  Organism *new_population = calloc(w->num_organisms, sizeof(Organism));
   for (int p = 0; p < w->num_organisms; p++) {
     int selected_organism = tournament_select(w);
     //printf("sel->%d\n", selected_organism);
@@ -380,7 +385,7 @@ void print_best_fitness(World *w) {
 }
 
 void run_world(World *w) {
-  srand(w->random_seed);
+  srand(time(NULL)); //w->random_seed);
   init_random_population(w);
   for (int e=0; e<w->num_epochs; e++) {
     if (!dot)
@@ -412,7 +417,7 @@ double phenotype_fitness(World *w, Organism *o) {
     o->activations[o->genotype->num_in],
     o->activations[o->genotype->num_in+1]
   };
-  return //many_small_hills(phenotype) +
+  return many_small_hills(phenotype) +
     (1.0 - distance(w->c, w->c, phenotype[0], phenotype[1]));
 }
 
