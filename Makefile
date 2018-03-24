@@ -1,10 +1,18 @@
 all: sa
 
 sa: sa.c
-	gcc sa.c --std=c99 -g -o sa -lm
+	gcc sa.c --std=c99 -D_POSIX_C_SOURCE=199309L -g -o sa -lm
 
 run: sa
 	./sa
+
+outs: sa
+	./sa > out
+	./sa >> out
+	./sa >> out
+	./sa >> out
+	./sa >> out
+	./sa >> out
 
 test.dot: sa
 	./sa > test.dot

@@ -73,7 +73,7 @@ typedef struct {
 } Genotype;
 
 double rand_edge_weight() {
-  return rand() & 1 ? 1.0 : -1.0;
+  return rand() & 1 ? 0.1 : -0.1;
 }
 
 // float in range -1 to 1
@@ -130,7 +130,8 @@ void init_random_genotype(Genotype *g, int num_edges, int num_nodes, int num_in,
         g->nodes[n].initial_activation = 0.0;
     g->nodes[n].final_activation = 0.0;
     g->nodes[n].in_use = true;
-    g->nodes[n].threshold_func = (rand() & 1) ? sigmoid : step;
+    //g->nodes[n].threshold_func = (rand() & 1) ? sigmoid : step;
+    g->nodes[n].threshold_func = clamp;
   }
   for (int e = 0; e < num_edges; e++) {
     g->edges[e].src = rand() % num_nodes;
@@ -295,8 +296,9 @@ World *create_world_full(int random_seed, int num_organisms, int sa_timesteps,
   w->genotypes = calloc(num_organisms, sizeof(Genotype));
   w->organisms = calloc(num_organisms, sizeof(Organism));
   w->phenotype_fitness_func = phenotype_fitness;
-  w->c = 0.0;
+  w->c = 0.5;
   w->num_candidates = 5;
+  w->generation = 0;
   return w;
 }
 
@@ -306,6 +308,16 @@ World *create_world(int random_seed, int num_organisms, int sa_timesteps,
       generations_per_epoch, num_epochs, num_nodes, num_edges, 2, 2, 1.0);
 }
 
+void set_phenotypes_and_fitnesses(World *w) {
+  for (int n = 0; n < w->num_organisms; n++) {
+    Organism *o = &w->organisms[n];
+    sa(o, w->sa_timesteps, w->decay_rate);
+//    if (dot)
+//      print_organism_dot(o);
+    o->fitness = w->phenotype_fitness_func(w, o);
+  }
+}
+
 void init_random_population(World *w) {
   for (int n = 0; n < w->num_organisms; n++) {
     init_random_genotype(&w->genotypes[n], w->num_edges, w->num_nodes, w->num_in, w->num_out);
@@ -313,20 +325,7 @@ void init_random_population(World *w) {
       print_genotype(&w->genotypes[n]);
     init_organism(&w->organisms[n], &w->genotypes[n]);
   }
-}
-
-void set_phenotypes_and_fitnesses(World *w) {
-  if (!dot)
-    printf("  generation %d\t", w->generation);
-  for (int n = 0; n < w->num_organisms; n++) {
-    Organism *o = &w->organisms[n];
-    sa(o, w->sa_timesteps, w->decay_rate);
-    if (dot)
-      print_organism_dot(o);
-    o->fitness = w->phenotype_fitness_func(w, o);
-    if (verbose)
-      printf("fitness: %lf\n", o->fitness);
-  }
+  set_phenotypes_and_fitnesses(w);
 }
 
 void mutate(Organism *);
@@ -351,7 +350,6 @@ int tournament_select(World *w) {
 void copy_organism(Organism *, Organism *);
 
 void run_generation(World *w) {
-  set_phenotypes_and_fitnesses(w);
   Organism *new_population = calloc(w->num_organisms, sizeof(Organism));
   for (int p = 0; p < w->num_organisms; p++) {
     int selected_organism = tournament_select(w);
@@ -361,6 +359,7 @@ void run_generation(World *w) {
   for (int p = 0; p < w->num_organisms; p++)
     free_organism(&w->organisms[p]);
   w->organisms = new_population;
+  set_phenotypes_and_fitnesses(w);
 }
 
 void print_best_fitness(World *w) {
@@ -373,7 +372,22 @@ void print_best_fitness(World *w) {
     }
   }
   assert(max_fitness_index > -1);
-  printf("    best fitness: %d %lf\n", max_fitness_index, max_fitness);
+  printf("    best fitness=%.16lf  index=%d nodes=%d edges=%d g-vector=[%lf %lf] phenotype=[%lf %lf]\n",
+    max_fitness, max_fitness_index,
+    w->organisms[max_fitness_index].genotype->num_nodes_in_use,
+    w->organisms[max_fitness_index].genotype->num_edges,
+    w->organisms[max_fitness_index].genotype->nodes[0].initial_activation,
+    w->organisms[max_fitness_index].genotype->nodes[1].initial_activation,
+    w->organisms[max_fitness_index].genotype->nodes[2].final_activation,
+    w->organisms[max_fitness_index].genotype->nodes[3].final_activation);
+  print_organism_dot(&w->organisms[max_fitness_index]);
+}
+
+void print_generation_results(World *w) {
+  if (!dot) {
+    printf("  generation %d\n", w->generation);
+    print_best_fitness(w);
+  }
 }
 
 void free_world(World *w) {
@@ -381,16 +395,35 @@ void free_world(World *w) {
     free_organism(&w->organisms[i]); // will free associated genotype
 }
 
+void change_fitness_constant(World *w) {
+  w->c = rand_value();
+}
+
+void run_epoch(World *w, int e) {
+  change_fitness_constant(w);
+  if (!dot)
+    printf("\nepoch %d (center=%lf)\n", e, w->c);
+  w->generation = 0;
+  set_phenotypes_and_fitnesses(w);
+  print_generation_results(w);
+  for (w->generation = 1;
+       w->generation <= w->generations_per_epoch;
+       w->generation++) {
+    run_generation(w);
+    print_generation_results(w);
+  }
+}
+
 void run_world(World *w) {
-  srand(time(NULL)); //w->random_seed);
+  printf("------------------------------------------------------------------------\n");
+  //srand(time(NULL)); //w->random_seed);
+  struct timespec tm;
+  clock_gettime(CLOCK_REALTIME, &tm);
+  printf("seed=%ld\n", tm.tv_nsec);
+  srand(tm.tv_nsec);
   init_random_population(w);
-  for (int e=0; e<w->num_epochs; e++) {
-    if (!dot)
-      printf("epoch %d\n", e);
-    for (w->generation = 0; w->generation < w->generations_per_epoch; w->generation++) {
-      run_generation(w);
-      print_best_fitness(w);
-    }
+  for (int e = 0; e < w->num_epochs; e++) {
+    run_epoch(w, e);
   }
   free_world(w);
 }
@@ -411,7 +444,7 @@ double phenotype_fitness(World *w, Organism *o) {
     o->genotype->nodes[o->genotype->num_in + 1].final_activation
   };
   return many_small_hills(phenotype) +
-    (1.0 - distance(w->c, w->c, phenotype[0], phenotype[1]));
+    (5 * (1.0 - distance(w->c, w->c, phenotype[0], phenotype[1])));
 }
 
 // -- next generation via crossover and mutation -----------------------------
@@ -481,7 +514,8 @@ void mut_add_node(Organism *o) {
   }
   g->nodes[add_index].initial_activation = 0.0;
   g->nodes[add_index].final_activation = 0.0;
-  g->nodes[add_index].threshold_func = (rand() & 1) ? sigmoid : step;
+  //g->nodes[add_index].threshold_func = (rand() & 1) ? sigmoid : step;
+  g->nodes[add_index].threshold_func = clamp;
   g->nodes[add_index].in_use = true;
 }
 
@@ -578,10 +612,16 @@ void long_test() {
   run_world(w);
 }
 
+void long_test_start_small() {
+  World *w = create_world(0, 40, 20, 20, 1000, 4, 0);
+  run_world(w);
+}
+
 int main() {
   //quick_test();
   //dot_test();
-  long_test();
+  //long_test();
+  long_test_start_small();
   //sa_test();
   return 0;
 }
