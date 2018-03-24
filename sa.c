@@ -1,15 +1,6 @@
 // todo:
-// + world (contains pop, seed, options)
-// + run world
-// + generations per epoch
-// + fitness function
-// + mutation
-// ~ crossover [push]
-// + tournament_select
 // - option to output dot (given organism/generation)
 // - hill climb (from given organism/generation)
-// - change fitness function over time
-// - option to output data on fitness over generations
 // - command line args (or separate mains)
 // (if it's fast enough, maybe no need to save?)
 #include <assert.h>
@@ -207,6 +198,15 @@ void init_in_activations(Genotype *g, double *activations) {
   }
 }
 
+#define UNWRITTEN -1000.0
+
+void init_out_activations(Genotype *g, double *activations) {
+  for (int o = g->num_in; o < g->num_in + g->num_out; o++) {
+    assert(g->nodes[o].in_use);
+    activations[o] = UNWRITTEN;
+  }
+}
+
 void print_all_activations(Genotype *g, double *activations) {
   for (int n = 0; n < g->num_nodes; n++) {
     if (g->nodes[n].in_use)
@@ -221,6 +221,7 @@ void sa(Organism *o, int timesteps, double decay) {
   double activations[g->num_nodes];
   memset(activations, 0, sizeof(double) * g->num_nodes);
   init_in_activations(g, activations);
+  init_out_activations(g, activations);
 
   double activation_deltas[g->num_nodes];
 
@@ -372,7 +373,7 @@ void print_best_fitness(World *w) {
     }
   }
   assert(max_fitness_index > -1);
-  printf("    best fitness=%.16lf  index=%d nodes=%d edges=%d g-vector=[%lf %lf] phenotype=[%lf %lf]\n",
+  printf("    best fitness=%.16lf  index=%2d nodes=%2d edges=%2d g-vector=[%lf %lf] phenotype=[%lf %lf]\n",
     max_fitness, max_fitness_index,
     w->organisms[max_fitness_index].genotype->num_nodes_in_use,
     w->organisms[max_fitness_index].genotype->num_edges,
@@ -443,8 +444,13 @@ double phenotype_fitness(World *w, Organism *o) {
     o->genotype->nodes[o->genotype->num_in].final_activation,
     o->genotype->nodes[o->genotype->num_in + 1].final_activation
   };
-  return many_small_hills(phenotype) +
-    (5 * (1.0 - distance(w->c, w->c, phenotype[0], phenotype[1])));
+  printf("phenotypes : %lf %lf\n", phenotype[0], phenotype[1]);
+  if (phenotype[0] != UNWRITTEN && phenotype[1] != UNWRITTEN) {
+    return many_small_hills(phenotype) +
+      (5 * (1.0 - distance(w->c, w->c, phenotype[0], phenotype[1])));
+  } else {
+    return -10.0;
+  }
 }
 
 // -- next generation via crossover and mutation -----------------------------
@@ -613,7 +619,7 @@ void long_test() {
 }
 
 void long_test_start_small() {
-  World *w = create_world(0, 40, 20, 20, 1000, 4, 0);
+  World *w = create_world(0, 40, 20, 20, 200, 4, 0);
   run_world(w);
 }
 
