@@ -376,6 +376,11 @@ void print_best_fitness(World *w) {
   printf("    best fitness: %d %lf\n", max_fitness_index, max_fitness);
 }
 
+void free_world(World *w) {
+  for (int i = 0; i < w->num_organisms; i++)
+    free_organism(&w->organisms[i]); // will free associated genotype
+}
+
 void run_world(World *w) {
   srand(time(NULL)); //w->random_seed);
   init_random_population(w);
@@ -387,11 +392,7 @@ void run_world(World *w) {
       print_best_fitness(w);
     }
   }
-}
-
-void free_world(World *w) {
-  for (int i = 0; i < w->num_organisms; i++)
-    free_organism(&w->organisms[i]); // will free associated genotype
+  free_world(w);
 }
 
 // -- fitness ----------------------------------------------------------------
