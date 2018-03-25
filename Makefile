@@ -33,10 +33,14 @@ fitness: sa
 	./sa > fitness.out
 	./plot_fitness.py fitness.out
 
+OUT=out
+with_seed:
+	./sa `grep seed $(OUT) | cut -d'=' -f2`
+
 clean:
 	rm test.pdf test.dot
 
 tags:
 	ctags *.[ch]
 
-.PHONY: tags run all dot clean plot fitness
+.PHONY: tags run all dot clean plot fitness with_seed

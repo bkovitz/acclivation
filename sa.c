@@ -8,7 +8,6 @@
 //   - option to dump virtual fitness func for given organism/generation/epoch
 //   - minimal standard output
 // - hill climb (from given organism/generation/epoch)
-// - seed argument + easy way to 'run with seed from this file'
 #include <assert.h>
 #include <math.h>
 #include <stdbool.h>
@@ -502,13 +501,9 @@ void dump_phenotype_fitness_func(World *w) {
 }
 
 void run_world(World *w) {
-  printf("------------------------------------------------------------------------\n");
-  //srand(w->random_seed);
-  //srand(564569265);
-  struct timespec tm;
-  clock_gettime(CLOCK_REALTIME, &tm);
-  printf("seed=%ld\n", tm.tv_nsec);
-  srand(tm.tv_nsec);
+  printf("--------------------------------------------------------------------------------\n");
+  printf("seed=%d\n", w->random_seed);
+  srand(w->random_seed);
   init_random_population(w);
   for (int e = 0; e < w->num_epochs; e++) {
     run_epoch(w, e);
@@ -772,51 +767,62 @@ void sa_test() {
   sa(&o, 13, 1.0);
 }
 
-void quick_test() {
-  verbose = 1;
-  World *w = create_world(0, 2, 20, 1, 1, 10, 30);
-  run_world(w);
-}
-
-void dot_test() {
-  dot = true;
-  World *w = create_world(0, 1, 20, 1, 1, 10, 30);
-  run_world(w);
-}
-
-void long_test() {
-  World *w = create_world(0, 100, 20, 20, 10, 70, 200);
-  run_world(w);
-}
-
-void long_test_start_small() {
-  World *w = create_world(0, 40, 20, 20, 500, 4, 0);
-  run_world(w);
-}
-
-void one_long_epoch() {
-  World *w = create_world(0, 40, 20, 5000, 1, 4, 0);
-  run_world(w);
-}
-
-void dump_virt_test() {
-  World *w = create_world(0, 40, 20, 20, 100, 4, 0);
-  run_world(w);
-}
-
 void dump_phenotype_fitness() {
   World *w = create_world(0, 40, 20, 20, 100, 4, 0);
   dump_phenotype_fitness_func(w);
 }
 
-int main() {
-  //quick_test();
-  //dot_test();
-  //long_test();
-  long_test_start_small();
+void quick_test(int seed) {
+  verbose = 1;
+  World *w = create_world(seed, 2, 20, 1, 1, 10, 30);
+  run_world(w);
+}
+
+void dot_test(int seed) {
+  dot = true;
+  World *w = create_world(seed, 1, 20, 1, 1, 10, 30);
+  run_world(w);
+}
+
+void long_test(int seed) {
+  World *w = create_world(seed, 100, 20, 20, 10, 70, 200);
+  run_world(w);
+}
+
+void long_test_start_small(int seed) {
+  World *w = create_world(seed, 40, 20, 20, 500, 4, 0);
+  run_world(w);
+}
+
+void one_long_epoch(int seed) {
+  World *w = create_world(seed, 40, 20, 5000, 1, 4, 0);
+  run_world(w);
+}
+
+void dump_virt_test(int seed) {
+  World *w = create_world(seed, 40, 20, 20, 100, 4, 0);
+  run_world(w);
+}
+
+int get_seed(char **argv, int argc) {
+  if (argc > 1) {
+    return atoi(argv[1]);
+  } else {
+    struct timespec tm;
+    clock_gettime(CLOCK_REALTIME, &tm);
+    return tm.tv_nsec;
+  }
+}
+
+int main(int argc, char **argv) {
+  int seed = get_seed(argv, argc);
   //sa_test();
-  //one_long_epoch();
-  //dump_virt_test();
+  //quick_test(seed);
+  //dot_test(seed);
+  //long_test(seed);
+  long_test_start_small(seed);
+  //one_long_epoch(seed);
+  //dump_virt_test(seed);
   //dump_phenotype_fitness();
   return 0;
 }
