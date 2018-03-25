@@ -15,7 +15,7 @@ def parse_fitness_from_results(filename):
   last_epoch_num = None
   run_X = []
   run_Y = []
-  for line in file(filename):
+  for line in open(filename):
     line = line.strip()
     if line.startswith('epoch'):
       epoch_num = int(line.split(' ')[1])
@@ -28,7 +28,7 @@ def parse_fitness_from_results(filename):
           run_X = []
           run_Y = []
           expected_generation = 0
-        print 'start of run', len(X)
+        print('start of run', len(X))
         last_epoch_num = 0
         continue
       if fitness == None:

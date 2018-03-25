@@ -305,12 +305,15 @@ typedef struct world_t {
   Genotype *genotypes;
   Organism *organisms;
   double (*phenotype_fitness_func)(struct world_t *, Genotype *);
+  int epoch;
   int generation;
-  double c;
+  double c1, c2;
   int num_candidates;
-  int best_organism;
   double knob_constant;
   enum { KNOB_DISCRETE, KNOB_NORMAL } knob_type;
+  bool dump_fitness_nbhd;
+  int dump_fitness_epoch;
+  int dump_fitness_generation;
 } World;
 
 double phenotype_fitness(World *, Genotype *);
@@ -330,12 +333,16 @@ World *create_world(int num_organisms) {
   w->genotypes = calloc(num_organisms, sizeof(Genotype)); // THIS IS CRAZY!
   w->organisms = calloc(num_organisms, sizeof(Organism));
   w->phenotype_fitness_func = phenotype_fitness;
+  w->epoch = 0;
   w->generation = 0;
-  w->c = 0.5;
+  w->c1 = 0.5;
+  w->c2 = 0.0;
   w->num_candidates = 5;
-  w->best_organism = -1;
   w->knob_constant = 0.02;
   w->knob_type = KNOB_DISCRETE;
+  w->dump_fitness_nbhd = false;
+  w->dump_fitness_epoch = -1;
+  w->dump_fitness_generation = -1;
   return w;
 }
 
@@ -391,11 +398,13 @@ void sanity_check(World *w) {
   }
 }
 
+void dump_fitness_nbhd(World *w);
+
 void run_generation(World *w) {
   Organism *old_population = w->organisms;
   Organism *new_population = calloc(w->num_organisms, sizeof(Organism));
   for (int p = 0; p < w->num_organisms; p++) {
-    if (rand_float() > 0.7) {
+    if (rand_float() < 0.7) {
       int selected_organism = tournament_select(w);
       copy_organism(&new_population[p], &w->organisms[selected_organism]);
       mutate(w, &new_population[p]);
@@ -451,19 +460,45 @@ void print_generation_results(World *w) {
   }
 }
 
+void dump_fitness_nbhd(World *w) {
+  int best_organism_index = find_best_organism(w);
+  double m = 2;
+  Organism *original = &w->organisms[best_organism_index];
+  Organism o;
+  copy_organism(&o, original);
+  Genotype *g = o.genotype;
+  printf("neighborhood:\n");
+  for (double dx = -m * w->knob_constant; dx <= m * w->knob_constant; dx += w->knob_constant) {
+    for (double dy = -m * w->knob_constant; dy <= m * w->knob_constant; dy += w->knob_constant) {
+      g->nodes[0].initial_activation = original->genotype->nodes[0].initial_activation + dx;
+      g->nodes[1].initial_activation = original->genotype->nodes[1].initial_activation + dy;
+      sa(&o, w->sa_timesteps, w->decay_rate);
+      o.fitness = w->phenotype_fitness_func(w, o.genotype);
+      printf("  %lf %lf %.16lf %.16lf %lf\n",
+        dx,
+        dy,
+        g->nodes[2].final_activation,
+        g->nodes[3].final_activation,
+        o.fitness);
+    }
+  }
+}
+
 void free_world(World *w) {
   for (int i = 0; i < w->num_organisms; i++)
     free_organism(&w->organisms[i]); // will free associated genotype
 }
 
-void change_fitness_constant(World *w) {
-  w->c = rand_activation();
+void change_fitness_constants(World *w) {
+  w->c1 = rand_activation();
+  w->c2 = rand_activation();
 }
 
 void run_epoch(World *w, int e) {
-  change_fitness_constant(w);
+  change_fitness_constants(w);
   if (!dot)
-    printf("\nepoch %d (center=%lf)\n", e, w->c);
+    printf("\nepoch %d (c1=%lf, c2=%lf)\n", e, w->c1, w->c2);
+  w->epoch = e;
   w->generation = 0;
   set_phenotypes_and_fitnesses(w);
   print_generation_results(w);
@@ -472,6 +507,11 @@ void run_epoch(World *w, int e) {
        w->generation++) {
     run_generation(w);
     print_generation_results(w);
+    if (w->dump_fitness_nbhd
+        && w->generation == w->dump_fitness_generation
+        && w->epoch == w->dump_fitness_epoch) {
+      dump_fitness_nbhd(w);
+    }
   }
 }
 
@@ -540,8 +580,12 @@ double invv(double target, double radius, double x) {
     return (radius - dist) / radius;
 }
 
-double along_ridge(double x, double y) {
-  return invv(0.0, 0.25, fabs(x - y));
+//double along_ridge(double x, double y) {
+//  return invv(0.0, 0.2, fabs(x - y));
+//}
+
+double along_ridge(World *w, double x, double y) {
+  return invv(0.0, 0.2, fabs(y - (x + w->c2)));
 }
 
 double phenotype_fitness(World *w, Genotype *g) {
@@ -552,9 +596,9 @@ double phenotype_fitness(World *w, Genotype *g) {
   };
   if (phenotype[0] != UNWRITTEN && phenotype[1] != UNWRITTEN) {
     return //many_small_hills(phenotype) +
-      //(5 * (sqrt8 - distance(w->c, w->c, phenotype[0], phenotype[1])));
-      along_ridge(phenotype[0], phenotype[1]) *
-      (sqrt8 - distance(w->c, w->c, phenotype[0], phenotype[1]));
+      //(5 * (sqrt8 - distance(w->c1, w->c1, phenotype[0], phenotype[1])));
+      along_ridge(w, phenotype[0], phenotype[1]) *
+      (sqrt8 - distance(w->c1, w->c1, phenotype[0], phenotype[1]));
   } else {
     return -10.0;
   }
@@ -656,6 +700,7 @@ void mut_turn_knob(World *w, Organism *o) {
   switch (w->knob_type) {
     case KNOB_DISCRETE:
       nudge = (rand() & 1) ? w->knob_constant : -w->knob_constant;
+      //nudge = rand_activation() * w->knob_constant;
       break;
     case KNOB_NORMAL:
       nudge = sample_normal(w->knob_constant);
@@ -816,6 +861,9 @@ void long_test_start_small(int seed) {
   World *w = create_world(40);
   w->random_seed = seed;
   w->num_epochs = 500;
+  w->dump_fitness_nbhd = true;
+  w->dump_fitness_epoch = 80;
+  w->dump_fitness_generation = 20;
   run_world(w);
 }
 
