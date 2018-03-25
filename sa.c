@@ -31,6 +31,28 @@ double clamp(double x) {
   return x <= -1.0 ? -1.0 : (x >= 1.0 ? 1.0 : x);
 }
 
+// float in range 0 to 1
+double rand_float() {
+  return (double) rand() / RAND_MAX;
+}
+
+// http://www.bearcave.com/misl/misl_tech/wavelets/hurst/random.html
+double
+gauss(const double sigma)
+{
+   double x, y, r2;
+
+   do {
+      /* choose x,y in uniform square (-1,-1) to (+1,+1) */
+      x = -1 + 2 * rand_float();
+      y = -1 + 2 * rand_float();
+      /* see if it is in the unit circle */
+      r2 = x * x + y * y;
+   } while (r2 > 1.0 || r2 == 0);
+   /* Box-Muller transform */
+   return sigma * y * sqrt (-2.0 * log (r2) / r2);
+}
+
 double sigmoid(double x) {
   // This slope puts a fixed point (attractor) at approximately x = 0.5.
   double xcenter = 0.0, ymin = -1.0, ymax = 1.0, slope = 2.1972274554893376;
@@ -71,11 +93,6 @@ typedef struct {
 
 double rand_edge_weight() {
   return rand() & 1 ? 1.0 : -1.0;
-}
-
-// float in range 0 to 1
-double rand_float() {
-  return (double) rand() / RAND_MAX;
 }
 
 // float in range -1 to 1
