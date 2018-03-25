@@ -67,8 +67,13 @@ double rand_edge_weight() {
   return rand() & 1 ? 1.0 : -1.0;
 }
 
+// float in range 0 to 1
+double rand_float() {
+  return (double) rand() / RAND_MAX;
+}
+
 // float in range -1 to 1
-double rand_value() {
+double rand_activation() {
   return (double) rand() / RAND_MAX * 2.0 - 1.0;
 }
 
@@ -116,7 +121,7 @@ void init_random_genotype(Genotype *g, int num_edges, int num_nodes, int num_in,
   g->num_out = num_out;
   for (int n = 0; n < num_nodes; n++) {
     if (n < num_in)
-        g->nodes[n].initial_activation = rand_value();
+        g->nodes[n].initial_activation = rand_activation();
     else
         g->nodes[n].initial_activation = 0.0;
     g->nodes[n].final_activation = 0.0;
@@ -316,7 +321,7 @@ World *create_world_full(int random_seed, int num_organisms, int sa_timesteps,
   w->num_in = num_in;
   w->num_out = num_out;
   w->decay_rate = decay_rate;
-  w->genotypes = calloc(num_organisms, sizeof(Genotype));
+  w->genotypes = calloc(num_organisms, sizeof(Genotype)); // THIS IS CRAZY!
   w->organisms = calloc(num_organisms, sizeof(Organism));
   w->phenotype_fitness_func = phenotype_fitness;
   w->c = 0.5;
@@ -372,13 +377,23 @@ int tournament_select(World *w) {
 }
 
 void copy_organism(Organism *, Organism *);
+void crossover(Organism *, Organism *, Organism *);
 
 void run_generation(World *w) {
+  Organism *old_population = w->organisms;
   Organism *new_population = calloc(w->num_organisms, sizeof(Organism));
   for (int p = 0; p < w->num_organisms; p++) {
-    int selected_organism = tournament_select(w);
-    copy_organism(&new_population[p], &w->organisms[selected_organism]);
-    mutate(&new_population[p]);
+    if (rand_float() > 0.7) {
+      int selected_organism = tournament_select(w);
+      copy_organism(&new_population[p], &w->organisms[selected_organism]);
+      mutate(&new_population[p]);
+    } else {
+      int mommy = tournament_select(w);
+      int daddy = tournament_select(w);
+      Organism *baby = &new_population[p];
+      baby->genotype = calloc(1, sizeof(Genotype)); // SUPER UGLY
+      crossover(baby, &old_population[mommy], &old_population[daddy]);
+    }
   }
   for (int p = 0; p < w->num_organisms; p++)
     free_organism(&w->organisms[p]);
@@ -428,7 +443,7 @@ void free_world(World *w) {
 }
 
 void change_fitness_constant(World *w) {
-  w->c = rand_value();
+  w->c = rand_activation();
 }
 
 void run_epoch(World *w, int e) {
@@ -626,7 +641,7 @@ void mut_remove_node(Organism *o) {
 
 void mut_turn_knob(Organism *o) {
   int genotype_index = rand() & o->genotype->num_in;
-  double nudge = rand_value() * 0.02;
+  double nudge = rand_activation() * 0.02;
   //double nudge = (rand() & 1) ? 0.01 : -0.01;
   Node *node_to_change = &o->genotype->nodes[genotype_index];
   node_to_change->initial_activation =
@@ -655,6 +670,80 @@ void mutate(Organism *o) {
     mut_turn_knob(o);
     break;
   }
+}
+
+int count_internal_edges(Genotype *g, int start, int end) {
+  int num_internal_edges = 0;
+  for (int e = 0; e < g->num_edges; e++) {
+    Edge *edge = &g->edges[e];
+    if (edge->src >= start && edge->src < end &&
+        edge->dst >= start && edge->dst < end) {
+      num_internal_edges++;
+      //printf("+e:%d\n", e);
+    } else {
+      //printf("-e:%d\n", e);
+    }
+  }
+  return num_internal_edges;
+}
+
+void crossover(Organism *b, Organism *m, Organism *d) {
+  Genotype *mommy = m->genotype;
+  Genotype *daddy = d->genotype;
+  Genotype *baby = b->genotype;
+
+  double crossover_frac = rand_float();
+  int mommy_crossover_point = mommy->num_nodes * crossover_frac;
+  int daddy_crossover_point = daddy->num_nodes * crossover_frac;
+
+  int num_from_mommy = mommy_crossover_point;
+  int num_from_daddy = daddy->num_nodes - daddy_crossover_point;
+  baby->num_nodes = num_from_mommy + num_from_daddy;
+  baby->nodes = malloc(sizeof(Node) * baby->num_nodes);
+  int n = 0;
+  for (int m = 0; m < num_from_mommy; m++)
+    baby->nodes[n++] = mommy->nodes[m];
+  for (int d = daddy_crossover_point; d < daddy->num_nodes; d++)
+    baby->nodes[n++] = daddy->nodes[d];
+  assert(n == baby->num_nodes);
+
+  int in_use = 0;
+  for (int n = 0; n < baby->num_nodes; n++) {
+    if (baby->nodes[n].in_use)
+      in_use++;
+  }
+  baby->num_nodes_in_use = in_use;
+
+  //printf("m:%d\n", mommy->num_edges);
+  //printf("d:%d\n", daddy->num_edges);
+  baby->num_edges = count_internal_edges(mommy, 0, mommy_crossover_point)
+    + count_internal_edges(daddy, daddy_crossover_point, daddy->num_nodes);
+  baby->edges = malloc(sizeof(Edge) * baby->num_edges);
+  int e = 0;
+  for (int m = 0; m < mommy->num_edges; m++) {
+    Edge *edge = &mommy->edges[m];
+    if (edge->src < mommy_crossover_point && edge->dst < mommy_crossover_point) {
+      //printf("+m %d\n", m);
+      baby->edges[e++] = *edge;
+    }
+  }
+  for (int d = 0; d < daddy->num_edges; d++) {
+    Edge *edge = &daddy->edges[d];
+    if (edge->src >= daddy_crossover_point && edge->dst >= daddy_crossover_point) {
+      //printf("+d %d (%d,%d)\n", d, edge->src, edge->dst);
+      //baby->edges[e++] = *edge;
+      baby->edges[e].src = (edge->src - daddy_crossover_point) + mommy_crossover_point;
+      baby->edges[e].dst = (edge->dst - daddy_crossover_point) + mommy_crossover_point;
+      baby->edges[e].weight = edge->weight;
+      e++;
+    }
+  }
+  assert(e == baby->num_edges);
+
+  assert(mommy->num_in == daddy->num_in);
+  assert(mommy->num_out == daddy->num_out);
+  baby->num_in = mommy->num_in;
+  baby->num_out = mommy->num_out;
 }
 
 // ---------------------------------------------------------------------------
