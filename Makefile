@@ -26,7 +26,7 @@ test.pdf: test.dot
 dot: test.pdf
 	evince test.pdf
 
-plot:
+phplot:
 	./plot_xyz.py phfunc 0 1 2
 
 fitness: sa
@@ -43,4 +43,4 @@ clean:
 tags:
 	ctags *.[ch]
 
-.PHONY: tags run all dot clean plot fitness with_seed
+.PHONY: tags run all dot clean plot fitness with_seed out

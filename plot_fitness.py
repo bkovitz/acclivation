@@ -19,7 +19,7 @@ def parse_fitness_from_results(filename):
     line = line.strip()
     if line.startswith('epoch'):
       epoch_num = int(line.split(' ')[1])
-      if epoch_num == 0:
+      if epoch_num == 1:
         # epoch label preceeds generation data
         if last_epoch_num is not None:
           # start of new run
@@ -29,7 +29,7 @@ def parse_fitness_from_results(filename):
           run_Y = []
           expected_generation = 0
         print('start of run', len(X))
-        last_epoch_num = 0
+        last_epoch_num = 1
         continue
       if fitness == None:
         raise Exception('no fitness for epoch %d' % epoch_num)
