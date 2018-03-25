@@ -191,18 +191,30 @@ void print_organism_dot(Organism *o) {
 
 // -- spreading activation ---------------------------------------------------
 
-void init_in_activations(Genotype *g, double *activations) {
+#define UNWRITTEN -1000.0
+
+//void init_in_activations(Genotype *g, double *activations) {
+//  for (int i = 0; i < g->num_in; i++) {
+//    assert(g->nodes[i].in_use);
+//    activations[i] = g->nodes[i].initial_activation;
+//  }
+//}
+//
+//void init_out_activations(Genotype *g, double *activations) {
+//  for (int o = g->num_in; o < g->num_nodes; o++) {
+//    //assert(g->nodes[o].in_use);
+//    activations[o] = UNWRITTEN;
+//  }
+//}
+
+void init_activations(Genotype *g, double *activations) {
+  // "in" activations get their initial activations from the Genotype
   for (int i = 0; i < g->num_in; i++) {
     assert(g->nodes[i].in_use);
     activations[i] = g->nodes[i].initial_activation;
   }
-}
-
-#define UNWRITTEN -1000.0
-
-void init_out_activations(Genotype *g, double *activations) {
-  for (int o = g->num_in; o < g->num_in + g->num_out; o++) {
-    assert(g->nodes[o].in_use);
+  // all other nodes get initialized to UNWRITTEN
+  for (int o = g->num_in; o < g->num_nodes; o++) {
     activations[o] = UNWRITTEN;
   }
 }
@@ -220,8 +232,7 @@ void sa(Organism *o, int timesteps, double decay) {
 
   double activations[g->num_nodes];
   memset(activations, 0, sizeof(double) * g->num_nodes);
-  init_in_activations(g, activations);
-  init_out_activations(g, activations);
+  init_activations(g, activations);
 
   double activation_deltas[g->num_nodes];
 
@@ -234,16 +245,20 @@ void sa(Organism *o, int timesteps, double decay) {
     }
     for (int e = 0; e < g->num_edges; e++) {
       Edge *edge = &g->edges[e];
-      if (activation_deltas[edge->dst] == UNWRITTEN)
-        activation_deltas[edge->dst] = 0.0;
-      activation_deltas[edge->dst] += edge->weight * activations[edge->src];
+      if (activations[edge->src] != UNWRITTEN) {
+        if (activation_deltas[edge->dst] == UNWRITTEN)
+          activation_deltas[edge->dst] = 0.0;
+        activation_deltas[edge->dst] += edge->weight * activations[edge->src];
+      }
     }
     for (int n = 0; n < g->num_nodes; n++) {
       Node *node = &g->nodes[n];
       if (node->in_use) {
-        if (activations[n] != UNWRITTEN || activation_deltas[n] != UNWRITTEN) {
+        if (activation_deltas[n] != UNWRITTEN) {
+          if (activations[n] == UNWRITTEN)
+            activations[n] = 0.0;
           activations[n] =
-              node->threshold_func(activations[n] + decay * activation_deltas[n]);
+                node->threshold_func(activations[n] + decay * activation_deltas[n]);
         }
       }
     }
@@ -278,14 +293,14 @@ typedef struct world_t {
   double decay_rate;
   Genotype *genotypes;
   Organism *organisms;
-  double (*phenotype_fitness_func)(struct world_t *, Organism *);
+  double (*phenotype_fitness_func)(struct world_t *, Genotype *);
   int generation;
   double c;
   int num_candidates;
   int best_organism;
 } World;
 
-double phenotype_fitness(World *, Organism *);
+double phenotype_fitness(World *, Genotype *);
 
 World *create_world_full(int random_seed, int num_organisms, int sa_timesteps,
                          int generations_per_epoch, int num_epochs, int num_nodes, int num_edges,
@@ -323,7 +338,7 @@ void set_phenotypes_and_fitnesses(World *w) {
     sa(o, w->sa_timesteps, w->decay_rate);
 //    if (dot)
 //      print_organism_dot(o);
-    o->fitness = w->phenotype_fitness_func(w, o);
+    o->fitness = w->phenotype_fitness_func(w, o->genotype);
   }
 }
 
@@ -389,7 +404,7 @@ void print_best_fitness(World *w) {
   Organism *o = &w->organisms[best_organism_index];
   double max_fitness = o->fitness;
   Genotype *g = o->genotype;
-  printf("    best fitness=%.16lf  index=%2d nodes=%2d edges=%2d g-vector=[%lf %lf] phenotype=[%lf %lf]\n",
+  printf("    best fitness=%.16lf  index=%2d nodes=%2d edges=%2d g-vector=[%lf %lf] phenotype=[%.16lf %.16lf]\n",
     max_fitness, best_organism_index,
     g->num_nodes_in_use,
     g->num_edges,
@@ -441,13 +456,27 @@ void dump_virtual_fitness_func(World *w) {
       o.genotype->nodes[0].initial_activation = g1;
       o.genotype->nodes[1].initial_activation = g2;
       sa(&o, w->sa_timesteps, w->decay_rate);
-      o.fitness = w->phenotype_fitness_func(w, &o);
+      o.fitness = w->phenotype_fitness_func(w, o.genotype);
       printf("%lf %lf %lf %lf %lf\n",
         g1,
         g2,
         o.genotype->nodes[2].final_activation,
         o.genotype->nodes[3].final_activation,
         o.fitness);
+    }
+  }
+}
+
+void dump_phenotype_fitness_func(World *w) {
+  double delta = 0.05;
+  Genotype g;
+  init_random_genotype(&g, 0, 4, 2, 2);
+  for (double p1 = -1.0; p1 <= 1.0; p1 += delta) {
+    for (double p2 = -1.0; p2 <= 1.0; p2 += delta) {
+      g.nodes[2].final_activation = p1;
+      g.nodes[3].final_activation = p2;
+      double fitness = w->phenotype_fitness_func(w, &g);
+      printf("%lf %lf %lf\n", p1, p2, fitness);
     }
   }
 }
@@ -477,15 +506,28 @@ double distance(double x1, double y1, double x2, double y2) {
   return sqrt((x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1));
 }
 
-double phenotype_fitness(World *w, Organism *o) {
+double invv(double target, double radius, double x) {
+  double dist = fabs(target - x);
+  if (dist >= radius)
+    return 0.0;
+  else
+    return (radius - dist) / radius;
+}
+
+double along_ridge(double x, double y) {
+  return invv(0.0, 0.25, fabs(x - y));
+}
+
+double phenotype_fitness(World *w, Genotype *g) {
   const double sqrt8 = sqrt(8.0);
   double phenotype[2] = {
-    o->genotype->nodes[o->genotype->num_in].final_activation,
-    o->genotype->nodes[o->genotype->num_in + 1].final_activation
+    g->nodes[g->num_in].final_activation,
+    g->nodes[g->num_in + 1].final_activation
   };
   if (phenotype[0] != UNWRITTEN && phenotype[1] != UNWRITTEN) {
     return //many_small_hills(phenotype) +
       //(5 * (sqrt8 - distance(w->c, w->c, phenotype[0], phenotype[1])));
+      along_ridge(phenotype[0], phenotype[1]) *
       (sqrt8 - distance(w->c, w->c, phenotype[0], phenotype[1]));
   } else {
     return -10.0;
@@ -584,8 +626,8 @@ void mut_remove_node(Organism *o) {
 
 void mut_turn_knob(Organism *o) {
   int genotype_index = rand() & o->genotype->num_in;
-  //double nudge = rand_value() * 0.02;
-  double nudge = (rand() & 1) ? 0.01 : -0.01;
+  double nudge = rand_value() * 0.02;
+  //double nudge = (rand() & 1) ? 0.01 : -0.01;
   Node *node_to_change = &o->genotype->nodes[genotype_index];
   node_to_change->initial_activation =
       clamp(node_to_change->initial_activation + nudge);
@@ -659,7 +701,7 @@ void long_test() {
 }
 
 void long_test_start_small() {
-  World *w = create_world(0, 40, 20, 20, 1000, 4, 0);
+  World *w = create_world(0, 40, 20, 20, 500, 4, 0);
   run_world(w);
 }
 
@@ -673,13 +715,19 @@ void dump_virt_test() {
   run_world(w);
 }
 
+void dump_phenotype_fitness() {
+  World *w = create_world(0, 40, 20, 20, 100, 4, 0);
+  dump_phenotype_fitness_func(w);
+}
+
 int main() {
   //quick_test();
   //dot_test();
   //long_test();
-  //long_test_start_small();
+  long_test_start_small();
   //sa_test();
   //one_long_epoch();
-  dump_virt_test();
+  //dump_virt_test();
+  //dump_phenotype_fitness();
   return 0;
 }

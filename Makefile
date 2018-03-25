@@ -6,6 +6,9 @@ sa: sa.c
 run: sa
 	./sa
 
+out: sa
+	./sa > out
+
 outs: sa
 	./sa > out
 	./sa >> out
@@ -23,10 +26,13 @@ test.pdf: test.dot
 dot: test.pdf
 	evince test.pdf
 
+plot:
+	./plot_xyz.py phfunc 0 1 2
+
 clean:
 	rm test.pdf test.dot
 
 tags:
 	ctags *.[ch]
 
-.PHONY: tags run all dot clean
+.PHONY: tags run all dot clean plot
