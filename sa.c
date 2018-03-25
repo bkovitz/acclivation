@@ -37,8 +37,7 @@ double rand_float() {
 }
 
 // http://www.bearcave.com/misl/misl_tech/wavelets/hurst/random.html
-double
-gauss(const double sigma)
+double sample_normal(const double sigma)
 {
    double x, y, r2;
 
@@ -310,40 +309,34 @@ typedef struct world_t {
   double c;
   int num_candidates;
   int best_organism;
-  double turn_knob_fact;
+  double knob_constant;
+  enum { KNOB_DISCRETE, KNOB_NORMAL } knob_type;
 } World;
 
 double phenotype_fitness(World *, Genotype *);
 
-World *create_world_full(int random_seed, int num_organisms, int sa_timesteps,
-                         int generations_per_epoch, int num_epochs, int num_nodes, int num_edges,
-                         int num_in, int num_out, double decay_rate) {
+World *create_world(int num_organisms) {
   World *w = calloc(1, sizeof(World));
-  w->random_seed = random_seed;
+  w->random_seed = 0;
   w->num_organisms = num_organisms;
-  w->sa_timesteps = sa_timesteps;
-  w->generations_per_epoch = generations_per_epoch;
-  w->num_epochs = num_epochs;
-  w->num_nodes = num_nodes;
-  w->num_edges = num_edges;
-  w->num_in = num_in;
-  w->num_out = num_out;
-  w->decay_rate = decay_rate;
+  w->sa_timesteps = 20;
+  w->generations_per_epoch = 20;
+  w->num_epochs = 100;
+  w->num_nodes = 4;
+  w->num_edges = 0;
+  w->num_in = 2;
+  w->num_out = 2;
+  w->decay_rate = 0.01;
   w->genotypes = calloc(num_organisms, sizeof(Genotype)); // THIS IS CRAZY!
   w->organisms = calloc(num_organisms, sizeof(Organism));
   w->phenotype_fitness_func = phenotype_fitness;
+  w->generation = 0;
   w->c = 0.5;
   w->num_candidates = 5;
-  w->generation = 0;
   w->best_organism = -1;
-  w->turn_knob_fact = 0.02;
+  w->knob_constant = 0.02;
+  w->knob_type = KNOB_DISCRETE;
   return w;
-}
-
-World *create_world(int random_seed, int num_organisms, int sa_timesteps,
-                    int generations_per_epoch, int num_epochs, int num_nodes, int num_edges) {
-  return create_world_full(random_seed, num_organisms, sa_timesteps,
-      generations_per_epoch, num_epochs, num_nodes, num_edges, 2, 2, 0.01);
 }
 
 void set_phenotypes_and_fitnesses(World *w) {
@@ -659,7 +652,15 @@ void mut_remove_node(Organism *o) {
 
 void mut_turn_knob(World *w, Organism *o) {
   int genotype_index = rand() & o->genotype->num_in;
-  double nudge = rand_activation() * w->turn_knob_fact;
+  double nudge;
+  switch (w->knob_type) {
+    case KNOB_DISCRETE:
+      nudge = (rand() & 1) ? w->knob_constant : -w->knob_constant;
+      break;
+    case KNOB_NORMAL:
+      nudge = sample_normal(w->knob_constant);
+      break;
+  }
   Node *node_to_change = &o->genotype->nodes[genotype_index];
   node_to_change->initial_activation =
       clamp(node_to_change->initial_activation + nudge);
@@ -785,39 +786,44 @@ void sa_test() {
 }
 
 void dump_phenotype_fitness() {
-  World *w = create_world(0, 40, 20, 20, 100, 4, 0);
+  World *w = create_world(40);
   dump_phenotype_fitness_func(w);
 }
 
 void quick_test(int seed) {
   verbose = 1;
-  World *w = create_world(seed, 2, 20, 1, 1, 10, 30);
+  World *w = create_world(2);
+  w->random_seed = seed;
+  w->generations_per_epoch = 1;
+  w->num_epochs = 1;
+  w->num_nodes = 10;
+  w->num_edges = 30;
   run_world(w);
 }
 
 void dot_test(int seed) {
   dot = true;
-  World *w = create_world(seed, 1, 20, 1, 1, 10, 30);
-  run_world(w);
-}
-
-void long_test(int seed) {
-  World *w = create_world(seed, 100, 20, 20, 10, 70, 200);
+  World *w = create_world(1);
+  w->random_seed = seed;
+  w->generations_per_epoch = 1;
+  w->num_epochs = 1;
+  w->num_nodes = 10;
+  w->num_edges = 30;
   run_world(w);
 }
 
 void long_test_start_small(int seed) {
-  World *w = create_world(seed, 40, 20, 20, 500, 4, 0);
+  World *w = create_world(40);
+  w->random_seed = seed;
+  w->num_epochs = 500;
   run_world(w);
 }
 
 void one_long_epoch(int seed) {
-  World *w = create_world(seed, 40, 20, 5000, 1, 4, 0);
-  run_world(w);
-}
-
-void dump_virt_test(int seed) {
-  World *w = create_world(seed, 40, 20, 20, 100, 4, 0);
+  World *w = create_world(40);
+  w->random_seed = seed;
+  w->generations_per_epoch = 5000;
+  w->num_epochs = 1;
   run_world(w);
 }
 

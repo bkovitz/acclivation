@@ -19,10 +19,13 @@ def read(filename, x_col, y_col, z_col):
       Z.append(float(row[z_col]))
   return np.array(X), np.array(Y), np.array(Z)
 
-def plot(X, Y, Z):
+def plot(X, Y, Z, scatter):
   fig = plt.figure()
   ax = Axes3D(fig)
-  ax.plot_trisurf(X, Y, Z, cmap=cm.jet, edgecolor='none', shade=True)
+  if scatter:
+    ax.scatter3D(X, Y, Z)
+  else:
+    ax.plot_trisurf(X, Y, Z, cmap=cm.jet, edgecolor='none', shade=True)
   plt.show()
   #plt.savefig('%s.png', dpi=100)
 
@@ -31,5 +34,6 @@ if __name__=='__main__':
   x_col = int(sys.argv[2])
   y_col = int(sys.argv[3])
   z_col = int(sys.argv[4])
+  scatter = (sys.argv[5] == 'scatter') if len(sys.argv) > 5 else False
   X, Y, Z = read(filename, x_col, y_col, z_col)
-  plot(X, Y, Z)
+  plot(X, Y, Z, scatter)
