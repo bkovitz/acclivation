@@ -29,10 +29,14 @@ dot: test.pdf
 plot:
 	./plot_xyz.py phfunc 0 1 2
 
+fitness: sa
+	./sa > fitness.out
+	./plot_fitness.py fitness.out
+
 clean:
 	rm test.pdf test.dot
 
 tags:
 	ctags *.[ch]
 
-.PHONY: tags run all dot clean plot
+.PHONY: tags run all dot clean plot fitness

@@ -1,8 +1,14 @@
 // todo:
-// - option to output dot (given organism/generation)
-// - hill climb (from given organism/generation)
-// - command line args (or separate mains)
-// (if it's fast enough, maybe no need to save?)
+// - clean up options
+//   - move any hardcoded ones to world
+// - improve organism sanity_check
+// - clean up output
+//   - option to output dot (given organism/generation/epoch)
+//   - option to output dot for every best fitness per generation
+//   - option to dump virtual fitness func for given organism/generation/epoch
+//   - minimal standard output
+// - hill climb (from given organism/generation/epoch)
+// - seed argument + easy way to 'run with seed from this file'
 #include <assert.h>
 #include <math.h>
 #include <stdbool.h>
@@ -13,6 +19,7 @@
 #include <time.h>
 
 int verbose = 0;
+bool debug = false;
 bool dot = false;
 
 // -- graph ------------------------------------------------------------------
@@ -126,7 +133,6 @@ void init_random_genotype(Genotype *g, int num_edges, int num_nodes, int num_in,
         g->nodes[n].initial_activation = 0.0;
     g->nodes[n].final_activation = 0.0;
     g->nodes[n].in_use = true;
-    //g->nodes[n].threshold_func = (rand() & 1) ? sigmoid : step;
     g->nodes[n].threshold_func = clamp;
   }
   for (int e = 0; e < num_edges; e++) {
@@ -198,24 +204,9 @@ void print_organism_dot(Organism *o) {
 
 #define UNWRITTEN -1000.0
 
-//void init_in_activations(Genotype *g, double *activations) {
-//  for (int i = 0; i < g->num_in; i++) {
-//    assert(g->nodes[i].in_use);
-//    activations[i] = g->nodes[i].initial_activation;
-//  }
-//}
-//
-//void init_out_activations(Genotype *g, double *activations) {
-//  for (int o = g->num_in; o < g->num_nodes; o++) {
-//    //assert(g->nodes[o].in_use);
-//    activations[o] = UNWRITTEN;
-//  }
-//}
-
 void init_activations(Genotype *g, double *activations) {
   // "in" activations get their initial activations from the Genotype
   for (int i = 0; i < g->num_in; i++) {
-    assert(g->nodes[i].in_use);
     activations[i] = g->nodes[i].initial_activation;
   }
   // all other nodes get initialized to UNWRITTEN
@@ -303,6 +294,7 @@ typedef struct world_t {
   double c;
   int num_candidates;
   int best_organism;
+  double turn_knob_fact;
 } World;
 
 double phenotype_fitness(World *, Genotype *);
@@ -328,6 +320,7 @@ World *create_world_full(int random_seed, int num_organisms, int sa_timesteps,
   w->num_candidates = 5;
   w->generation = 0;
   w->best_organism = -1;
+  w->turn_knob_fact = 0.02;
   return w;
 }
 
@@ -357,7 +350,7 @@ void init_random_population(World *w) {
   set_phenotypes_and_fitnesses(w);
 }
 
-void mutate(Organism *);
+void mutate(World *w, Organism *);
 
 int tournament_select(World *w) {
   int pool[w->num_candidates];
@@ -379,6 +372,16 @@ int tournament_select(World *w) {
 void copy_organism(Organism *, Organism *);
 void crossover(Organism *, Organism *, Organism *);
 
+void sanity_check(World *w) {
+  for (int p = 0; p < w->num_organisms; p++) {
+    Organism *o = &w->organisms[p];
+    Genotype *g = o->genotype;
+    assert(g);
+    for (int i = 0; i < g->num_in + g->num_out; i++)
+      assert(g->nodes[i].in_use);
+  }
+}
+
 void run_generation(World *w) {
   Organism *old_population = w->organisms;
   Organism *new_population = calloc(w->num_organisms, sizeof(Organism));
@@ -386,7 +389,7 @@ void run_generation(World *w) {
     if (rand_float() > 0.7) {
       int selected_organism = tournament_select(w);
       copy_organism(&new_population[p], &w->organisms[selected_organism]);
-      mutate(&new_population[p]);
+      mutate(w, &new_population[p]);
     } else {
       int mommy = tournament_select(w);
       int daddy = tournament_select(w);
@@ -399,6 +402,8 @@ void run_generation(World *w) {
     free_organism(&w->organisms[p]);
   w->organisms = new_population;
   set_phenotypes_and_fitnesses(w);
+  if (debug)
+    sanity_check(w);
 }
 
 int find_best_organism(World *w) {
@@ -498,7 +503,8 @@ void dump_phenotype_fitness_func(World *w) {
 
 void run_world(World *w) {
   printf("------------------------------------------------------------------------\n");
-  //srand(time(NULL)); //w->random_seed);
+  //srand(w->random_seed);
+  //srand(564569265);
   struct timespec tm;
   clock_gettime(CLOCK_REALTIME, &tm);
   printf("seed=%ld\n", tm.tv_nsec);
@@ -616,7 +622,6 @@ void mut_add_node(Organism *o) {
   }
   g->nodes[add_index].initial_activation = 0.0;
   g->nodes[add_index].final_activation = 0.0;
-  //g->nodes[add_index].threshold_func = (rand() & 1) ? sigmoid : step;
   g->nodes[add_index].threshold_func = clamp;
   g->nodes[add_index].in_use = true;
 }
@@ -629,6 +634,7 @@ void mut_remove_node(Organism *o) {
   int selected_node = select_in_use_removable_node(g);
   if (selected_node == -1)
     return;
+  assert(selected_node >= g->num_in + g->num_out);
   // mark unused
   g->nodes[selected_node].in_use = false;
   g->num_nodes_in_use--;
@@ -639,16 +645,15 @@ void mut_remove_node(Organism *o) {
   }
 }
 
-void mut_turn_knob(Organism *o) {
+void mut_turn_knob(World *w, Organism *o) {
   int genotype_index = rand() & o->genotype->num_in;
-  double nudge = rand_activation() * 0.02;
-  //double nudge = (rand() & 1) ? 0.01 : -0.01;
+  double nudge = rand_activation() * w->turn_knob_fact;
   Node *node_to_change = &o->genotype->nodes[genotype_index];
   node_to_change->initial_activation =
       clamp(node_to_change->initial_activation + nudge);
 }
 
-void mutate(Organism *o) {
+void mutate(World *w, Organism *o) {
   int mutation_type = rand() % 16;
   switch (mutation_type) {
   case 0:
@@ -667,7 +672,7 @@ void mutate(Organism *o) {
     mut_remove_edge(o);
     break;
   default:
-    mut_turn_knob(o);
+    mut_turn_knob(w, o);
     break;
   }
 }
@@ -679,9 +684,6 @@ int count_internal_edges(Genotype *g, int start, int end) {
     if (edge->src >= start && edge->src < end &&
         edge->dst >= start && edge->dst < end) {
       num_internal_edges++;
-      //printf("+e:%d\n", e);
-    } else {
-      //printf("-e:%d\n", e);
     }
   }
   return num_internal_edges;
@@ -700,6 +702,7 @@ void crossover(Organism *b, Organism *m, Organism *d) {
   int num_from_daddy = daddy->num_nodes - daddy_crossover_point;
   baby->num_nodes = num_from_mommy + num_from_daddy;
   baby->nodes = malloc(sizeof(Node) * baby->num_nodes);
+  assert(baby->num_nodes >= mommy->num_in + mommy->num_out);
   int n = 0;
   for (int m = 0; m < num_from_mommy; m++)
     baby->nodes[n++] = mommy->nodes[m];
@@ -707,15 +710,20 @@ void crossover(Organism *b, Organism *m, Organism *d) {
     baby->nodes[n++] = daddy->nodes[d];
   assert(n == baby->num_nodes);
 
+  assert(mommy->num_in == daddy->num_in);
+  assert(mommy->num_out == daddy->num_out);
+  baby->num_in = mommy->num_in;
+  baby->num_out = mommy->num_out;
+
   int in_use = 0;
   for (int n = 0; n < baby->num_nodes; n++) {
+    if (n < baby->num_in + baby->num_out)
+      baby->nodes[n].in_use = true;
     if (baby->nodes[n].in_use)
       in_use++;
   }
   baby->num_nodes_in_use = in_use;
 
-  //printf("m:%d\n", mommy->num_edges);
-  //printf("d:%d\n", daddy->num_edges);
   baby->num_edges = count_internal_edges(mommy, 0, mommy_crossover_point)
     + count_internal_edges(daddy, daddy_crossover_point, daddy->num_nodes);
   baby->edges = malloc(sizeof(Edge) * baby->num_edges);
@@ -723,15 +731,12 @@ void crossover(Organism *b, Organism *m, Organism *d) {
   for (int m = 0; m < mommy->num_edges; m++) {
     Edge *edge = &mommy->edges[m];
     if (edge->src < mommy_crossover_point && edge->dst < mommy_crossover_point) {
-      //printf("+m %d\n", m);
       baby->edges[e++] = *edge;
     }
   }
   for (int d = 0; d < daddy->num_edges; d++) {
     Edge *edge = &daddy->edges[d];
     if (edge->src >= daddy_crossover_point && edge->dst >= daddy_crossover_point) {
-      //printf("+d %d (%d,%d)\n", d, edge->src, edge->dst);
-      //baby->edges[e++] = *edge;
       baby->edges[e].src = (edge->src - daddy_crossover_point) + mommy_crossover_point;
       baby->edges[e].dst = (edge->dst - daddy_crossover_point) + mommy_crossover_point;
       baby->edges[e].weight = edge->weight;
@@ -739,11 +744,6 @@ void crossover(Organism *b, Organism *m, Organism *d) {
     }
   }
   assert(e == baby->num_edges);
-
-  assert(mommy->num_in == daddy->num_in);
-  assert(mommy->num_out == daddy->num_out);
-  baby->num_in = mommy->num_in;
-  baby->num_out = mommy->num_out;
 }
 
 // ---------------------------------------------------------------------------
