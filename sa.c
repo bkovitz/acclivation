@@ -324,7 +324,9 @@ typedef struct world_t {
   int generation;
   double c1, c2, c3;
   double ridge_radius;
-  bool mommy_daddy_edges;
+  double crossover_freq;
+  enum {NO_EDGES_ACROSS_PARENTS, INHERIT_SRC_EDGES_FROM_MOMMY,
+        INHERIT_SRC_EDGES_FROM_BOTH_PARENTS} edge_inheritance;
   int num_candidates;
   double knob_constant;
   enum { KNOB_DISCRETE, KNOB_NORMAL } knob_type;
@@ -358,7 +360,8 @@ World *create_world(int num_organisms) {
   //w->c2 = 1.0;
   //w->c3 = 0.0;
   w->ridge_radius = 0.05;
-  w->mommy_daddy_edges = true;
+  w->crossover_freq = 0.1;
+  w->edge_inheritance = INHERIT_SRC_EDGES_FROM_MOMMY;
   w->num_candidates = 5;
   w->knob_constant = 0.02;
   w->knob_type = KNOB_DISCRETE;
@@ -408,7 +411,7 @@ int tournament_select(World *w) {
 }
 
 void copy_organism(Organism *, Organism *);
-void crossover(Organism *, Organism *, Organism *);
+void crossover(World *, Organism *, Organism *, Organism *);
 
 void sanity_check(World *w) {
   for (int p = 0; p < w->num_organisms; p++) {
@@ -437,16 +440,16 @@ void run_generation(World *w) {
   Organism *old_population = w->organisms;
   Organism *new_population = calloc(w->num_organisms, sizeof(Organism));
   for (int p = 0; p < w->num_organisms; p++) {
-    if (rand_float() < 0.9) {
-      int selected_organism = tournament_select(w);
-      copy_organism(&new_population[p], &w->organisms[selected_organism]);
-      mutate(w, &new_population[p]);
-    } else {
+    if (rand_float() <= w->crossover_freq) {
       int mommy = tournament_select(w);
       int daddy = tournament_select(w);
       Organism *baby = &new_population[p];
       baby->genotype = calloc(1, sizeof(Genotype)); // SUPER UGLY
-      crossover(baby, &old_population[mommy], &old_population[daddy]);
+      crossover(w, baby, &old_population[mommy], &old_population[daddy]);
+    } else {
+      int selected_organism = tournament_select(w);
+      copy_organism(&new_population[p], &w->organisms[selected_organism]);
+      mutate(w, &new_population[p]);
     }
   }
   for (int p = 0; p < w->num_organisms; p++)
@@ -588,8 +591,21 @@ void run_world(World *w) {
   printf("--------------------------------------------------------------------------------\n");
   printf("seed=%d\n", w->random_seed);
   printf("ridge_radius=%lf\n", w->ridge_radius);
-  printf("c2=%lf\n", w->c2);
-  printf("c3=%lf\n", w->c3);
+  printf("c2=%lf c3=%lf\n", w->c2, w->c3);
+  printf("crossover_freq=%lf\n", w->crossover_freq);
+  printf("edge_inheritance=");
+  switch (w->edge_inheritance) {
+    case NO_EDGES_ACROSS_PARENTS:
+      puts("NO_EDGES_ACROSS_PARENTS");
+      break;
+    case INHERIT_SRC_EDGES_FROM_MOMMY:
+      puts("INHERIT_SRC_EDGES_FROM_MOMMY");
+      break;
+    case INHERIT_SRC_EDGES_FROM_BOTH_PARENTS:
+      puts("INHERIT_SRC_EDGES_FROM_BOTH_PARENTS");
+      break;
+  }
+
   srand(w->random_seed);
   init_random_population(w);
   for (int e = 1; e <= w->num_epochs; e++) {
@@ -660,6 +676,10 @@ void copy_organism(Organism *new_o, Organism *old_o) {
   new_o->fitness = old_o->fitness;
 }
 
+bool has_node(Genotype *g, int n) {
+  return n < g->num_nodes && g->nodes[n].in_use;
+}
+
 bool has_edge(Genotype *g, int src, int dst) {
   for (int e = 0; e < g->num_edges; e++) {
     if (g->edges[e].src == src && g->edges[e].dst == dst) {
@@ -670,6 +690,8 @@ bool has_edge(Genotype *g, int src, int dst) {
 }
 
 void add_edge(Genotype *g, int src, int dst, double weight) {
+  assert(has_node(g, src));
+  assert(has_node(g, dst));
   g->num_edges++;
   g->edges = realloc(g->edges, sizeof(Edge) * g->num_edges);
   int e = g->num_edges - 1;
@@ -809,7 +831,7 @@ int count_internal_edges(Genotype *g, int start, int end) {
   return num_internal_edges;
 }
 
-void crossover(Organism *b, Organism *m, Organism *d) {
+void crossover(World *w, Organism *b, Organism *m, Organism *d) {
   Genotype *mommy = m->genotype;
   Genotype *daddy = d->genotype;
   Genotype *baby = b->genotype;
@@ -852,26 +874,46 @@ void crossover(Organism *b, Organism *m, Organism *d) {
   //int e = 0;
   for (int m = 0; m < mommy->num_edges; m++) {
     Edge *edge = &mommy->edges[m];
-    if (edge->src < mommy_crossover_point && edge->dst < mommy_crossover_point) {
+    switch (w->edge_inheritance) {
+      case NO_EDGES_ACROSS_PARENTS:
+        if (edge->src < mommy_crossover_point && edge->dst < mommy_crossover_point) {
+          add_edge(baby, edge->src, edge->dst, edge->weight);
+        }
+        break;
+      case INHERIT_SRC_EDGES_FROM_MOMMY:
+      case INHERIT_SRC_EDGES_FROM_BOTH_PARENTS:
+        if (edge->src < mommy_crossover_point &&
+            has_node(baby, edge->src) && has_node(baby, edge->dst)) {
+          add_edge(baby, edge->src, edge->dst, edge->weight);
+        }
+        break;
+//    else if ((edge->src < baby->num_nodes && baby->nodes[edge->src].in_use) &&
+//               (edge->dst < baby->num_nodes && baby->nodes[edge->dst].in_use) ) { //&&
+               //!has_edge(baby, edge->src, edge->dst)) {
       //baby->edges[e++] = *edge;
-      add_edge(baby, edge->src, edge->dst, edge->weight);
-    } else if ((edge->src < baby->num_nodes && baby->nodes[edge->src].in_use) &&
-               (edge->dst < baby->num_nodes && baby->nodes[edge->dst].in_use) &&
-               !has_edge(baby, edge->src, edge->dst)) {
-      //baby->edges[e++] = *edge;
-      add_edge(baby, edge->src, edge->dst, edge->weight);
+//      add_edge(baby, edge->src, edge->dst, edge->weight);
     }
   }
   for (int d = 0; d < daddy->num_edges; d++) {
     Edge *edge = &daddy->edges[d];
-    if (edge->src >= daddy_crossover_point && edge->dst >= daddy_crossover_point) {
-      //baby->edges[e].src = (edge->src - daddy_crossover_point) + mommy_crossover_point;
-      //baby->edges[e].dst = (edge->dst - daddy_crossover_point) + mommy_crossover_point;
-      //baby->edges[e].weight = edge->weight;
-      //e++;
-      int src = (edge->src - daddy_crossover_point) + mommy_crossover_point;
-      int dst = (edge->dst - daddy_crossover_point) + mommy_crossover_point;
-      add_edge(baby, src, dst, edge->weight);
+    int bsrc = (edge->src - daddy_crossover_point) + mommy_crossover_point;
+    int bdst = (edge->dst - daddy_crossover_point) + mommy_crossover_point;
+    switch (w->edge_inheritance) {
+      case NO_EDGES_ACROSS_PARENTS:
+        if (edge->src >= daddy_crossover_point && edge->dst >= daddy_crossover_point) {
+          //baby->edges[e].src = (edge->src - daddy_crossover_point) + mommy_crossover_point;
+          //baby->edges[e].dst = (edge->dst - daddy_crossover_point) + mommy_crossover_point;
+          //baby->edges[e].weight = edge->weight;
+          //e++;
+          add_edge(baby, bsrc, bdst, edge->weight);
+        }
+        break;
+      case INHERIT_SRC_EDGES_FROM_BOTH_PARENTS:
+        if (edge->src >= daddy_crossover_point &&
+            has_node(baby, bsrc) && has_node(baby, bdst)) {
+          add_edge(baby, bsrc, bdst, edge->weight);
+        }
+        break;
     }
   }
   //assert(e == baby->num_edges);
@@ -945,6 +987,7 @@ typedef struct {
   int random_seed;
   double ridge_radius;
   enum {YX_RIDGE, OBLIQUE_RIDGE} ridge_type;
+  int edge_inheritance;
 } PARAMS;
 
 void init_params(PARAMS *p, int random_seed) {
@@ -952,6 +995,7 @@ void init_params(PARAMS *p, int random_seed) {
   p->random_seed = random_seed;
   p->ridge_radius = 0.05;
   p->ridge_type = OBLIQUE_RIDGE;
+  p->edge_inheritance = INHERIT_SRC_EDGES_FROM_MOMMY;
 }
 
 void reopen_stdout_from_param(PARAMS *p) {
@@ -980,26 +1024,35 @@ World *create_world_from_param(PARAMS *p) {
       w->c3 = 0.45;
       break;
   }
+  w->edge_inheritance = p->edge_inheritance;
+
   return w;
 }
 
 void parameter_sweep(int seed) {
   static double ridge_radii[] = {0.05, 0.2};
   static int ridge_types[] = {YX_RIDGE, OBLIQUE_RIDGE};
+  static int edge_inheritances[] = {
+    NO_EDGES_ACROSS_PARENTS, INHERIT_SRC_EDGES_FROM_MOMMY,
+    INHERIT_SRC_EDGES_FROM_BOTH_PARENTS
+  };
 
   PARAMS p;
   init_params(&p, seed);
 
   for (int rr = 0; rr < array_len(ridge_radii); rr++) {
     for (int rt = 0; rt < array_len(ridge_types); rt++) {
-      p.ridge_radius = ridge_radii[rr];
-      p.ridge_type = ridge_types[rt];
-      World *w = create_world_from_param(&p);
-      reopen_stdout_from_param(&p);
-      run_world(w);
-      fflush(stdout);
-      //free_world(w);
-      p.id++;
+      for (int ei = 0; ei < array_len(edge_inheritances); ei++) {
+        p.ridge_radius = ridge_radii[rr];
+        p.ridge_type = ridge_types[rt];
+        p.edge_inheritance = edge_inheritances[ei];
+        World *w = create_world_from_param(&p);
+        reopen_stdout_from_param(&p);
+        run_world(w);
+        fflush(stdout);
+        //free_world(w);
+        p.id++;
+      }
     }
   }
 }
