@@ -8,7 +8,10 @@
 //   - option to dump virtual fitness func for given organism/generation/epoch
 //   - minimal standard output
 // - hill climb (from given organism/generation/epoch)
+
 #include <assert.h>
+#include <errno.h>
+#include <fcntl.h>
 #include <math.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -16,6 +19,10 @@
 #include <string.h>
 #include <strings.h>
 #include <time.h>
+#include <unistd.h>
+
+#define MAXS 128
+#define array_len(a) (sizeof(a) / sizeof(a[0]))
 
 int verbose = 0;
 bool debug = false;
@@ -316,6 +323,8 @@ typedef struct world_t {
   int epoch;
   int generation;
   double c1, c2, c3;
+  double ridge_radius;
+  bool mommy_daddy_edges;
   int num_candidates;
   double knob_constant;
   enum { KNOB_DISCRETE, KNOB_NORMAL } knob_type;
@@ -348,6 +357,8 @@ World *create_world(int num_organisms) {
   w->c3 = 0.45;
   //w->c2 = 1.0;
   //w->c3 = 0.0;
+  w->ridge_radius = 0.05;
+  w->mommy_daddy_edges = true;
   w->num_candidates = 5;
   w->knob_constant = 0.02;
   w->knob_type = KNOB_DISCRETE;
@@ -535,6 +546,7 @@ void run_epoch(World *w, int e) {
       dump_fitness_nbhd(w);
     }
   }
+  fflush(stdout);
 }
 
 void dump_virtual_fitness_func(World *w) {
@@ -575,6 +587,9 @@ void dump_phenotype_fitness_func(World *w) {
 void run_world(World *w) {
   printf("--------------------------------------------------------------------------------\n");
   printf("seed=%d\n", w->random_seed);
+  printf("ridge_radius=%lf\n", w->ridge_radius);
+  printf("c2=%lf\n", w->c2);
+  printf("c3=%lf\n", w->c3);
   srand(w->random_seed);
   init_random_population(w);
   for (int e = 1; e <= w->num_epochs; e++) {
@@ -603,8 +618,7 @@ double invv(double target, double radius, double x) {
 }
 
 double along_ridge(World *w, double x, double y) {
-  return invv(0.0, 0.05, fabs(y - (w->c2 * x + w->c3)));
-  //return invv(0.0, 0.2, fabs(y - (w->c2 * x + w->c3)));
+  return invv(0.0, w->ridge_radius, fabs(y - (w->c2 * x + w->c3)));
 }
 
 double phenotype_fitness(World *w, Genotype *g) {
@@ -926,6 +940,70 @@ void long_test_start_small(int seed) {
   run_world(w);
 }
 
+typedef struct {
+  int id;
+  int random_seed;
+  double ridge_radius;
+  enum {YX_RIDGE, OBLIQUE_RIDGE} ridge_type;
+} PARAMS;
+
+void init_params(PARAMS *p, int random_seed) {
+  p->id = 0;
+  p->random_seed = random_seed;
+  p->ridge_radius = 0.05;
+  p->ridge_type = OBLIQUE_RIDGE;
+}
+
+void reopen_stdout_from_param(PARAMS *p) {
+  char filename[MAXS];
+
+  snprintf(filename, sizeof(filename), "out%d", p->id);
+  if (freopen(filename, "w", stdout) == NULL) {
+    perror(filename);
+    exit(errno);
+  }
+}
+
+World *create_world_from_param(PARAMS *p) {
+  World *w = create_world(40);
+  w->random_seed = p->random_seed;
+  w->num_epochs = 200;
+
+  w->ridge_radius = p->ridge_radius;
+  switch (p->ridge_type) {
+    case YX_RIDGE:
+      w->c2 = 1.0;
+      w->c3 = 0.0;
+      break;
+    case OBLIQUE_RIDGE:
+      w->c2 = 2.0;
+      w->c3 = 0.45;
+      break;
+  }
+  return w;
+}
+
+void parameter_sweep(int seed) {
+  static double ridge_radii[] = {0.05, 0.2};
+  static int ridge_types[] = {YX_RIDGE, OBLIQUE_RIDGE};
+
+  PARAMS p;
+  init_params(&p, seed);
+
+  for (int rr = 0; rr < array_len(ridge_radii); rr++) {
+    for (int rt = 0; rt < array_len(ridge_types); rt++) {
+      p.ridge_radius = ridge_radii[rr];
+      p.ridge_type = ridge_types[rt];
+      World *w = create_world_from_param(&p);
+      reopen_stdout_from_param(&p);
+      run_world(w);
+      fflush(stdout);
+      //free_world(w);
+      p.id++;
+    }
+  }
+}
+
 void one_long_epoch(int seed) {
   World *w = create_world(40);
   w->random_seed = seed;
@@ -950,7 +1028,8 @@ int main(int argc, char **argv) {
   //quick_test(seed);
   //dot_test(seed);
   //long_test(seed);
-  long_test_start_small(seed);
+  //long_test_start_small(seed);
+  parameter_sweep(seed);
   //one_long_epoch(seed);
   //dump_virt_test(seed);
   //dump_phenotype_fitness();
