@@ -97,6 +97,14 @@ typedef struct {
   int num_out;
 } Genotype;
 
+bool coin_flip() {
+  return rand() & 1;
+}
+
+int rand_int(int lb, int ub) {
+  return (rand() % (ub - lb + 1)) + lb;
+}
+
 double rand_edge_weight() {
   return rand() & 1 ? 1.0 : -1.0;
 }
@@ -150,7 +158,8 @@ void init_random_genotype(Genotype *g, int num_edges, int num_nodes, int num_in,
   g->num_out = num_out;
   for (int n = 0; n < num_nodes; n++) {
     //if (n < num_in)
-        g->nodes[n].initial_activation = rand_activation();
+        //g->nodes[n].initial_activation = rand_activation();
+        g->nodes[n].initial_activation = rand_int(-100, +100) * 0.01;
     //else
         //g->nodes[n].initial_activation = 0.0;
     g->nodes[n].final_activation = 0.0;
@@ -324,9 +333,12 @@ typedef struct world_t {
   int generation;
   double c1, c2, c3;
   double ridge_radius;
+  double extra_mutation_rate;
   double crossover_freq;
-  enum {NO_EDGES_ACROSS_PARENTS, INHERIT_SRC_EDGES_FROM_MOMMY,
-        INHERIT_SRC_EDGES_FROM_BOTH_PARENTS} edge_inheritance;
+  enum { NO_EDGES_ACROSS_PARENTS,
+         INHERIT_SRC_EDGES_FROM_MOMMY,
+         INHERIT_SRC_EDGES_FROM_BOTH_PARENTS,
+         INHERIT_HALF_OF_EDGES_FROM_BOTH_PARENTS } edge_inheritance;
   int num_candidates;
   double knob_constant;
   enum { KNOB_DISCRETE, KNOB_NORMAL } knob_type;
@@ -360,9 +372,10 @@ World *create_world(int num_organisms) {
   //w->c2 = 1.0;
   //w->c3 = 0.0;
   w->ridge_radius = 0.05;
+  w->extra_mutation_rate = 0.1;
   w->crossover_freq = 0.1;
   w->edge_inheritance = INHERIT_SRC_EDGES_FROM_MOMMY;
-  w->num_candidates = 5;
+  w->num_candidates = 7;
   w->knob_constant = 0.02;
   w->knob_type = KNOB_DISCRETE;
   w->dump_fitness_nbhd = false;
@@ -589,22 +602,31 @@ void dump_phenotype_fitness_func(World *w) {
 
 void run_world(World *w) {
   printf("--------------------------------------------------------------------------------\n");
-  printf("seed=%d\n", w->random_seed);
-  printf("ridge_radius=%lf\n", w->ridge_radius);
-  printf("c2=%lf c3=%lf\n", w->c2, w->c3);
-  printf("crossover_freq=%lf\n", w->crossover_freq);
-  printf("edge_inheritance=");
+  printf("w->random_seed=%d;\n", w->random_seed);
+  printf("w->ridge_radius=%lf;\n", w->ridge_radius);
+  printf("w->c2=%lf; w->c3=%lf;\n", w->c2, w->c3);
+  printf("w->extra_mutation_rate=%lf;\n", w->extra_mutation_rate);
+  printf("w->crossover_freq=%lf;\n", w->crossover_freq);
+  printf("w->edge_inheritance=");
   switch (w->edge_inheritance) {
     case NO_EDGES_ACROSS_PARENTS:
-      puts("NO_EDGES_ACROSS_PARENTS");
+      printf("NO_EDGES_ACROSS_PARENTS");
       break;
     case INHERIT_SRC_EDGES_FROM_MOMMY:
-      puts("INHERIT_SRC_EDGES_FROM_MOMMY");
+      printf("INHERIT_SRC_EDGES_FROM_MOMMY");
       break;
     case INHERIT_SRC_EDGES_FROM_BOTH_PARENTS:
-      puts("INHERIT_SRC_EDGES_FROM_BOTH_PARENTS");
+      printf("INHERIT_SRC_EDGES_FROM_BOTH_PARENTS");
+      break;
+    case INHERIT_HALF_OF_EDGES_FROM_BOTH_PARENTS:
+      printf("INHERIT_HALF_OF_EDGES_FROM_BOTH_PARENTS");
       break;
   }
+  puts(";\n");
+  printf("w->num_organisms=%d;\n", w->num_organisms);
+  printf("w->num_candidates=%d;\n", w->num_candidates);
+  printf("w->generations_per_epoch=%d;\n", w->generations_per_epoch);
+  printf("w->sa_timesteps=%d;\n", w->sa_timesteps);
 
   srand(w->random_seed);
   init_random_population(w);
@@ -793,7 +815,7 @@ void mut_turn_knob(World *w, Organism *o) {
 }
 
 void mutate(World *w, Organism *o) {
-  int num_mutations = 1 + (int)(0.05 * rand_float() * (o->genotype->num_nodes + o->genotype->num_edges));
+  int num_mutations = 1 + (int)(w->extra_mutation_rate * rand_float() * (o->genotype->num_nodes + o->genotype->num_edges));
   for (int i = 0; i < num_mutations; i++) {
     int mutation_type = rand() % 16;
     switch (mutation_type) {
@@ -846,7 +868,7 @@ void crossover(World *w, Organism *b, Organism *m, Organism *d) {
   baby->nodes = malloc(sizeof(Node) * baby->num_nodes);
   assert(baby->num_nodes >= mommy->num_in + mommy->num_out);
   int n = 0;
-  for (int m = 0; m < num_from_mommy; m++)
+  for (int m = 0; m < mommy_crossover_point; m++)
     baby->nodes[n++] = mommy->nodes[m];
   for (int d = daddy_crossover_point; d < daddy->num_nodes; d++)
     baby->nodes[n++] = daddy->nodes[d];
@@ -887,6 +909,12 @@ void crossover(World *w, Organism *b, Organism *m, Organism *d) {
           add_edge(baby, edge->src, edge->dst, edge->weight);
         }
         break;
+      case INHERIT_HALF_OF_EDGES_FROM_BOTH_PARENTS:
+        if (coin_flip() &&
+            has_node(baby, edge->src) && has_node(baby, edge->dst)) {
+          add_edge(baby, edge->src, edge->dst, edge->weight);
+        }
+        break;
 //    else if ((edge->src < baby->num_nodes && baby->nodes[edge->src].in_use) &&
 //               (edge->dst < baby->num_nodes && baby->nodes[edge->dst].in_use) ) { //&&
                //!has_edge(baby, edge->src, edge->dst)) {
@@ -910,6 +938,12 @@ void crossover(World *w, Organism *b, Organism *m, Organism *d) {
         break;
       case INHERIT_SRC_EDGES_FROM_BOTH_PARENTS:
         if (edge->src >= daddy_crossover_point &&
+            has_node(baby, bsrc) && has_node(baby, bdst)) {
+          add_edge(baby, bsrc, bdst, edge->weight);
+        }
+        break;
+      case INHERIT_HALF_OF_EDGES_FROM_BOTH_PARENTS:
+        if (coin_flip() &&
             has_node(baby, bsrc) && has_node(baby, bdst)) {
           add_edge(baby, bsrc, bdst, edge->weight);
         }
@@ -975,7 +1009,12 @@ void dot_test(int seed) {
 void long_test_start_small(int seed) {
   World *w = create_world(40);
   w->random_seed = seed;
-  w->num_epochs = 200;
+  w->num_epochs = 50;
+  w->edge_inheritance = INHERIT_HALF_OF_EDGES_FROM_BOTH_PARENTS;
+  w->c2 = 2.0;
+  w->c3 = 0.45;
+  w->ridge_radius = 0.2;
+  w->crossover_freq = 0.3;
   w->dump_fitness_nbhd = true;
   w->dump_fitness_epoch = 5;
   w->dump_fitness_generation = 20;
@@ -1011,7 +1050,7 @@ void reopen_stdout_from_param(PARAMS *p) {
 World *create_world_from_param(PARAMS *p) {
   World *w = create_world(40);
   w->random_seed = p->random_seed;
-  w->num_epochs = 200;
+  w->num_epochs = 400;
 
   w->ridge_radius = p->ridge_radius;
   switch (p->ridge_type) {
@@ -1033,8 +1072,10 @@ void parameter_sweep(int seed) {
   static double ridge_radii[] = {0.05, 0.2};
   static int ridge_types[] = {YX_RIDGE, OBLIQUE_RIDGE};
   static int edge_inheritances[] = {
-    NO_EDGES_ACROSS_PARENTS, INHERIT_SRC_EDGES_FROM_MOMMY,
-    INHERIT_SRC_EDGES_FROM_BOTH_PARENTS
+    NO_EDGES_ACROSS_PARENTS,
+    INHERIT_SRC_EDGES_FROM_MOMMY,
+    INHERIT_SRC_EDGES_FROM_BOTH_PARENTS,
+    INHERIT_HALF_OF_EDGES_FROM_BOTH_PARENTS
   };
 
   PARAMS p;
@@ -1065,6 +1106,22 @@ void one_long_epoch(int seed) {
   run_world(w);
 }
 
+void good_run_oblique() {
+  World *w = create_world(40);
+  w->random_seed=203540935;
+  w->ridge_radius=0.200000;
+  w->c2=2.000000; w->c3=0.450000;
+  w->extra_mutation_rate=0.100000;
+  w->crossover_freq=0.300000;
+  w->edge_inheritance=INHERIT_HALF_OF_EDGES_FROM_BOTH_PARENTS;
+
+  //w->num_organisms=40;
+  w->num_candidates=7;
+  w->generations_per_epoch=20;
+  w->sa_timesteps=20;
+  run_world(w);
+}
+
 int get_seed(char **argv, int argc) {
   if (argc > 1) {
     return atoi(argv[1]);
@@ -1081,8 +1138,9 @@ int main(int argc, char **argv) {
   //quick_test(seed);
   //dot_test(seed);
   //long_test(seed);
-  //long_test_start_small(seed);
-  parameter_sweep(seed);
+  //long_test_start_small(seed); // the main test
+  //parameter_sweep(seed);
+  good_run_oblique();
   //one_long_epoch(seed);
   //dump_virt_test(seed);
   //dump_phenotype_fitness();
