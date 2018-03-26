@@ -333,6 +333,7 @@ typedef struct world_t {
   int generation;
   double c1, c2, c3;
   double ridge_radius;
+  int mutation_type_ub;
   double extra_mutation_rate;
   double crossover_freq;
   enum { NO_EDGES_ACROSS_PARENTS,
@@ -372,6 +373,7 @@ World *create_world(int num_organisms) {
   //w->c2 = 1.0;
   //w->c3 = 0.0;
   w->ridge_radius = 0.05;
+  w->mutation_type_ub = 16;
   w->extra_mutation_rate = 0.1;
   w->crossover_freq = 0.1;
   w->edge_inheritance = INHERIT_SRC_EDGES_FROM_MOMMY;
@@ -491,7 +493,7 @@ void print_best_fitness(World *w) {
   Organism *o = &w->organisms[best_organism_index];
   double max_fitness = o->fitness;
   Genotype *g = o->genotype;
-  printf("    best fitness=%.16lf  index=%2d nodes=%2d edges=%2d g-vector=[%lf %lf] phenotype=[%.16lf %.16lf]\n",
+  printf("    best fitness=%.16lf  index=%d nodes=%d edges=%d g-vector=[%lf %lf] phenotype=[%.16lf %.16lf]\n",
     max_fitness, best_organism_index,
     g->num_nodes_in_use,
     g->num_edges,
@@ -605,6 +607,8 @@ void run_world(World *w) {
   printf("w->random_seed=%d;\n", w->random_seed);
   printf("w->ridge_radius=%lf;\n", w->ridge_radius);
   printf("w->c2=%lf; w->c3=%lf;\n", w->c2, w->c3);
+  printf("w->decay_rate=%lf;\n", w->decay_rate);
+  printf("w->mutation_type_ub=%d;\n", w->mutation_type_ub);
   printf("w->extra_mutation_rate=%lf;\n", w->extra_mutation_rate);
   printf("w->crossover_freq=%lf;\n", w->crossover_freq);
   printf("w->edge_inheritance=");
@@ -817,7 +821,7 @@ void mut_turn_knob(World *w, Organism *o) {
 void mutate(World *w, Organism *o) {
   int num_mutations = 1 + (int)(w->extra_mutation_rate * rand_float() * (o->genotype->num_nodes + o->genotype->num_edges));
   for (int i = 0; i < num_mutations; i++) {
-    int mutation_type = rand() % 16;
+    int mutation_type = rand_int(0, w->mutation_type_ub); //rand() % 16;
     switch (mutation_type) {
     case 0:
       mut_move_edge(o);
@@ -1111,6 +1115,28 @@ void good_run_oblique() {
   w->random_seed=203540935;
   w->ridge_radius=0.200000;
   w->c2=2.000000; w->c3=0.450000;
+  w->decay_rate=0.010000;
+  w->mutation_type_ub=15;
+  w->extra_mutation_rate=0.100000;
+  w->crossover_freq=0.300000;
+  w->edge_inheritance=INHERIT_HALF_OF_EDGES_FROM_BOTH_PARENTS;
+
+  //w->num_organisms=40;
+  w->num_candidates=7;
+  w->generations_per_epoch=20;
+  w->sa_timesteps=20;
+
+  w->num_epochs = 400;
+  run_world(w);
+}
+
+void good_run_oblique2() {
+  World *w = create_world(40);
+  w->random_seed=203540935;
+  w->ridge_radius=0.200000;
+  w->c2=2.000000; w->c3=0.450000;
+  w->decay_rate=0.010000;
+  w->mutation_type_ub=16;
   w->extra_mutation_rate=0.100000;
   w->crossover_freq=0.300000;
   w->edge_inheritance=INHERIT_HALF_OF_EDGES_FROM_BOTH_PARENTS;
@@ -1140,7 +1166,8 @@ int main(int argc, char **argv) {
   //long_test(seed);
   //long_test_start_small(seed); // the main test
   //parameter_sweep(seed);
-  good_run_oblique();
+  //good_run_oblique();
+  good_run_oblique2();
   //one_long_epoch(seed);
   //dump_virt_test(seed);
   //dump_phenotype_fitness();
