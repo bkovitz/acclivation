@@ -15,7 +15,6 @@ outs: sa
 	./sa >> out
 	./sa >> out
 	./sa >> out
-	./sa >> out
 
 test.dot: sa
 	./sa > test.dot

@@ -344,10 +344,10 @@ World *create_world(int num_organisms) {
   w->epoch = 0;
   w->generation = 0;
   w->c1 = 0.5;
-  //w->c2 = 2.0;
-  //w->c3 = 0.45;
-  w->c2 = 1.0;
-  w->c3 = 0.0;
+  w->c2 = 2.0;
+  w->c3 = 0.45;
+  //w->c2 = 1.0;
+  //w->c3 = 0.0;
   w->num_candidates = 5;
   w->knob_constant = 0.02;
   w->knob_type = KNOB_DISCRETE;
@@ -426,7 +426,7 @@ void run_generation(World *w) {
   Organism *old_population = w->organisms;
   Organism *new_population = calloc(w->num_organisms, sizeof(Organism));
   for (int p = 0; p < w->num_organisms; p++) {
-    if (rand_float() < 0.7) {
+    if (rand_float() < 0.9) {
       int selected_organism = tournament_select(w);
       copy_organism(&new_population[p], &w->organisms[selected_organism]);
       mutate(w, &new_population[p]);
@@ -528,9 +528,10 @@ void run_epoch(World *w, int e) {
        w->generation++) {
     run_generation(w);
     print_generation_results(w);
-    if (w->dump_fitness_nbhd
-        && w->generation == w->dump_fitness_generation
-        && w->epoch == w->dump_fitness_epoch) {
+//    if (w->dump_fitness_nbhd
+//        && w->generation == w->dump_fitness_generation
+//        && w->epoch == w->dump_fitness_epoch) {
+    if (w->epoch % 10 == 0 && w->generation == w->generations_per_epoch) {
       dump_fitness_nbhd(w);
     }
   }
@@ -618,7 +619,7 @@ double phenotype_fitness(World *w, Genotype *g) {
     return //many_small_hills(phenotype) +
       //(5 * (sqrt8 - distance(w->c1, w->c1, phenotype[0], phenotype[1])));
       along_ridge(w, phenotype[0], phenotype[1]) *
-      (1.0 * (sqrt8 - distance(peak_x, peak_y, phenotype[0], phenotype[1])));
+      (5.0 * (sqrt8 - distance(peak_x, peak_y, phenotype[0], phenotype[1])));
   } else {
     return -10.0;
   }
@@ -645,14 +646,33 @@ void copy_organism(Organism *new_o, Organism *old_o) {
   new_o->fitness = old_o->fitness;
 }
 
-void mut_add_edge(Organism *o) {
-  Genotype *g = o->genotype;
+bool has_edge(Genotype *g, int src, int dst) {
+  for (int e = 0; e < g->num_edges; e++) {
+    if (g->edges[e].src == src && g->edges[e].dst == dst) {
+      return true;
+    }
+  }
+  return false;
+}
+
+void add_edge(Genotype *g, int src, int dst, double weight) {
   g->num_edges++;
   g->edges = realloc(g->edges, sizeof(Edge) * g->num_edges);
-  int add_index = g->num_edges-1;
-  g->edges[add_index].src = select_in_use_node(g);
-  g->edges[add_index].dst = select_in_use_node(g);
-  g->edges[add_index].weight = rand_edge_weight();
+  int e = g->num_edges - 1;
+  g->edges[e].src = src;
+  g->edges[e].dst = dst;
+  g->edges[e].weight = weight;
+}
+
+void mut_add_edge(Organism *o) {
+  Genotype *g = o->genotype;
+  add_edge(g, select_in_use_node(g), select_in_use_node(g), rand_edge_weight());
+//  g->num_edges++;
+//  g->edges = realloc(g->edges, sizeof(Edge) * g->num_edges);
+//  int add_index = g->num_edges - 1;
+//  g->edges[add_index].src = select_in_use_node(g);
+//  g->edges[add_index].dst = select_in_use_node(g);
+//  g->edges[add_index].weight = rand_edge_weight();
 }
 
 void remove_edge(Genotype *g, int e) {
@@ -737,7 +757,7 @@ void mut_turn_knob(World *w, Organism *o) {
 }
 
 void mutate(World *w, Organism *o) {
-  int num_mutations = 1 + (int)(0.1 * rand_float() * (o->genotype->num_nodes + o->genotype->num_edges));
+  int num_mutations = 1 + (int)(0.05 * rand_float() * (o->genotype->num_nodes + o->genotype->num_edges));
   for (int i = 0; i < num_mutations; i++) {
     int mutation_type = rand() % 16;
     switch (mutation_type) {
@@ -810,26 +830,37 @@ void crossover(Organism *b, Organism *m, Organism *d) {
   }
   baby->num_nodes_in_use = in_use;
 
-  baby->num_edges = count_internal_edges(mommy, 0, mommy_crossover_point)
-    + count_internal_edges(daddy, daddy_crossover_point, daddy->num_nodes);
-  baby->edges = malloc(sizeof(Edge) * baby->num_edges);
-  int e = 0;
+//  baby->num_edges = count_internal_edges(mommy, 0, mommy_crossover_point)
+//    + count_internal_edges(daddy, daddy_crossover_point, daddy->num_nodes);
+  //baby->edges = malloc(sizeof(Edge) * baby->num_edges);
+  baby->edges = NULL;
+  baby->num_edges = 0;
+  //int e = 0;
   for (int m = 0; m < mommy->num_edges; m++) {
     Edge *edge = &mommy->edges[m];
     if (edge->src < mommy_crossover_point && edge->dst < mommy_crossover_point) {
-      baby->edges[e++] = *edge;
+      //baby->edges[e++] = *edge;
+      add_edge(baby, edge->src, edge->dst, edge->weight);
+    } else if ((edge->src < baby->num_nodes && baby->nodes[edge->src].in_use) &&
+               (edge->dst < baby->num_nodes && baby->nodes[edge->dst].in_use) &&
+               !has_edge(baby, edge->src, edge->dst)) {
+      //baby->edges[e++] = *edge;
+      add_edge(baby, edge->src, edge->dst, edge->weight);
     }
   }
   for (int d = 0; d < daddy->num_edges; d++) {
     Edge *edge = &daddy->edges[d];
     if (edge->src >= daddy_crossover_point && edge->dst >= daddy_crossover_point) {
-      baby->edges[e].src = (edge->src - daddy_crossover_point) + mommy_crossover_point;
-      baby->edges[e].dst = (edge->dst - daddy_crossover_point) + mommy_crossover_point;
-      baby->edges[e].weight = edge->weight;
-      e++;
+      //baby->edges[e].src = (edge->src - daddy_crossover_point) + mommy_crossover_point;
+      //baby->edges[e].dst = (edge->dst - daddy_crossover_point) + mommy_crossover_point;
+      //baby->edges[e].weight = edge->weight;
+      //e++;
+      int src = (edge->src - daddy_crossover_point) + mommy_crossover_point;
+      int dst = (edge->dst - daddy_crossover_point) + mommy_crossover_point;
+      add_edge(baby, src, dst, edge->weight);
     }
   }
-  assert(e == baby->num_edges);
+  //assert(e == baby->num_edges);
 }
 
 // ---------------------------------------------------------------------------
@@ -888,7 +919,7 @@ void dot_test(int seed) {
 void long_test_start_small(int seed) {
   World *w = create_world(40);
   w->random_seed = seed;
-  w->num_epochs = 500;
+  w->num_epochs = 200;
   w->dump_fitness_nbhd = true;
   w->dump_fitness_epoch = 5;
   w->dump_fitness_generation = 20;
