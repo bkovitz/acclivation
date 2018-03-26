@@ -638,7 +638,7 @@ void run_world(World *w) {
     run_epoch(w, e);
   }
   dump_virtual_fitness_func(w);
-  free_world(w);
+  //free_world();
 }
 
 // -- fitness ----------------------------------------------------------------
@@ -957,6 +957,42 @@ void crossover(World *w, Organism *b, Organism *m, Organism *d) {
   //assert(e == baby->num_edges);
 }
 
+// -- measuring acclivation --------------------------------------------------
+
+void set_random_genotype(Organism *o) {
+  for (int i = 0; i < o->genotype->num_in; i++)
+    o->genotype->nodes[i].initial_activation = rand_activation();
+}
+
+double climb_hill(World *w, Organism *o) {
+  Genotype *g = o->genotype;
+  double last_fitness = -1e10;
+  double starting_fitness = o->fitness;
+
+  while (o->fitness > last_fitness) {
+    last_fitness = o->fitness;
+    mut_turn_knob(w, o);
+    sa(o, w->sa_timesteps, w->decay_rate);
+    o->fitness = w->phenotype_fitness_func(w, o->genotype);
+  }
+  return o->fitness - starting_fitness;
+}
+
+double get_acclivation(World *w, Organism *test_o) {
+  Organism o;
+  double total_ending_fitness = 0.0;
+  int num_hill_climbers = 3; // w->num_hill_climbers
+
+  for (int i = 0; i < num_hill_climbers; i++) {
+    copy_organism(&o, test_o);
+    set_random_genotype(&o);
+    total_ending_fitness += climb_hill(w, &o);
+    free_organism(&o);
+  }
+
+  return total_ending_fitness / num_hill_climbers;
+}
+
 // ---------------------------------------------------------------------------
 
 void sa_test() {
@@ -1158,6 +1194,15 @@ int get_seed(char **argv, int argc) {
   }
 }
 
+void acclivation_test(int seed) {
+  World *w = create_world(40);
+  w->random_seed = seed;
+  w->num_epochs = 20;
+  run_world(w);
+  double acclivation = get_acclivation(w, &w->organisms[rand() % 40]);
+  printf("acclivation = %lf\n", acclivation);
+}
+
 int main(int argc, char **argv) {
   int seed = get_seed(argv, argc);
   //sa_test();
@@ -1171,5 +1216,6 @@ int main(int argc, char **argv) {
   //one_long_epoch(seed);
   //dump_virt_test(seed);
   //dump_phenotype_fitness();
+  //acclivation_test(seed);
   return 0;
 }
