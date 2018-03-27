@@ -28,6 +28,121 @@ int verbose = 0;
 bool debug = true;
 bool dot = false;
 
+// -- accumulating data ------------------------------------------------------
+
+typedef struct {
+  double *array;
+  int len;
+} DATA;
+
+DATA *create_data() {
+  DATA *data = malloc(sizeof(DATA));
+  data->array = NULL;
+  data->len = 0;
+  return data;
+}
+
+void free_data(DATA *data) {
+  free(data->array);
+  free(data);
+}
+
+DATA *copy_data(DATA* data) {
+  DATA *result = create_data();
+  result->array = malloc(data->len * sizeof(double));
+  memmove(result->array, data->array, data->len * sizeof(double));
+  result->len = data->len;
+  return result;
+}
+
+void add_datum(DATA *data, double datum) {
+  data->array = realloc(data->array, (data->len + 1) * sizeof(double));
+  data->array[data->len++] = datum;
+}
+
+void reset_data(DATA *data) {
+  if (data->array) {
+    free(data->array);
+    data->array = NULL;
+    data->len = 0;
+  }
+  assert(data->len == 0);
+}
+
+int compar_double(const void *pa, const void *pb) {
+  double a = *(double *)pa, b = *(double *)pb;
+  if (a > b)
+    return 1;
+  else if (a < b)
+    return -1;
+  else
+    return 0;
+}
+
+DATA *make_sorted_data(DATA *data) {
+  DATA *result = copy_data(data);
+  qsort(result->array, result->len, sizeof(result->array[0]),
+    compar_double);
+  return result;
+}
+
+void print_data(DATA *data) {
+  if (data->len == 0) {
+    puts("NONE");
+  } else {
+    printf("%lf", data->array[0]);
+    for (int i = 1; i < data->len; i++) {
+      printf(" %lf", data->array[i]);
+    }
+    putchar('\n');
+  }
+}
+
+double sum_data(DATA *data) {
+  double sum = 0.0;
+  for (int i = 0; i < data->len; i++) {
+    sum += data->array[i];
+  }
+  return sum;
+}
+
+double average_data(DATA *data) {
+  if (data->len == 0)
+    return 0.0;  // "safe" mean: 0.0 if no data
+  else
+    return sum_data(data) / data->len;
+}
+
+void print_stats(DATA *data) {
+  if (data->len == 0) {
+    puts("mean=NA median=NA");
+  } else {
+    DATA *s = make_sorted_data(data);
+
+    double mean = average_data(s);
+
+    double median;
+    if ((s->len & 1) == 0)
+      median = (s->array[s->len / 2 - 1] + s->array[s->len / 2]) / 2.0;
+    else
+      median = s->array[s->len / 2];
+
+    DATA *sq_deviations = create_data();
+    for (int i = 0; i < s->len; i++) {
+      double deviation = s->array[i] - mean;
+      add_datum(sq_deviations, deviation * deviation);
+    }
+    double sd;
+    if (sq_deviations->len == 1)
+      sd = sqrt(sq_deviations->array[0]);
+    else                                  // Bessel's correction
+      sd = sqrt(sum_data(sq_deviations) / (sq_deviations->len - 1));
+    
+    printf("mean=% .6lf median=% .6lf sd=% .6lf min=% .6lf max=% .6lf\n",
+      mean, median, sd, s->array[0], s->array[s->len - 1]);
+  }
+}
+
 // -- graph ------------------------------------------------------------------
 
 double step(double x) {
@@ -349,7 +464,8 @@ typedef struct world_t {
   bool dump_fitness_nbhd;
   int dump_fitness_epoch;
   int dump_fitness_generation;
-  double total_epoch_fitness_delta;
+
+  DATA *epoch_fitness_deltas;
 } World;
 
 double phenotype_fitness(World *, Genotype *);
@@ -388,7 +504,8 @@ World *create_world(int num_organisms) {
   w->dump_fitness_nbhd = false;
   w->dump_fitness_epoch = -1;
   w->dump_fitness_generation = -1;
-  w->total_epoch_fitness_delta = 0.0;
+
+  w->epoch_fitness_deltas = create_data();
   return w;
 }
 
@@ -549,6 +666,8 @@ void dump_fitness_nbhd(World *w) {
 void free_world(World *w) {
   for (int i = 0; i < w->num_organisms; i++)
     free_organism(&w->organisms[i]); // will free associated genotype
+  free_data(w->epoch_fitness_deltas);
+  free(w);
 }
 
 void change_fitness_constants(World *w) {
@@ -577,7 +696,7 @@ void run_epoch(World *w, int e) {
       dump_fitness_nbhd(w);
     }
   }
-  w->total_epoch_fitness_delta += find_best_fitness(w) - epoch_start_fitness;
+  add_datum(w->epoch_fitness_deltas, find_best_fitness(w) - epoch_start_fitness);
   fflush(stdout);
 }
 
@@ -659,8 +778,9 @@ void run_world(World *w) {
     run_epoch(w, e);
   }
   dump_virtual_fitness_func(w);
-  printf("average epoch fitness delta = %lf\n",
-      w->total_epoch_fitness_delta / w->num_epochs);
+  printf("epoch fitness deltas: ");
+  print_stats(w->epoch_fitness_deltas);
+  //print_data(w->epoch_fitness_deltas);
   //free_world();
 }
 

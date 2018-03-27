@@ -8,6 +8,7 @@ run: sa
 
 out: sa
 	./sa > out
+	grep "epoch fitness" out
 
 outs: sa
 	./sa > out
@@ -15,7 +16,7 @@ outs: sa
 	./sa >> out
 	./sa >> out
 	./sa >> out
-	grep average out
+	grep "epoch fitness" out
 
 test.dot: sa
 	./sa > test.dot
