@@ -138,7 +138,7 @@ void print_stats(DATA *data) {
     else                                  // Bessel's correction
       sd = sqrt(sum_data(sq_deviations) / (sq_deviations->len - 1));
     
-    printf("mean=% .6lf median=% .6lf sd=% .6lf min=% .6lf max=% .6lf\n",
+    printf("mean=% .6lf  median=% .6lf  sd=% .6lf  min=% .6lf  max=% .6lf\n",
       mean, median, sd, s->array[0], s->array[s->len - 1]);
   }
 }
@@ -1279,7 +1279,7 @@ void long_test_start_small(int seed) {
   //w->generations_per_epoch = 20;
   //w->num_candidates = 5;
   w->edge_inheritance = INHERIT_ALL_EDGES;
-  set_oblique_ridge(w);
+  set_horizontal_ridge(w);
   w->ridge_radius = 0.2;
   w->crossover_freq = 0.3;
   //w->mutation_type_ub = 30;
