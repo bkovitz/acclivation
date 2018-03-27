@@ -115,7 +115,7 @@ double average_data(DATA *data) {
 
 void print_stats(DATA *data) {
   if (data->len == 0) {
-    puts("mean=NA median=NA");
+    puts("mean=NA median=NA sd=NA min=NA max=NA");
   } else {
     DATA *s = make_sorted_data(data);
 
@@ -621,7 +621,7 @@ void print_best_fitness(World *w) {
   Organism *o = &w->organisms[best_organism_index];
   double max_fitness = o->fitness;
   Genotype *g = o->genotype;
-  printf("    best fitness=%.16lf  index=%d nodes=%d edges=%d g-vector=[%lf %lf] phenotype=[%.16lf %.16lf]\n",
+  printf("    best fitness=%20.16lf  index=%2d  nodes=%2d  edges=%2d  g-vector=[% lf % lf] phenotype=[% .16lf % .16lf]\n",
     max_fitness, best_organism_index,
     g->num_nodes_in_use,
     g->num_edges,
@@ -653,7 +653,7 @@ void dump_fitness_nbhd(World *w) {
       g->nodes[1].initial_activation = original->genotype->nodes[1].initial_activation + dy;
       sa(&o, w->sa_timesteps, w->decay_rate);
       o.fitness = w->phenotype_fitness_func(w, o.genotype);
-      printf("  %lf %lf %.16lf %.16lf %lf\n",
+      printf("  % lf % lf % .16lf % .16lf % lf\n",
         dx,
         dy,
         g->nodes[2].final_activation,
