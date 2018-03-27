@@ -1,6 +1,6 @@
 all: sa
 
-sa: sa.c
+sa: sa.c Makefile
 	gcc sa.c --std=c99 -Werror -Wall -D_POSIX_C_SOURCE=199309L -g -o sa -lm
 
 run: sa
@@ -44,7 +44,7 @@ many: sa
 	@$(foreach i,$(NRUNS),./sa >> out; tail -1 out;)
 
 clean:
-	rm test.pdf test.dot
+	rm sa test.pdf test.dot
 
 tags:
 	ctags *.[ch]

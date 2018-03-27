@@ -340,7 +340,9 @@ typedef struct world_t {
   enum { NO_EDGES_ACROSS_PARENTS,
          INHERIT_SRC_EDGES_FROM_MOMMY,
          INHERIT_SRC_EDGES_FROM_BOTH_PARENTS,
-         INHERIT_HALF_OF_EDGES_FROM_BOTH_PARENTS } edge_inheritance;
+         INHERIT_HALF_OF_CROSSOVER_EDGES,
+         INHERIT_HALF_OF_ALL_EDGES,
+         INHERIT_ALL_EDGES } edge_inheritance;
   int num_candidates;
   double knob_constant;
   enum { KNOB_DISCRETE, KNOB_NORMAL } knob_type;
@@ -635,8 +637,14 @@ void run_world(World *w) {
     case INHERIT_SRC_EDGES_FROM_BOTH_PARENTS:
       printf("INHERIT_SRC_EDGES_FROM_BOTH_PARENTS");
       break;
-    case INHERIT_HALF_OF_EDGES_FROM_BOTH_PARENTS:
-      printf("INHERIT_HALF_OF_EDGES_FROM_BOTH_PARENTS");
+    case INHERIT_HALF_OF_CROSSOVER_EDGES:
+      printf("INHERIT_HALF_OF_CROSSOVER_EDGES");
+      break;
+    case INHERIT_HALF_OF_ALL_EDGES:
+      printf("INHERIT_HALF_OF_ALL_EDGES");
+      break;
+    case INHERIT_ALL_EDGES:
+      printf("INHERIT_ALL_EDGES");
       break;
   }
   puts(";\n");
@@ -675,7 +683,7 @@ double invv(double target, double radius, double x) {
 }
 
 double along_ridge(World *w, double x, double y) {
-  printf("x = %lf; y = %lf; fabs(%lf) = %lf\n", x, y, y - (w->c2 * x + w->c3), fabs(y - (w->c2 * x + w->c3)));
+  //printf("x = %lf; y = %lf; fabs(%lf) = %lf\n", x, y, y - (w->c2 * x + w->c3), fabs(y - (w->c2 * x + w->c3)));
   return invv(0.0, w->ridge_radius, fabs(y - (w->c2 * x + w->c3)));
 }
 
@@ -687,7 +695,7 @@ double phenotype_fitness(World *w, Genotype *g) {
   };
   double peak_x = w->c1;
   double peak_y = w->c2 * w->c1 + w->c3;
-  printf("along_ridge(%lf, %lf) = %lf\n", phenotype[0], phenotype[1], along_ridge(w, phenotype[0], phenotype[1]));
+  //printf("along_ridge(%lf, %lf) = %lf\n", phenotype[0], phenotype[1], along_ridge(w, phenotype[0], phenotype[1]));
   if (phenotype[0] != UNWRITTEN && phenotype[1] != UNWRITTEN) {
     return //many_small_hills(phenotype) +
       //(5 * (sqrt8 - distance(w->c1, w->c1, phenotype[0], phenotype[1])));
@@ -932,9 +940,21 @@ void crossover(World *w, Organism *b, Organism *m, Organism *d) {
           add_edge(baby, edge->src, edge->dst, edge->weight);
         }
         break;
-      case INHERIT_HALF_OF_EDGES_FROM_BOTH_PARENTS:
+      case INHERIT_HALF_OF_CROSSOVER_EDGES:
+        if ((edge->src < mommy_crossover_point || edge->dst < mommy_crossover_point) &&
+            coin_flip() &&
+            has_node(baby, edge->src) && has_node(baby, edge->dst)) {
+          add_edge(baby, edge->src, edge->dst, edge->weight);
+        }
+        break;
+      case INHERIT_HALF_OF_ALL_EDGES:
         if (coin_flip() &&
             has_node(baby, edge->src) && has_node(baby, edge->dst)) {
+          add_edge(baby, edge->src, edge->dst, edge->weight);
+        }
+        break;
+      case INHERIT_ALL_EDGES:
+        if (has_node(baby, edge->src) && has_node(baby, edge->dst)) {
           add_edge(baby, edge->src, edge->dst, edge->weight);
         }
         break;
@@ -959,15 +979,31 @@ void crossover(World *w, Organism *b, Organism *m, Organism *d) {
           add_edge(baby, bsrc, bdst, edge->weight);
         }
         break;
+      case INHERIT_SRC_EDGES_FROM_MOMMY:
+        // nothing
+        break;
       case INHERIT_SRC_EDGES_FROM_BOTH_PARENTS:
         if (edge->src >= daddy_crossover_point &&
             has_node(baby, bsrc) && has_node(baby, bdst)) {
           add_edge(baby, bsrc, bdst, edge->weight);
         }
         break;
-      case INHERIT_HALF_OF_EDGES_FROM_BOTH_PARENTS:
-        if (edge->src >= daddy_crossover_point &&
+      case INHERIT_HALF_OF_CROSSOVER_EDGES:
+        if ((edge->src >= daddy_crossover_point || edge->dst >= daddy_crossover_point) &&
             coin_flip() &&
+            has_node(baby, bsrc) && has_node(baby, bdst)) {
+          add_edge(baby, bsrc, bdst, edge->weight);
+        }
+        break;
+      case INHERIT_HALF_OF_ALL_EDGES:
+        if (coin_flip() &&
+            !has_edge(mommy, bsrc, bdst) &&
+            has_node(baby, bsrc) && has_node(baby, bdst)) {
+          add_edge(baby, bsrc, bdst, edge->weight);
+        }
+        break;
+      case INHERIT_ALL_EDGES:
+        if (!has_edge(mommy, bsrc, bdst) &&
             has_node(baby, bsrc) && has_node(baby, bdst)) {
           add_edge(baby, bsrc, bdst, edge->weight);
         }
@@ -978,9 +1014,6 @@ void crossover(World *w, Organism *b, Organism *m, Organism *d) {
 //          add_edge(baby, bsrc, bdst % baby->num_nodes, edge->weight);
 //        }
 //        break;
-      case INHERIT_SRC_EDGES_FROM_MOMMY:
-        // nothing
-        break;
     }
   }
   //assert(e == baby->num_edges);
@@ -1099,16 +1132,35 @@ void dot_test(int seed) {
   run_world(w);
 }
 
+void set_horizontal_ridge(World *w) {
+  w->c2 = 0.0;
+  w->c3 = 0.0;
+}
+
+void set_diagonal_ridge(World *w) {
+  w->c2 = 1.0;
+  w->c3 = 0.0;
+}
+
+void set_oblique_ridge(World *w) {
+  w->c2 = 2.0;
+  w->c3 = 0.45;
+}
+
+void set_easier_oblique_ridge(World *w) {
+  w->c2 = 1.1;
+  w->c3 = 0.75;
+}
+
 void long_test_start_small(int seed) {
   World *w = create_world(40);
   w->random_seed = seed;
-  w->num_epochs = 5;
+  w->num_epochs = 50;
   //w->generations_per_epoch = 20;
   //w->num_candidates = 5;
-  w->edge_inheritance = INHERIT_HALF_OF_EDGES_FROM_BOTH_PARENTS;
-  w->c2 = 2.0;
-  w->c3 = 0.45;
-  w->ridge_radius = 0.05;
+  w->edge_inheritance = INHERIT_ALL_EDGES;
+  set_oblique_ridge(w);
+  w->ridge_radius = 0.2;
   w->crossover_freq = 0.3;
   //w->mutation_type_ub = 30;
   //w->sa_timesteps = 20;
@@ -1173,7 +1225,7 @@ void parameter_sweep(int seed) {
     NO_EDGES_ACROSS_PARENTS,
     INHERIT_SRC_EDGES_FROM_MOMMY,
     INHERIT_SRC_EDGES_FROM_BOTH_PARENTS,
-    INHERIT_HALF_OF_EDGES_FROM_BOTH_PARENTS
+    INHERIT_HALF_OF_CROSSOVER_EDGES
   };
 
   PARAMS p;
@@ -1213,7 +1265,7 @@ void good_run_oblique() {
   w->mutation_type_ub=15;
   w->extra_mutation_rate=0.100000;
   w->crossover_freq=0.300000;
-  w->edge_inheritance=INHERIT_HALF_OF_EDGES_FROM_BOTH_PARENTS;
+  //w->edge_inheritance=INHERIT_HALF_OF_EDGES_FROM_BOTH_PARENTS;
 
   //w->num_organisms=40;
   w->num_candidates=7;
@@ -1233,7 +1285,7 @@ void good_run_oblique2() {
   w->mutation_type_ub=16;
   w->extra_mutation_rate=0.100000;
   w->crossover_freq=0.300000;
-  w->edge_inheritance=INHERIT_HALF_OF_EDGES_FROM_BOTH_PARENTS;
+  //w->edge_inheritance=INHERIT_HALF_OF_EDGES_FROM_BOTH_PARENTS;
 
   //w->num_organisms=40;
   w->num_candidates=7;
@@ -1270,8 +1322,7 @@ int main(int argc, char **argv) {
   //quick_test(seed);
   //dot_test(seed);
   //long_test(seed);
-  long_test_start_small(677953487); // the main test
-  //long_test_start_small(132563722);
+  long_test_start_small(seed);  //(677953487); // the main test
   //parameter_sweep(seed);
   //good_run_oblique();
   //good_run_oblique2();
