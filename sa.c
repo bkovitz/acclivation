@@ -1261,8 +1261,10 @@ int get_seed(char **argv, int argc) {
   printf("acclivation = %lf\n", acclivation);
 }*/
 
+_Pragma("GCC diagnostic push")
+_Pragma("GCC diagnostic ignored \"-Wunused-variable\"")
 int main(int argc, char **argv) {
-  //int seed = get_seed(argv, argc);
+  int seed = get_seed(argv, argc);
   //sa_test();
   //sa_test2();
   //quick_test(seed);
@@ -1279,3 +1281,4 @@ int main(int argc, char **argv) {
   //acclivation_test(seed);
   return 0;
 }
+_Pragma("GCC diagnostic pop")
