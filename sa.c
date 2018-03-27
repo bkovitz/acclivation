@@ -1071,8 +1071,8 @@ void long_test_start_small(int seed) {
   //w->generations_per_epoch = 20;
   //w->num_candidates = 5;
   w->edge_inheritance = INHERIT_HALF_OF_EDGES_FROM_BOTH_PARENTS;
-  w->c2 = 2.0;
-  w->c3 = 0.45;
+  w->c2 = 1.0; //2.0;
+  w->c3 = 0.0; //0.45;
   w->ridge_radius = 0.05;
   w->crossover_freq = 0.3;
   //w->mutation_type_ub = 30;
