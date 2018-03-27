@@ -37,10 +37,11 @@ OUT=out
 with_seed:
 	./sa `grep seed $(OUT) | cut -d'=' -f2`
 
+NRUNS = $(shell seq 1 20)
 many: sa
-	./sa > out
-	for i in $$(seq 1 50); do ./sa >> out; done
-	grep average out
+	@./sa > out
+	@tail -1 out
+	@$(foreach i,$(NRUNS),./sa >> out; tail -1 out;)
 
 clean:
 	rm test.pdf test.dot

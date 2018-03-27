@@ -25,7 +25,7 @@
 #define array_len(a) (sizeof(a) / sizeof(a[0]))
 
 int verbose = 0;
-bool debug = false;
+bool debug = true;
 bool dot = false;
 
 // -- graph ------------------------------------------------------------------
@@ -257,7 +257,7 @@ void init_activations(Genotype *g, double *activations) {
 void print_all_activations(Genotype *g, double *activations) {
   for (int n = 0; n < g->num_nodes; n++) {
     if (g->nodes[n].in_use)
-      printf("%4.2f ", activations[n]);
+      printf("%.16f ", activations[n]);
   }
   printf("\n");
 }
@@ -675,6 +675,7 @@ double invv(double target, double radius, double x) {
 }
 
 double along_ridge(World *w, double x, double y) {
+  printf("x = %lf; y = %lf; fabs(%lf) = %lf\n", x, y, y - (w->c2 * x + w->c3), fabs(y - (w->c2 * x + w->c3)));
   return invv(0.0, w->ridge_radius, fabs(y - (w->c2 * x + w->c3)));
 }
 
@@ -686,6 +687,7 @@ double phenotype_fitness(World *w, Genotype *g) {
   };
   double peak_x = w->c1;
   double peak_y = w->c2 * w->c1 + w->c3;
+  printf("along_ridge(%lf, %lf) = %lf\n", phenotype[0], phenotype[1], along_ridge(w, phenotype[0], phenotype[1]));
   if (phenotype[0] != UNWRITTEN && phenotype[1] != UNWRITTEN) {
     return //many_small_hills(phenotype) +
       //(5 * (sqrt8 - distance(w->c1, w->c1, phenotype[0], phenotype[1])));
@@ -718,7 +720,7 @@ void copy_organism(Organism *new_o, Organism *old_o) {
 }
 
 bool has_node(Genotype *g, int n) {
-  return n < g->num_nodes && g->nodes[n].in_use;
+  return n >= 0 && n < g->num_nodes && g->nodes[n].in_use;
 }
 
 bool has_edge(Genotype *g, int src, int dst) {
@@ -732,7 +734,9 @@ bool has_edge(Genotype *g, int src, int dst) {
 
 void add_edge(Genotype *g, int src, int dst, double weight) {
   assert(has_node(g, src));
+  assert(src >= 0);
   assert(has_node(g, dst));
+  assert(dst >= 0);
   g->num_edges++;
   g->edges = realloc(g->edges, sizeof(Edge) * g->num_edges);
   int e = g->num_edges - 1;
@@ -962,11 +966,18 @@ void crossover(World *w, Organism *b, Organism *m, Organism *d) {
         }
         break;
       case INHERIT_HALF_OF_EDGES_FROM_BOTH_PARENTS:
-        if (coin_flip() &&
+        if (edge->src >= daddy_crossover_point &&
+            coin_flip() &&
             has_node(baby, bsrc) && has_node(baby, bdst)) {
           add_edge(baby, bsrc, bdst, edge->weight);
         }
         break;
+//        if (edge->src >= daddy_crossover_point &&
+//            coin_flip() &&
+//            has_node(baby, bsrc) && has_node(baby, bdst % baby->num_nodes)) {
+//          add_edge(baby, bsrc, bdst % baby->num_nodes, edge->weight);
+//        }
+//        break;
       case INHERIT_SRC_EDGES_FROM_MOMMY:
         // nothing
         break;
@@ -1030,11 +1041,35 @@ void sa_test() {
     { 5, 0, -1.0 },
     { 5, 3, -1.0 }
   };
-  Genotype genotype = { nodes, edges, 6, 6, 2, 2 };
+  Genotype genotype = { nodes, edges, 6, 6, 6, 2, 2 };
   Organism o = { &genotype, 0.0 };
   
   verbose = 9;
   sa(&o, 13, 1.0);
+}
+
+void sa_test2() {
+  Node nodes[] = {
+    { true, 0.0, 0.0, clamp },
+    { true, 0.0, 0.0, clamp },
+    { true, 0.0, 0.0, clamp },
+    { true, 0.0, 0.0, clamp },
+    { true, -1.0, 0.0, clamp }
+  };
+  Edge edges[] = {
+    { 4, 2, 1 },
+    { 2, 2, 1 },
+    { 2, 3, -1 },
+    { 2, 3, -1 },
+    { 2, 3, -1 },
+    { 3, 3, 1 },
+    { 3, 2, 1 }
+  };
+  Genotype genotype = { nodes, edges, 5, 5, 7, 2, 2 };
+  Organism o = { &genotype, 0.0 };
+  
+  verbose = 9;
+  sa(&o, 20, 0.01);
 }
 
 void dump_phenotype_fitness() {
@@ -1067,12 +1102,12 @@ void dot_test(int seed) {
 void long_test_start_small(int seed) {
   World *w = create_world(40);
   w->random_seed = seed;
-  w->num_epochs = 50;
+  w->num_epochs = 5;
   //w->generations_per_epoch = 20;
   //w->num_candidates = 5;
   w->edge_inheritance = INHERIT_HALF_OF_EDGES_FROM_BOTH_PARENTS;
-  w->c2 = 1.0; //2.0;
-  w->c3 = 0.0; //0.45;
+  w->c2 = 2.0;
+  w->c3 = 0.45;
   w->ridge_radius = 0.05;
   w->crossover_freq = 0.3;
   //w->mutation_type_ub = 30;
@@ -1227,12 +1262,14 @@ int get_seed(char **argv, int argc) {
 }*/
 
 int main(int argc, char **argv) {
-  int seed = get_seed(argv, argc);
+  //int seed = get_seed(argv, argc);
   //sa_test();
+  //sa_test2();
   //quick_test(seed);
   //dot_test(seed);
   //long_test(seed);
-  long_test_start_small(seed); // the main test
+  long_test_start_small(677953487); // the main test
+  //long_test_start_small(132563722);
   //parameter_sweep(seed);
   //good_run_oblique();
   //good_run_oblique2();
