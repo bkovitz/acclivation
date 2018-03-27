@@ -329,6 +329,7 @@ typedef struct world_t {
   Genotype *genotypes;
   Organism *organisms;
   double (*phenotype_fitness_func)(struct world_t *, Genotype *);
+  double distance_weight;
   int epoch;
   int generation;
   double c1, c2, c3;
@@ -366,6 +367,7 @@ World *create_world(int num_organisms) {
   w->genotypes = calloc(num_organisms, sizeof(Genotype)); // THIS IS CRAZY!
   w->organisms = calloc(num_organisms, sizeof(Organism));
   w->phenotype_fitness_func = phenotype_fitness;
+  w->distance_weight = 5.0;
   w->epoch = 0;
   w->generation = 0;
   w->c1 = 0.5;
@@ -618,6 +620,7 @@ void run_world(World *w) {
   printf("w->ridge_radius=%lf;\n", w->ridge_radius);
   printf("w->c2=%lf; w->c3=%lf;\n", w->c2, w->c3);
   printf("w->decay_rate=%lf;\n", w->decay_rate);
+  printf("w->distance_weight=%lf;\n", w->distance_weight);
   printf("w->mutation_type_ub=%d;\n", w->mutation_type_ub);
   printf("w->extra_mutation_rate=%lf;\n", w->extra_mutation_rate);
   printf("w->crossover_freq=%lf;\n", w->crossover_freq);
@@ -687,7 +690,7 @@ double phenotype_fitness(World *w, Genotype *g) {
     return //many_small_hills(phenotype) +
       //(5 * (sqrt8 - distance(w->c1, w->c1, phenotype[0], phenotype[1])));
       along_ridge(w, phenotype[0], phenotype[1]) *
-      (5.0 * (sqrt8 - distance(peak_x, peak_y, phenotype[0], phenotype[1])));
+      (w->distance_weight * (sqrt8 - distance(peak_x, peak_y, phenotype[0], phenotype[1])));
   } else {
     return -10.0;
   }
@@ -1065,11 +1068,16 @@ void long_test_start_small(int seed) {
   World *w = create_world(40);
   w->random_seed = seed;
   w->num_epochs = 50;
+  //w->generations_per_epoch = 20;
+  //w->num_candidates = 5;
   w->edge_inheritance = INHERIT_HALF_OF_EDGES_FROM_BOTH_PARENTS;
   w->c2 = 2.0;
   w->c3 = 0.45;
-  w->ridge_radius = 0.2;
+  w->ridge_radius = 0.05;
   w->crossover_freq = 0.3;
+  //w->mutation_type_ub = 30;
+  //w->sa_timesteps = 20;
+  //w->distance_weight = 5.0;
   w->dump_fitness_nbhd = true;
   w->dump_fitness_epoch = 5;
   w->dump_fitness_generation = 20;
