@@ -346,6 +346,7 @@ typedef struct world_t {
   bool dump_fitness_nbhd;
   int dump_fitness_epoch;
   int dump_fitness_generation;
+  double total_epoch_fitness_delta;
 } World;
 
 double phenotype_fitness(World *, Genotype *);
@@ -383,6 +384,7 @@ World *create_world(int num_organisms) {
   w->dump_fitness_nbhd = false;
   w->dump_fitness_epoch = -1;
   w->dump_fitness_generation = -1;
+  w->total_epoch_fitness_delta = 0.0;
   return w;
 }
 
@@ -488,6 +490,11 @@ int find_best_organism(World *w) {
   return max_fitness_index;
 }
 
+double find_best_fitness(World *w) {
+  int best_organism_index = find_best_organism(w);
+  return w->organisms[best_organism_index].fitness;
+}
+
 void print_best_fitness(World *w) {
   int best_organism_index = find_best_organism(w);
   Organism *o = &w->organisms[best_organism_index];
@@ -545,6 +552,7 @@ void change_fitness_constants(World *w) {
 }
 
 void run_epoch(World *w, int e) {
+  double epoch_start_fitness;
   change_fitness_constants(w);
   if (!dot)
     printf("\nepoch %d (c1=%lf, c2=%lf, c3=%lf)\n", e, w->c1, w->c2, w->c3);
@@ -552,6 +560,7 @@ void run_epoch(World *w, int e) {
   w->generation = 0;
   set_phenotypes_and_fitnesses(w);
   print_generation_results(w);
+  epoch_start_fitness = find_best_fitness(w);
   for (w->generation = 1;
        w->generation <= w->generations_per_epoch;
        w->generation++) {
@@ -564,6 +573,7 @@ void run_epoch(World *w, int e) {
       dump_fitness_nbhd(w);
     }
   }
+  w->total_epoch_fitness_delta += find_best_fitness(w) - epoch_start_fitness;
   fflush(stdout);
 }
 
@@ -638,6 +648,8 @@ void run_world(World *w) {
     run_epoch(w, e);
   }
   dump_virtual_fitness_func(w);
+  printf("average epoch fitness delta = %lf\n",
+      w->total_epoch_fitness_delta / w->num_epochs);
   //free_world();
 }
 
@@ -952,6 +964,9 @@ void crossover(World *w, Organism *b, Organism *m, Organism *d) {
           add_edge(baby, bsrc, bdst, edge->weight);
         }
         break;
+      case INHERIT_SRC_EDGES_FROM_MOMMY:
+        // nothing
+        break;
     }
   }
   //assert(e == baby->num_edges);
@@ -959,7 +974,7 @@ void crossover(World *w, Organism *b, Organism *m, Organism *d) {
 
 // -- measuring acclivation --------------------------------------------------
 
-void set_random_genotype(Organism *o) {
+/*void set_random_genotype(Organism *o) {
   for (int i = 0; i < o->genotype->num_in; i++)
     o->genotype->nodes[i].initial_activation = rand_activation();
 }
@@ -991,7 +1006,7 @@ double get_acclivation(World *w, Organism *test_o) {
   }
 
   return total_ending_fitness / num_hill_climbers;
-}
+}*/
 
 // ---------------------------------------------------------------------------
 
@@ -1194,14 +1209,14 @@ int get_seed(char **argv, int argc) {
   }
 }
 
-void acclivation_test(int seed) {
+/*void acclivation_test(int seed) {
   World *w = create_world(40);
   w->random_seed = seed;
   w->num_epochs = 20;
   run_world(w);
   double acclivation = get_acclivation(w, &w->organisms[rand() % 40]);
   printf("acclivation = %lf\n", acclivation);
-}
+}*/
 
 int main(int argc, char **argv) {
   int seed = get_seed(argv, argc);
@@ -1209,10 +1224,10 @@ int main(int argc, char **argv) {
   //quick_test(seed);
   //dot_test(seed);
   //long_test(seed);
-  //long_test_start_small(seed); // the main test
+  long_test_start_small(seed); // the main test
   //parameter_sweep(seed);
   //good_run_oblique();
-  good_run_oblique2();
+  //good_run_oblique2();
   //one_long_epoch(seed);
   //dump_virt_test(seed);
   //dump_phenotype_fitness();
