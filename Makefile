@@ -1,3 +1,5 @@
+DOT = dot -Tpdf
+
 all: sa
 
 sa: sa.c Makefile
@@ -17,6 +19,9 @@ outs: sa
 	./sa >> out
 	./sa >> out
 	grep "epoch fitness" out
+
+%.pdf: %.dot
+	$(DOT) < $< > $@
 
 test.dot: sa
 	./sa > test.dot
