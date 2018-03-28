@@ -35,6 +35,12 @@ dot: test.pdf
 phplot:
 	./plot_xyz.py phfunc 0 1 2
 
+vfplot:
+	./plot_xyz.py vfunc 0 1 4
+
+phrangeplot:
+	./plot_xyz.py vfunc 2 3 4 scatter
+
 fitness: sa
 	./sa > fitness.out
 	./plot_fitness.py fitness.out

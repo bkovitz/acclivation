@@ -2,6 +2,7 @@
 import re
 import sys
 from tempfile import NamedTemporaryFile
+import subprocess
 
 class Organism:
   def __init__(self, fitness, nodes, edges, g, p):
@@ -38,10 +39,12 @@ def parse(filename):
 
 def show(organisms, epoch, generation, index):
   o = organisms[(epoch, generation, index)]
-  outf = 'e%dg%do%d.dot' % (epoch, generation, index)
-  with open(outf, 'w') as f:
+  outf = 'e%dg%do%d' % (epoch, generation, index)
+  with open(outf + '.dot', 'w') as f:
     for line in o.dot:
       f.write("%s\n" % line)
+  subprocess.call(['make', outf + '.pdf'])
+  subprocess.call(['evince', outf + '.pdf'])
 
 if __name__=='__main__':
   if len(sys.argv) != 4:

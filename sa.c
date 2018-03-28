@@ -900,7 +900,7 @@ void run_epoch(World *w, int e) {
   }
   add_datum(w->epoch_fitness_deltas,
     ((find_best_fitness(w) - epoch_start_fitness) /
-     (10.0 - epoch_start_fitness)));
+     (11.0 - epoch_start_fitness)));
   fflush(stdout);
 }
 
@@ -908,7 +908,7 @@ void dump_virtual_fitness_func(World *w) {
   int best_organism_index = find_best_organism(w);
   Organism o;
   copy_organism(&o, &w->organisms[best_organism_index]);
-  double delta = 0.1;
+  double delta = 0.02;
   for (double g1 = -1.0; g1 <= 1.0; g1 += delta) {
     for (double g2 = -1.0; g2 <= 1.0; g2 += delta) {
       o.genotype->nodes[0].initial_activation = g1;
@@ -926,7 +926,7 @@ void dump_virtual_fitness_func(World *w) {
 }
 
 void dump_phenotype_fitness_func(World *w) {
-  double delta = 0.05;
+  double delta = 0.02;
   Genotype g;
   init_random_genotype(w, &g, 0, 4, 2, 2);
   for (double p1 = -1.0; p1 <= 1.0; p1 += delta) {
@@ -1005,7 +1005,7 @@ void run_world(World *w) {
 // -- fitness ----------------------------------------------------------------
 
 double many_small_hills(double *phenotype) { // length is 2
-  return cos(phenotype[0] * 20.0) * sin(phenotype[1] * 20.0);
+  return cos(phenotype[0] * 30.0) * sin(phenotype[1] * 30.0);
 }
 
 double distance(double x1, double y1, double x2, double y2) {
@@ -1049,7 +1049,7 @@ double phenotype_fitness(World *w, Genotype *g) {
     double dist = distance(peak_x, peak_y, phenotype[0], phenotype[1]);
     //double scaled_dist = (sqrt8 - dist) / sqrt8;  // 0.0 to 1.0; 1.0 is right on it
     double scaled_dist = (sqrt2 - dist) / sqrt2;  // 0.0 to 1.0; 1.0 is right on it
-    double fitness = //many_small_hills(phenotype) +
+    double fitness = many_small_hills(phenotype) +
       //(5 * (sqrt8 - distance(w->c1, w->c1, phenotype[0], phenotype[1])));
       require_pos_region(phenotype[0], phenotype[1]) *
       along_ridge(w, phenotype[0], phenotype[1]) *
@@ -1505,6 +1505,8 @@ void sa_test2() {
 
 void dump_phenotype_fitness() {
   World *w = create_world(40);
+  w->ridge_radius=0.200000;
+  w->c2=1.000000; w->c3=0.000000;
   print_world_params(w);
   dump_phenotype_fitness_func(w);
 }
@@ -1554,7 +1556,7 @@ void easier_oblique_ridge(World *w) {
 void long_test_start_small(int seed) {
   World *w = create_world(40);
   w->random_seed = seed;
-  w->num_epochs = 2;
+  w->num_epochs = 200;
   //w->generations_per_epoch = 20;
   //w->num_candidates = 5;
   w->edge_inheritance = INHERIT_ALL_EDGES;
@@ -1572,7 +1574,7 @@ void long_test_start_small(int seed) {
   w->dump_fitness_nbhd = true;
   w->dump_fitness_epoch = 5;
   w->dump_fitness_generation = 20;
-  w->log->enabled = true;
+  w->log->enabled = false;
   w->log->path = "./ancestors";
   run_world(w);
 }

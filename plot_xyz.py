@@ -23,6 +23,8 @@ def plot(X, Y, Z, scatter):
   fig = plt.figure()
   ax = Axes3D(fig)
   if scatter:
+    plt.ylim((-1,1))
+    plt.xlim((-1,1))
     ax.scatter3D(X, Y, Z)
   else:
     ax.plot_trisurf(X, Y, Z, cmap=cm.jet, edgecolor='none', shade=True)
