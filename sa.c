@@ -363,28 +363,62 @@ void free_organism(Organism *o) {
   free_genotype(o->genotype);
 }
 
-void print_organism_dot(Organism *o) {
+void print_organism_dot(Organism *o, FILE *f) {
   Genotype *g = o->genotype;
 
-  printf("digraph g {\n");
-  printf("  { rank=source edge [style=\"invis\"] ");
+  fprintf(f, "digraph g {\n");
+  fprintf(f, "  { rank=source edge [style=\"invis\"] ");
   for (int i = 0; i < g->num_in - 1; i++)
-    printf("n%d ->", i);
-  printf(" n%d }\n", g->num_in - 1);
-  printf("  { rank=sink edge [style=\"invis\"] ");
+    fprintf(f, "n%d ->", i);
+  fprintf(f, " n%d }\n", g->num_in - 1);
+  fprintf(f, "  { rank=sink edge [style=\"invis\"] ");
   for (int o = 0; o < g->num_out - 1; o++)
-    printf("n%d ->", g->num_in + o);
-  printf(" n%d }\n", g->num_in + g->num_out - 1);
+    fprintf(f, "n%d ->", g->num_in + o);
+  fprintf(f, " n%d }\n", g->num_in + g->num_out - 1);
   for (int n = 0; n < g->num_nodes; n++) {
     if (g->nodes[n].in_use)
-      printf("  n%d [label=\"%.3lf %s\"]\n", n, g->nodes[n].final_activation,
+      fprintf(f, "  n%d [label=\"%.3lf %s\"]\n", n, g->nodes[n].final_activation,
              activation_type_string(g->nodes[n].activation_type));
   }
   for (int e = 0; e < g->num_edges; e++) {
-    printf("  n%d -> n%d [label=%.3lf];\n", g->edges[e].src, g->edges[e].dst,
+    fprintf(f, "  n%d -> n%d [label=%.3lf];\n", g->edges[e].src, g->edges[e].dst,
       g->edges[e].weight);
   }
-  printf("}\n");
+  fprintf(f, "}\n");
+}
+
+// -- ancestor logging -------------------------------------------------------
+
+typedef struct {
+  bool enabled;
+  char *path;
+  FILE *f;
+} ANCESTOR_LOG;
+
+ANCESTOR_LOG *create_ancestor_log() {
+  ANCESTOR_LOG *log = malloc(sizeof(ANCESTOR_LOG));
+  log->enabled = false;
+  log->path = NULL;
+  log->f = NULL;
+  return log;
+}
+
+void free_ancestor_log(ANCESTOR_LOG *log) {
+  free(log);
+}
+
+void open_ancestor_log(ANCESTOR_LOG *log) {
+  if (log->enabled) {
+    assert(log->path);
+    log->f = fopen(log->path, "w");
+  }
+}
+
+void close_ancestor_log(ANCESTOR_LOG *log) {
+  if (log->enabled) {
+    assert(log->f);
+    fclose(log->f);
+  }
 }
 
 // -- world ------------------------------------------------------------------
@@ -427,6 +461,7 @@ typedef struct world_t {
   int dump_fitness_epoch;
   int dump_fitness_generation;
   DATA *epoch_fitness_deltas;
+  ANCESTOR_LOG *log;
 } World;
 
 double phenotype_fitness(World *, Genotype *);
@@ -470,6 +505,7 @@ World *create_world(int num_organisms) {
   w->dump_fitness_generation = -1;
 
   w->epoch_fitness_deltas = create_data();
+  w->log = create_ancestor_log();
   return w;
 }
 
@@ -628,7 +664,7 @@ void set_phenotypes_and_fitnesses(World *w) {
     Organism *o = &w->organisms[n];
     sa(o, w->sa_timesteps, w->decay_rate);
 //    if (dot)
-//      print_organism_dot(o);
+//      print_organism_dot(o, stdout);
     o->fitness = w->phenotype_fitness_func(w, o->genotype);
   }
 }
@@ -687,6 +723,51 @@ void sanity_check(World *w) {
   }
 }
 
+void log_organisms(World *w) {
+  if (w->log->enabled) {
+    for (int i = 0; i < w->num_organisms; i++) {
+      Organism *o = &w->organisms[i];
+      Genotype *g = o->genotype;
+      fprintf(w->log->f, "organism [%d,%d,%d] fitness=%20.16lf  nodes=%2d  edges=%2d  g-vector=[% lf % lf] phenotype=[% .16lf % .16lf]\n",
+        w->epoch,
+        w->generation,
+        i,
+        o->fitness,
+        g->num_nodes_in_use,
+        g->num_edges,
+        g->nodes[0].initial_activation,
+        g->nodes[1].initial_activation,
+        g->nodes[2].final_activation,
+        g->nodes[3].final_activation);
+      print_organism_dot(o, w->log->f);
+    }
+  }
+}
+
+void log_mutation_start(World *w, int parent, int child) {
+  if (w->log->enabled) {
+    fprintf(w->log->f, "mutation %d %d [ ", parent, child);
+  }
+}
+
+void log_mutation(World *w, char *type) {
+  if (w->log->enabled) {
+    fprintf(w->log->f, "%s ", type);
+  }
+}
+
+void log_mutation_end(World *w) {
+  if (w->log->enabled) {
+    fprintf(w->log->f, "]\n");
+  }
+}
+
+void log_crossover(World *w, int mommy, int daddy, int child) {
+  if (w->log->enabled) {
+    fprintf(w->log->f, "crossover %d %d %d\n", mommy, daddy, child);
+  }
+}
+
 void dump_fitness_nbhd(World *w);
 
 void run_generation(World *w) {
@@ -699,10 +780,13 @@ void run_generation(World *w) {
       Organism *baby = &new_population[p];
       baby->genotype = calloc(1, sizeof(Genotype)); // SUPER UGLY
       crossover(w, baby, &old_population[mommy], &old_population[daddy]);
+      log_crossover(w, mommy, daddy, p);
     } else {
       int selected_organism = tournament_select(w);
       copy_organism(&new_population[p], &w->organisms[selected_organism]);
+      log_mutation_start(w, selected_organism, p);
       mutate(w, &new_population[p]);
+      log_mutation_end(w);
     }
   }
   for (int p = 0; p < w->num_organisms; p++)
@@ -711,6 +795,7 @@ void run_generation(World *w) {
   set_phenotypes_and_fitnesses(w);
   if (debug)
     sanity_check(w);
+  log_organisms(w);
 }
 
 int find_best_organism(World *w) {
@@ -744,7 +829,7 @@ void print_best_fitness(World *w) {
     g->nodes[1].initial_activation,
     g->nodes[2].final_activation,
     g->nodes[3].final_activation);
-  print_organism_dot(o);
+  print_organism_dot(o, stdout);
 }
 
 void print_generation_results(World *w) {
@@ -782,6 +867,7 @@ void free_world(World *w) {
   for (int i = 0; i < w->num_organisms; i++)
     free_organism(&w->organisms[i]); // will free associated genotype
   free_data(w->epoch_fitness_deltas);
+  free_ancestor_log(w->log);
   free(w);
 }
 
@@ -900,6 +986,8 @@ void run_world(World *w) {
   printf("--------------------------------------------------------------------------------\n");
   print_world_params(w);
 
+  open_ancestor_log(w->log);
+
   srand(w->random_seed);
   init_random_population(w);
   for (int e = 1; e <= w->num_epochs; e++) {
@@ -909,6 +997,8 @@ void run_world(World *w) {
   printf("epoch fitness deltas: ");
   print_stats(w->epoch_fitness_deltas);
   //print_data(w->epoch_fitness_deltas);
+
+  close_ancestor_log(w->log);
   //free_world();
 }
 
@@ -1150,24 +1240,31 @@ void mutate(World *w, Organism *o) {
     switch (mutation_type) {
     case 0:
       mut_move_edge(w, o);
+      log_mutation(w, "move_edge");
       break;
     case 1:
       mut_add_node(w, o);
+      log_mutation(w, "add_node");
       break;
     case 2:
       mut_remove_node(o);
+      log_mutation(w, "remove_node");
       break;
     case 3:
       mut_add_edge(w, o);
+      log_mutation(w, "add_edge");
       break;
     case 4:
       mut_remove_edge(o);
+      log_mutation(w, "remove_edge");
       break;
     case 5:
       mut_alter_activation_type(w, o);
+      log_mutation(w, "alter_act_type");
       break;
     default:
       mut_turn_knob(w, o);
+      log_mutation(w, "turn_knob");
       break;
     }
   }
@@ -1457,7 +1554,7 @@ void easier_oblique_ridge(World *w) {
 void long_test_start_small(int seed) {
   World *w = create_world(40);
   w->random_seed = seed;
-  w->num_epochs = 200;
+  w->num_epochs = 2;
   //w->generations_per_epoch = 20;
   //w->num_candidates = 5;
   w->edge_inheritance = INHERIT_ALL_EDGES;
@@ -1475,6 +1572,8 @@ void long_test_start_small(int seed) {
   w->dump_fitness_nbhd = true;
   w->dump_fitness_epoch = 5;
   w->dump_fitness_generation = 20;
+  w->log->enabled = true;
+  w->log->path = "./ancestors";
   run_world(w);
 }
 
@@ -1652,7 +1751,7 @@ int main(int argc, char **argv) {
   //quick_test(seed);
   //dot_test(seed);
   //long_test(seed);
-  //long_test_start_small(seed);  //(677953487); // the main test
+  long_test_start_small(seed);  //(677953487); // the main test
   //parameter_sweep(seed);
   //good_run_oblique();
   //good_run_oblique2();
@@ -1660,7 +1759,7 @@ int main(int argc, char **argv) {
   //dump_virt_test(seed);
   //dump_phenotype_fitness();
   //acclivation_test(seed);
-  good_run_with_bumps();
+  //good_run_with_bumps();
   return 0;
 }
 _Pragma("GCC diagnostic pop")
