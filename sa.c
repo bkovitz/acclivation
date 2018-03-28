@@ -744,9 +744,23 @@ void log_organisms(World *w) {
   }
 }
 
+int prev_generation(World *w) {
+  return w->generation > 1 ? (w->generation - 1) : (w->generations_per_epoch - 1);
+}
+
+int maybe_prev_epoch(World *w) {
+  return w->generation > 1 ? w->epoch : (w->epoch - 1);
+}
+
 void log_mutation_start(World *w, int parent, int child) {
   if (w->log->enabled) {
-    fprintf(w->log->f, "mutation %d %d [ ", parent, child);
+    fprintf(w->log->f, "mutation %d,%d,%d %d,%d,%d [ ",
+      maybe_prev_epoch(w),
+      prev_generation(w),
+      parent,
+      w->epoch,
+      w->generation,
+      child);
   }
 }
 
@@ -764,7 +778,16 @@ void log_mutation_end(World *w) {
 
 void log_crossover(World *w, int mommy, int daddy, int child) {
   if (w->log->enabled) {
-    fprintf(w->log->f, "crossover %d %d %d\n", mommy, daddy, child);
+    fprintf(w->log->f, "crossover %d,%d,%d %d,%d,%d %d,%d,%d\n",
+      maybe_prev_epoch(w),
+      prev_generation(w),
+      mommy,
+      maybe_prev_epoch(w),
+      prev_generation(w),
+      daddy,
+      w->epoch,
+      w->generation,
+      child);
   }
 }
 
