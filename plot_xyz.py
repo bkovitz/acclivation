@@ -1,8 +1,9 @@
-#!/usr/bin/env python
+#!/usr/bin/env python2
 import csv
 import matplotlib.pyplot as plt
 import numpy as np
 import sys
+from math import sqrt
 
 from matplotlib import cm
 from mpl_toolkits.mplot3d import Axes3D
@@ -27,7 +28,12 @@ def plot(X, Y, Z, scatter):
     plt.xlim((-1,1))
     ax.scatter3D(X, Y, Z)
   else:
-    ax.plot_trisurf(X, Y, Z, cmap=cm.jet, edgecolor='none', shade=True)
+    dim = int(sqrt(len(X)))
+    X = X.reshape((dim, dim))
+    Y = Y.reshape((dim, dim))
+    Z = Z.reshape((dim, dim))
+    ax.plot_surface(X, Y, Z, rcount=dim, ccount=dim, cmap=cm.coolwarm, linewidth=3)
+    #ax.plot_trisurf(X, Y, Z, cmap=cm.jet, edgecolor='none', shade=True)
   plt.show()
   #plt.savefig('%s.png', dpi=100)
 
