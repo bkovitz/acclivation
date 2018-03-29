@@ -433,7 +433,8 @@ typedef struct world_t {
   int num_edges;
   int num_in;
   int num_out;
-  double decay_rate;
+  double decay;
+  double spreading_rate;
   ACTIVATION_TYPES activation_types;
   EDGE_WEIGHTS edge_weights;
   Genotype *genotypes;
@@ -477,7 +478,8 @@ World *create_world(int num_organisms) {
   w->num_edges = 0;
   w->num_in = 2;
   w->num_out = 2;
-  w->decay_rate = 0.01;
+  w->decay = 0.9;
+  w->spreading_rate = 0.2;
   w->activation_types = ONLY_SUM_INCOMING;
   w->edge_weights = EDGE_WEIGHTS_POS_OR_NEG;
   w->genotypes = calloc(num_organisms, sizeof(Genotype)); // THIS IS CRAZY!
@@ -587,7 +589,7 @@ void print_all_activations(Genotype *g, double *activations) {
   printf("\n");
 }
 
-void sa(Organism *o, int timesteps, double decay) {
+void sa(Organism *o, int timesteps, double decay, double spreading_rate) {
   Genotype *g = o->genotype;
 
   double activations[g->num_nodes];
@@ -631,7 +633,9 @@ void sa(Organism *o, int timesteps, double decay) {
               if (activations[n] == UNWRITTEN)
                 activations[n] = 0.0;
               activations[n] = node->threshold_func(
-                  activations[n] + decay * incoming_activations[n]);
+                  activations[n] + spreading_rate
+                                   * incoming_activations[n]
+                                   * pow(decay, timestep - 1));
               break;
             case MULT_INCOMING:
               // ignore previous activation
@@ -662,7 +666,7 @@ void sa(Organism *o, int timesteps, double decay) {
 void set_phenotypes_and_fitnesses(World *w) {
   for (int n = 0; n < w->num_organisms; n++) {
     Organism *o = &w->organisms[n];
-    sa(o, w->sa_timesteps, w->decay_rate);
+    sa(o, w->sa_timesteps, w->decay, w->spreading_rate);
 //    if (dot)
 //      print_organism_dot(o, stdout);
     o->fitness = w->phenotype_fitness_func(w, o->genotype);
@@ -874,7 +878,7 @@ void dump_fitness_nbhd(World *w) {
     for (double dy = -m * w->knob_constant; dy <= m * w->knob_constant; dy += w->knob_constant) {
       g->nodes[0].initial_activation = original->genotype->nodes[0].initial_activation + dx;
       g->nodes[1].initial_activation = original->genotype->nodes[1].initial_activation + dy;
-      sa(&o, w->sa_timesteps, w->decay_rate);
+      sa(&o, w->sa_timesteps, w->decay, w->spreading_rate);
       o.fitness = w->phenotype_fitness_func(w, o.genotype);
       printf("  % lf % lf % .16lf % .16lf % lf\n",
         dx,
@@ -932,11 +936,12 @@ void dump_virtual_fitness_func(World *w) {
   Organism o;
   copy_organism(&o, &w->organisms[best_organism_index]);
   double delta = 0.02;
+  puts("BEGIN VFUNC");
   for (double g1 = -1.0; g1 <= 1.0; g1 += delta) {
     for (double g2 = -1.0; g2 <= 1.0; g2 += delta) {
       o.genotype->nodes[0].initial_activation = g1;
       o.genotype->nodes[1].initial_activation = g2;
-      sa(&o, w->sa_timesteps, w->decay_rate);
+      sa(&o, w->sa_timesteps, w->decay, w->spreading_rate);
       o.fitness = w->phenotype_fitness_func(w, o.genotype);
       printf("%lf %lf %lf %lf %lf\n",
         g1,
@@ -946,12 +951,14 @@ void dump_virtual_fitness_func(World *w) {
         o.fitness);
     }
   }
+  puts("END VFUNC");
 }
 
 void dump_phenotype_fitness_func(World *w) {
   double delta = 0.02;
   Genotype g;
   init_random_genotype(w, &g, 0, 4, 2, 2);
+  puts("BEGIN PHFUNC");
   for (double p1 = -1.0; p1 <= 1.0; p1 += delta) {
     for (double p2 = -1.0; p2 <= 1.0; p2 += delta) {
       g.nodes[2].final_activation = p1;
@@ -960,13 +967,15 @@ void dump_phenotype_fitness_func(World *w) {
       printf("%lf %lf %lf\n", p1, p2, fitness);
     }
   }
+  puts("END PHFUNC");
 }
 
 void print_world_params(World *w) {
   printf("w->random_seed=%d;\n", w->random_seed);
   printf("w->ridge_radius=%lf;\n", w->ridge_radius);
   printf("w->c2=%lf; w->c3=%lf;\n", w->c2, w->c3);
-  printf("w->decay_rate=%lf;\n", w->decay_rate);
+  printf("w->decay=%lf;\n", w->decay);
+  printf("w->spreading_rate=%lf;\n", w->spreading_rate);
   printf("w->distance_weight=%lf;\n", w->distance_weight);
   printf("w->bumps=%s;\n", w->bumps ? "true" : "false");
   printf("w->mutation_type_ub=%d;\n", w->mutation_type_ub);
@@ -1017,6 +1026,7 @@ void run_world(World *w) {
     run_epoch(w, e);
   }
   dump_virtual_fitness_func(w);
+  dump_phenotype_fitness_func(w);
   printf("epoch fitness deltas: ");
   print_stats(w->epoch_fitness_deltas);
   //print_data(w->epoch_fitness_deltas);
@@ -1455,7 +1465,7 @@ double climb_hill(World *w, Organism *o) {
   while (o->fitness > last_fitness) {
     last_fitness = o->fitness;
     mut_turn_knob(w, o);
-    sa(o, w->sa_timesteps, w->decay_rate);
+    sa(o, w->sa_timesteps, w->decay, w->spreading_rate);
     o->fitness = w->phenotype_fitness_func(w, o->genotype);
   }
   return o->fitness - starting_fitness;
@@ -1499,7 +1509,7 @@ void sa_test() {
   Organism o = { &genotype, 0.0 };
   
   verbose = 9;
-  sa(&o, 13, 1.0);
+  sa(&o, 13, 1.0, 1.0);
 }
 
 void sa_test2() {
@@ -1523,7 +1533,7 @@ void sa_test2() {
   Organism o = { &genotype, 0.0 };
   
   verbose = 9;
-  sa(&o, 20, 0.01);
+  sa(&o, 20, 1.0, 0.01);
 }
 
 void dump_phenotype_fitness() {
@@ -1580,6 +1590,8 @@ void long_test_start_small(int seed) {
   World *w = create_world(40);
   w->random_seed = seed;
   w->num_epochs = 200;
+  w->sa_timesteps = 20;
+  //w->num_organisms = 80;
   //w->generations_per_epoch = 20;
   //w->num_candidates = 5;
   w->edge_inheritance = INHERIT_ALL_EDGES;
@@ -1692,7 +1704,7 @@ void good_run_oblique() {
   w->random_seed=203540935;
   w->ridge_radius=0.200000;
   w->c2=2.000000; w->c3=0.450000;
-  w->decay_rate=0.010000;
+  w->spreading_rate=0.010000;
   w->mutation_type_ub=15;
   w->extra_mutation_rate=0.100000;
   w->crossover_freq=0.300000;
@@ -1712,7 +1724,7 @@ void good_run_oblique2() {
   w->random_seed=203540935;
   w->ridge_radius=0.200000;
   w->c2=2.000000; w->c3=0.450000;
-  w->decay_rate=0.010000;
+  w->spreading_rate=0.010000;
   w->mutation_type_ub=16;
   w->extra_mutation_rate=0.100000;
   w->crossover_freq=0.300000;
@@ -1730,7 +1742,7 @@ void good_run_with_bumps() {
   w->random_seed=23992348;
   w->ridge_radius=0.200000;
   w->c2=1.000000; w->c3=0.000000;
-  w->decay_rate=0.010000;
+  w->spreading_rate=0.010000;
   w->distance_weight=10.000000;
   w->bumps=true;
   w->mutation_type_ub=16;

@@ -41,6 +41,11 @@ vfplot:
 phrangeplot:
 	./plot_xyz.py vfunc 2 3 4 scatter
 
+plots:
+	make vfplot &
+	make phrangeplot &
+	make phplot &
+
 fitness: sa
 	./sa > fitness.out
 	./plot_fitness.py fitness.out
@@ -51,9 +56,9 @@ with_seed:
 
 NRUNS = $(shell seq 1 20)
 many: sa
-	@./sa > out
-	@tail -1 out
-	@$(foreach i,$(NRUNS),./sa >> out; tail -1 out;)
+	@./sa > /tmp/out
+	@tail -1 /tmp/out
+	@$(foreach i,$(NRUNS),./sa >> /tmp/out; tail -1 /tmp/out;)
 
 clean:
 	rm sa test.pdf test.dot
