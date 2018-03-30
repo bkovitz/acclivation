@@ -459,6 +459,7 @@ typedef struct world_t {
   int epoch;
   int generation;
   double c1, c2, c3;
+  double c1_lb, c1_ub;
   double ridge_radius;
   int mutation_type_ub;
   double extra_mutation_rate;
@@ -508,6 +509,8 @@ World *create_world() {
   w->c1 = 0.5;
   w->c2 = 1.0;
   w->c3 = 0.0;
+  w->c1_lb = 0.1;
+  w->c1_ub = 0.9;
   //w->c2 = 1.0;
   //w->c3 = 0.0;
   w->ridge_radius = 0.2;
@@ -1010,8 +1013,8 @@ void free_world(World *w) {
 }
 
 void change_fitness_constants(World *w) {
-  w->c1 = rand_activation();
-  //w->c1 = rand_double(0.2, 0.8);
+  //w->c1 = rand_activation();
+  w->c1 = rand_double(w->c1_lb, w->c1_ub);
 }
 
 void run_epoch(World *w, int e) {
@@ -1172,8 +1175,11 @@ double along_ridge(World *w, double x, double y) {
   return invv(0.0, w->ridge_radius, fabs(y - (w->c2 * x + w->c3)));
 }
 
-double require_pos_region(double x, double y) {
-  if (x >= 0.2 && x <= 0.8 && y >= 0.2 && y <= 0.8)
+double require_valid_region(World *w, double x, double y) {
+  if (x >= w->c1_lb && x <= w->c1_ub &&
+      //y >= w->c2 * w->c1_lb + w->c3 && y <= w->c2 * w->c1_ub + w->c3
+      y >= w->c1_lb && y <= w->c1_ub
+      )
     return 1.0;
   else
     return 0.0;
@@ -1189,7 +1195,7 @@ double phenotype_fitness(World *w, Genotype *g) {
   double peak_x = w->c1;
   double peak_y = w->c2 * w->c1 + w->c3;
   if (verbose >= 2) {
-    printf("require_pos_region(%lf, %lf) = %lf\n", phenotype[0], phenotype[1], require_pos_region(phenotype[0], phenotype[1]));
+    printf("require_valid_region(w, %lf, %lf) = %lf\n", phenotype[0], phenotype[1], require_valid_region(w, phenotype[0], phenotype[1]));
     printf("along_ridge(%lf, %lf) = %lf\n", phenotype[0], phenotype[1], along_ridge(w, phenotype[0], phenotype[1]));
   }
   double fitness;
@@ -1199,7 +1205,7 @@ double phenotype_fitness(World *w, Genotype *g) {
     double scaled_dist = (sqrt2 - dist) / sqrt2;  // 0.0 to 1.0; 1.0 is right on it
     fitness = //many_small_hills(phenotype) +
       //(5 * (sqrt8 - distance(w->c1, w->c1, phenotype[0], phenotype[1])));
-      //require_pos_region(phenotype[0], phenotype[1]) *
+      require_valid_region(w, phenotype[0], phenotype[1]) *
       along_ridge(w, phenotype[0], phenotype[1]) *
       (w->distance_weight * scaled_dist);
     if (w->bumps) {
@@ -1766,18 +1772,18 @@ void diagonal_ridge(World *w) {
 
 void oblique_ridge(World *w) {
   w->c2 = 2.0;
-  w->c3 = -0.45;
+  w->c3 = +0.45;
 }
 
 void easier_oblique_ridge(World *w) {
-  w->c2 = 1.1;
-  w->c3 = -0.05;
+  w->c2 = 1.3;
+  w->c3 = -0.45;
 }
 
 void long_test_start_small(int seed) {
   World *w = create_world();
   w->random_seed = seed;
-  w->num_epochs = 20;//0;
+  //w->num_epochs = 200;
   w->sa_timesteps = 20;
   //w->generations_per_epoch = 20;
   //w->num_candidates = 5;
@@ -1786,10 +1792,11 @@ void long_test_start_small(int seed) {
   //w->edge_weights = EDGE_WEIGHTS_POS_OR_NEG;
   //w->activation_types = ONLY_SUM_INCOMING;
   w->activation_types = SUM_AND_MULT_INCOMING;
-  diagonal_ridge(w);
+  easier_oblique_ridge(w);
   w->bumps = true;
   w->ridge_radius = 0.2;
   w->crossover_freq = 0.3;
+  //w->c1_lb = -1.0; w->c1_ub = +1.0;
   //w->mutation_type_ub = 30;
   //w->sa_timesteps = 20;
   //w->distance_weight = 5.0;
@@ -2045,14 +2052,14 @@ int main(int argc, char **argv) {
   //quick_test(seed);
   //dot_test(seed);
   //long_test(seed);
-  //long_test_start_small(seed);  //(677953487); // the main test
+  long_test_start_small(seed);  //(677953487); // the main test
   //parameter_sweep(seed);
   //good_run_oblique();
   //good_run_oblique2();
   //one_long_epoch(seed);
   //dump_virt_test(seed);
   //dump_phenotype_fitness();
-  acclivation_test(374815447 /* seed */);
+  //acclivation_test(374815447 /* seed */);
   //good_run_with_bumps();
   //tom();
   return 0;
