@@ -899,8 +899,8 @@ void free_world(World *w) {
 }
 
 void change_fitness_constants(World *w) {
-  //w->c1 = rand_activation();
-  w->c1 = rand_double(0.2, 0.8);
+  w->c1 = rand_activation();
+  //w->c1 = rand_double(0.2, 0.8);
 }
 
 void run_epoch(World *w, int e) {
@@ -1011,6 +1011,7 @@ void print_world_params(World *w) {
   printf("w->num_organisms=%d;\n", w->num_organisms);
   printf("w->num_candidates=%d;\n", w->num_candidates);
   printf("w->generations_per_epoch=%d;\n", w->generations_per_epoch);
+  printf("w->num_epochs=%d;\n", w->num_epochs);
   printf("w->sa_timesteps=%d;\n", w->sa_timesteps);
 }
 
@@ -1078,23 +1079,28 @@ double phenotype_fitness(World *w, Genotype *g) {
     printf("require_pos_region(%lf, %lf) = %lf\n", phenotype[0], phenotype[1], require_pos_region(phenotype[0], phenotype[1]));
     printf("along_ridge(%lf, %lf) = %lf\n", phenotype[0], phenotype[1], along_ridge(w, phenotype[0], phenotype[1]));
   }
+  double fitness;
   if (phenotype[0] != UNWRITTEN && phenotype[1] != UNWRITTEN) {
     double dist = distance(peak_x, peak_y, phenotype[0], phenotype[1]);
     //double scaled_dist = (sqrt8 - dist) / sqrt8;  // 0.0 to 1.0; 1.0 is right on it
     double scaled_dist = (sqrt2 - dist) / sqrt2;  // 0.0 to 1.0; 1.0 is right on it
-    double fitness = many_small_hills(phenotype) +
+    fitness = //many_small_hills(phenotype) +
       //(5 * (sqrt8 - distance(w->c1, w->c1, phenotype[0], phenotype[1])));
-      require_pos_region(phenotype[0], phenotype[1]) *
+      //require_pos_region(phenotype[0], phenotype[1]) *
       along_ridge(w, phenotype[0], phenotype[1]) *
       (w->distance_weight * scaled_dist);
-    if (w->bumps)
-      fitness += many_small_hills(phenotype);
-    if (fitness < 0.001)
-      return 0.0; //-10.0;
-    else
-      return fitness;
-  } else {
+    if (w->bumps) {
+      double bump_amt = many_small_hills(phenotype);
+//      if (bump_amt <= 0.0)
+//        fitness = 0;
+//      else
+        fitness += bump_amt;
+    }
+  }
+  if (fitness < 0.0) {
     return 0.0; //-10.0;
+  } else {
+    return fitness;
   }
 }
 
@@ -1587,11 +1593,10 @@ void easier_oblique_ridge(World *w) {
 }
 
 void long_test_start_small(int seed) {
-  World *w = create_world(40);
+  World *w = create_world(80);
   w->random_seed = seed;
   w->num_epochs = 200;
   w->sa_timesteps = 20;
-  //w->num_organisms = 80;
   //w->generations_per_epoch = 20;
   //w->num_candidates = 5;
   w->edge_inheritance = INHERIT_ALL_EDGES;
@@ -1760,6 +1765,30 @@ void good_run_with_bumps() {
   run_world(w);
 }
 
+void tom() {
+  World *w = create_world(80);
+  w->random_seed=520664716;
+  w->num_epochs = 200;
+  w->ridge_radius=0.200000;
+  w->c2=1.000000; w->c3=0.000000;
+  w->decay=0.900000;
+  w->spreading_rate=0.200000;
+  w->distance_weight=10.000000;
+  w->bumps=true;
+  w->mutation_type_ub=16;
+  w->extra_mutation_rate=0.100000;
+  w->crossover_freq=0.300000;
+
+  w->edge_inheritance=INHERIT_ALL_EDGES;
+  w->edge_weights=EDGE_WEIGHTS_ONLY_PLUS_1;
+  w->activation_types=SUM_AND_MULT_INCOMING;
+
+  w->num_candidates=7;
+  w->generations_per_epoch=20;
+  w->sa_timesteps=20;
+  run_world(w);
+}
+
 int get_seed(char **argv, int argc) {
   if (argc > 1) {
     return atoi(argv[1]);
@@ -1788,7 +1817,7 @@ int main(int argc, char **argv) {
   //quick_test(seed);
   //dot_test(seed);
   //long_test(seed);
-  long_test_start_small(seed);  //(677953487); // the main test
+  //long_test_start_small(seed);  //(677953487); // the main test
   //parameter_sweep(seed);
   //good_run_oblique();
   //good_run_oblique2();
@@ -1797,6 +1826,7 @@ int main(int argc, char **argv) {
   //dump_phenotype_fitness();
   //acclivation_test(seed);
   //good_run_with_bumps();
+  tom();
   return 0;
 }
 _Pragma("GCC diagnostic pop")

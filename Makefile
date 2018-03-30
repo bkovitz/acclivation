@@ -33,12 +33,15 @@ dot: test.pdf
 	evince test.pdf
 
 phplot:
+	sed -n '/BEGIN PHFUNC/,/END PHFUNC/ {//!p}' out > phfunc
 	./plot_xyz.py phfunc 0 1 2
 
 vfplot:
+	sed -n '/BEGIN VFUNC/,/END VFUNC/ {//!p}' out > vfunc
 	./plot_xyz.py vfunc 0 1 4
 
 phrangeplot:
+	sed -n '/BEGIN VFUNC/,/END VFUNC/ {//!p}' out > vfunc
 	./plot_xyz.py vfunc 2 3 4 scatter
 
 plots:
