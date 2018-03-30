@@ -825,7 +825,23 @@ void run_generation(World *w) {
   log_organisms(w);
 }
 
+int find_best_organism_in(Organism *organisms, int num_organisms) {
+  double max_fitness = -1e20;
+  int max_fitness_index = -1;
+  for (int n = 0; n < num_organisms; n++) {
+    if (organisms[n].fitness > max_fitness) {
+      max_fitness = organisms[n].fitness;
+      max_fitness_index = n;
+    }
+  }
+  assert(max_fitness_index > -1);
+  return max_fitness_index;
+}
+
 int find_best_organism(World *w) {
+  return find_best_organism_in(w->organisms, w->num_organisms);
+}
+/*int find_best_organism(World *w) {
   double max_fitness = -1e20;
   int max_fitness_index = -1;
   for (int n = 0; n < w->num_organisms; n++) {
@@ -836,7 +852,7 @@ int find_best_organism(World *w) {
   }
   assert(max_fitness_index > -1);
   return max_fitness_index;
-}
+}*/
 
 double find_best_fitness(World *w) {
   int best_organism_index = find_best_organism(w);
@@ -1452,39 +1468,65 @@ void crossover(World *w, Organism *b, Organism *m, Organism *d) {
 
 // -- measuring acclivation --------------------------------------------------
 
-/*void set_random_genotype(Organism *o) {
+void set_random_genotype(Organism *o) {
   for (int i = 0; i < o->genotype->num_in; i++)
     o->genotype->nodes[i].initial_activation = rand_activation();
 }
 
+void nudge_potential(Organism *o, int node_index, double nudge_amount) {
+  Node *node_to_change = &o->genotype->nodes[node_index];
+  node_to_change->initial_activation =
+    clamp(node_to_change->initial_activation + nudge_amount);
+}
+
 double climb_hill(World *w, Organism *o) {
-  Genotype *g = o->genotype;
-  double last_fitness = -1e10;
   double starting_fitness = o->fitness;
+  double last_fitness = starting_fitness;
+  double nudge_amount = 0.1;
+
+  int num_potentials = w->num_in << 1;
+  Organism potentials[num_potentials];
 
   while (o->fitness > last_fitness) {
-    last_fitness = o->fitness;
-    mut_turn_knob(w, o);
-    sa(o, w->sa_timesteps, w->decay, w->spreading_rate);
-    o->fitness = w->phenotype_fitness_func(w, o->genotype);
+    // create organisms that take a step in each possible direction
+    for (int i = 0; i < num_potentials; i++) {
+      Organism *potential = &potentials[i];
+      copy_organism(potential, o);
+      nudge_potential(potential, i >> 1, (i & 1) ? nudge_amount : -nudge_amount);
+      sa(potential, w->sa_timesteps, w->decay, w->spreading_rate);
+      potential->fitness = w->phenotype_fitness_func(w, potential->genotype);
+    }
+    // take the best positive step, or bail out
+    int best_potential_index = find_best_organism_in(potentials, num_potentials);
+    if (potentials[best_potential_index].fitness > last_fitness) {
+      free_organism(o);
+      copy_organism(o, &potentials[best_potential_index]);
+      last_fitness = o->fitness;
+      //printf("->%lf\n", last_fitness);
+      for (int i = 0; i < num_potentials; i++)
+        free_organism(&potentials[i]);
+    } else {
+      break;
+    }
   }
-  return o->fitness - starting_fitness;
+  return last_fitness - starting_fitness;
 }
 
 double get_acclivation(World *w, Organism *test_o) {
   Organism o;
-  double total_ending_fitness = 0.0;
-  int num_hill_climbers = 3; // w->num_hill_climbers
+  double total_fitness_delta = 0.0;
+  int num_hill_climbers = 300; // w->num_hill_climbers
 
   for (int i = 0; i < num_hill_climbers; i++) {
     copy_organism(&o, test_o);
     set_random_genotype(&o);
-    total_ending_fitness += climb_hill(w, &o);
+    total_fitness_delta += climb_hill(w, &o);
+    //printf("->tfd %lf\n", total_fitness_delta);
     free_organism(&o);
   }
 
-  return total_ending_fitness / num_hill_climbers;
-}*/
+  return total_fitness_delta / num_hill_climbers;
+}
 
 // ---------------------------------------------------------------------------
 
@@ -1770,14 +1812,15 @@ int get_seed(char **argv, int argc) {
   }
 }
 
-/*void acclivation_test(int seed) {
+void acclivation_test(int seed) {
   World *w = create_world(40);
   w->random_seed = seed;
   w->num_epochs = 20;
   run_world(w);
-  double acclivation = get_acclivation(w, &w->organisms[rand() % 40]);
+  int best_organism_index = find_best_organism(w);
+  double acclivation = get_acclivation(w, &w->organisms[best_organism_index]);
   printf("acclivation = %lf\n", acclivation);
-}*/
+}
 
 _Pragma("GCC diagnostic push")
 _Pragma("GCC diagnostic ignored \"-Wunused-variable\"")
