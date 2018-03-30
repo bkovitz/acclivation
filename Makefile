@@ -10,15 +10,20 @@ run: sa
 
 out: sa
 	./sa > out
-	grep "epoch fitness" out
+	#grep "epoch fitness" out
+	tail -3 out
 
 outs: sa
 	./sa > out
+	tail -3 out
 	./sa >> out
+	tail -3 out
 	./sa >> out
+	tail -3 out
 	./sa >> out
+	tail -3 out
 	./sa >> out
-	grep "epoch fitness" out
+	tail -3 out
 
 %.pdf: %.dot
 	$(DOT) < $< > $@
@@ -60,8 +65,8 @@ with_seed:
 NRUNS = $(shell seq 1 20)
 many: sa
 	@./sa > /tmp/out
-	@tail -1 /tmp/out
-	@$(foreach i,$(NRUNS),./sa >> /tmp/out; tail -1 /tmp/out;)
+	@tail -3 /tmp/out
+	@$(foreach i,$(NRUNS),./sa >> /tmp/out; tail -3 /tmp/out;)
 
 clean:
 	rm sa test.pdf test.dot
