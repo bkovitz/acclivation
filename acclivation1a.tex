@@ -2,6 +2,9 @@
 
 \usepackage{natbib,alifeconf}  %% The order is important
 
+\newcommand{\gv}{$g$-vector}
+\newcommand{\phv}{$\phi$-vector}
+
 \title{Acclivation of a Virtual Fitness Landscape}
 \author{Ben Kovitz$^{1}$, Dave Bender$^{1}$, \and Marcela Poffald \\
 \mbox{}\\
@@ -35,11 +38,34 @@ reproduction.
 
 \end{abstract}
 
+% Relevant topics to search in the literature:
+%
+% how much epistasis is there in natural genomes?
+% crosstalk in metabolic networks
+
 \section{Introduction}
 Stuff.\footnote{\cite{hogeweg2012toward}.}
 
-\section{Methods}
-More stuff.
+\section{Experiments}
+
+Each genotype is a directed graph containing at least four nodes, designated
+$g_1, g_2, p_1,$ and $p_2$. Additional nodes are designated $n_1, n_2, n_3,
+\ldots$. Associated with each node other than $p_1$ and $p_2$ is an ``initial
+activation'': a number in the range $[-1.0,+1.0]$.
+
+The genotype--phenotype mapping consists of running the following
+spreading-activation algorithm on the graph, and considering the resulting
+acclivations of $p_1$ and $p_2$ the phenotype.
+
+The initial activations of $g_1$ and $g_2$ are called the \gv, i.e. the
+genotype vector. The activations of $p_1$ and $p_2$ are called the
+\phv, i.e. the phenotype vector.
+
+@@fitness function $w$
+
+\section{Conclusions}
+
+
 
 \bibliographystyle{apalike}
 \bibliography{acclivation} % replace by the name of your .bib file

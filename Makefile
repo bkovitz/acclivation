@@ -8,14 +8,14 @@ PDFFILES = $(TEXFILES:.tex=.pdf)
 BIBFILES = $(wildcard *.bib)
 DOT = dot -Tpdf
 
+all: sa
+
 $(PDFFILES): $(BIBFILES)
 %.pdf: %.tex
 	$(TEX) $<
 
 %.pdf: %.dot
 	$(DOT) < $< > $@
-
-all: sa
 
 sa: sa.c Makefile
 	gcc sa.c --std=c99 -Werror -Wall -D_POSIX_C_SOURCE=199309L -g -o sa -lm
