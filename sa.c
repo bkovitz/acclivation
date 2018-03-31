@@ -1075,6 +1075,7 @@ HILL_CLIMBING_RESULT climb_hill(World *w, Organism *o) {
     }
   }
   HILL_CLIMBING_RESULT result = { last_fitness - starting_fitness, last_fitness };
+  free_organism(o);
   return result;
 }
 
@@ -1091,7 +1092,7 @@ HILL_CLIMBING_RESULT measure_acclivity(World *w, Organism *test_o) {
     total.fitness_delta += result.fitness_delta;
     total.ending_fitness += result.ending_fitness;
     //printf("->delta %lf, abs %lf\n", result.fitness_delta, result.ending_fitness);
-    free_organism(o);
+    //free_organism(o);
   }
 
   total.fitness_delta /= w->num_hill_climbers;
@@ -1331,7 +1332,7 @@ double phenotype_fitness(World *w, Genotype *g) {
     printf("require_valid_region(w, %lf, %lf) = %lf\n", phenotype[0], phenotype[1], require_valid_region(w, phenotype[0], phenotype[1]));
     printf("along_ridge(%lf, %lf) = %lf\n", phenotype[0], phenotype[1], along_ridge(w, phenotype[0], phenotype[1]));
   }
-  double fitness;
+  double fitness = 0.0;
   if (phenotype[0] != UNWRITTEN && phenotype[1] != UNWRITTEN) {
     double dist = distance(peak_x, peak_y, phenotype[0], phenotype[1]);
     //double scaled_dist = (sqrt8 - dist) / sqrt8;  // 0.0 to 1.0; 1.0 is right on it
@@ -2217,6 +2218,7 @@ void run_from_options(int argc, char **argv) {
    }
 
    run_world(w);
+   free_world(w);
 }
 
 _Pragma("GCC diagnostic push")
