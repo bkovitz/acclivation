@@ -1,4 +1,19 @@
+LAT = latex -shell-escape
+#TEX = pdflatex --shell-escape
+TEXINPUTS=.:./sty:
+TEX = TEXINPUTS=.:./sty: latexmk -pdf -xelatex
+BIB = bibtex8
+TEXFILES = $(wildcard *.tex)
+PDFFILES = $(TEXFILES:.tex=.pdf)
+BIBFILES = $(wildcard *.bib)
 DOT = dot -Tpdf
+
+$(PDFFILES): $(BIBFILES)
+%.pdf: %.tex
+	$(TEX) $<
+
+%.pdf: %.dot
+	$(DOT) < $< > $@
 
 all: sa
 
@@ -24,9 +39,6 @@ outs: sa
 	tail -3 out
 	./sa >> out
 	tail -3 out
-
-%.pdf: %.dot
-	$(DOT) < $< > $@
 
 test.dot: sa
 	./sa > test.dot
