@@ -26,6 +26,7 @@
 #define array_len(a) (sizeof(a) / sizeof(a[0]))
 
 int verbose = 0;
+bool quiet = false;
 bool debug = false;
 bool dot = false;
 
@@ -37,6 +38,12 @@ double max(double x, double y) {
 }
 
 // ----------------------------------------------------------------------
+
+double make_random_seed() {
+  struct timespec tm;
+  clock_gettime(CLOCK_REALTIME, &tm);
+  return tm.tv_nsec;
+}
 
 bool coin_flip() {
   return rand() & 1;
@@ -192,7 +199,7 @@ double average_data(DATA *data) {
 
 void print_stats(DATA *data) {
   if (data->len == 0) {
-    puts("mean=NA median=NA sd=NA min=NA max=NA");
+    puts("fd_mean=NA fd_median=NA fd_sd=NA fd_min=NA fd_max=NA");
   } else {
     DATA *s = make_sorted_data(data);
 
@@ -215,7 +222,7 @@ void print_stats(DATA *data) {
     else                                  // Bessel's correction
       sd = sqrt(sum_data(sq_deviations) / (sq_deviations->len - 1));
     
-    printf("mean=% .6lf  median=% .6lf  sd=% .6lf  min=% .6lf  max=% .6lf\n",
+    printf("fd_mean=% .6lf  fd_median=% .6lf  fd_sd=% .6lf  fd_min=% .6lf  fd_max=% .6lf\n",
       mean, median, sd, s->array[0], s->array[s->len - 1]);
   }
 }
@@ -439,7 +446,7 @@ void close_ancestor_log(ANCESTOR_LOG *log) {
 // -- world ------------------------------------------------------------------
 
 typedef struct world_t {
-  int random_seed;
+  int seed;
   int num_organisms;
   int sa_timesteps;
   int generations_per_epoch;
@@ -487,7 +494,7 @@ double phenotype_fitness(World *, Genotype *);
 //World *create_world(int num_organisms) {
 World *create_world() {
   World *w = calloc(1, sizeof(World));
-  w->random_seed = 0;
+  w->seed = make_random_seed();
   w->num_organisms = 80;
   w->sa_timesteps = 20;
   w->generations_per_epoch = 20;
@@ -919,7 +926,8 @@ void run_generation(World *w) {
   set_phenotypes_and_fitnesses(w);
   if (debug)
     sanity_check(w);
-  log_organisms(w);
+  if (!quiet)
+    log_organisms(w);
 }
 
 int find_best_organism_in(Organism **organisms, int num_organisms) {
@@ -1127,23 +1135,25 @@ void change_fitness_constants(World *w) {
 void run_epoch(World *w, int e) {
   double epoch_start_fitness;
   change_fitness_constants(w);
-  if (!dot)
+  if (!quiet && !dot)
     printf("\nepoch %d (c1=%lf, c2=%lf, c3=%lf)\n", e, w->c1, w->c2, w->c3);
   w->epoch = e;
   w->generation = 0;
   set_phenotypes_and_fitnesses(w);
-  print_generation_results(w);
+  if (!quiet)
+    print_generation_results(w);
   epoch_start_fitness = max(find_best_fitness(w), 0.0);
   for (w->generation = 1;
        w->generation <= w->generations_per_epoch;
        w->generation++) {
     run_generation(w);
-    print_generation_results(w);
+    if (!quiet) {
+      print_generation_results(w);
 //    if (w->dump_fitness_nbhd
 //        && w->generation == w->dump_fitness_generation
-//        && w->epoch == w->dump_fitness_epoch) {
-    if (w->epoch % 10 == 0 && w->generation == w->generations_per_epoch) {
-      dump_fitness_nbhd(w);
+//        && w->epoch == w->dump_fitness_epoch)
+      if (w->epoch % 10 == 0 && w->generation == w->generations_per_epoch)
+        dump_fitness_nbhd(w);
     }
   }
   add_datum(w->epoch_fitness_deltas,
@@ -1194,13 +1204,16 @@ void dump_phenotype_fitness_func(World *w) {
 }
 
 void print_world_params(World *w) {
-  printf("w->random_seed=%d;\n", w->random_seed);
+  printf("w->seed=%d;\n", w->seed);
   printf("w->ridge_radius=%lf;\n", w->ridge_radius);
   printf("w->c2=%lf; w->c3=%lf;\n", w->c2, w->c3);
+  printf("w->c1_lb=%lf; w->c1_ub=%lf;\n", w->c1_lb, w->c1_ub);
   printf("w->decay=%lf;\n", w->decay);
   printf("w->spreading_rate=%lf;\n", w->spreading_rate);
   printf("w->distance_weight=%lf;\n", w->distance_weight);
   printf("w->bumps=%s;\n", w->bumps ? "true" : "false");
+  printf("w->knob_type=%d\n;", w->knob_type);
+  printf("w->knob_constant=%lf\n;", w->knob_constant);
   printf("w->mutation_type_ub=%d;\n", w->mutation_type_ub);
   printf("w->extra_mutation_rate=%lf;\n", w->extra_mutation_rate);
   printf("w->crossover_freq=%lf;\n", w->crossover_freq);
@@ -1243,9 +1256,9 @@ void print_acclivity_measures_of_best(World *w) {
   int best_organism_index = find_best_organism(w);
   //print_phenotype(w->organisms[best_organism_index]->genotype);
   HILL_CLIMBING_RESULT gvector_result = measure_acclivity(w, w->organisms[best_organism_index]);
-  printf("gvector acclivity: fitness delta = %lf, absolute fitness = %lf\n", gvector_result.fitness_delta, gvector_result.ending_fitness);
+  printf("gvector_fitness_delta = %lf, gvector_absolute_fitness = %lf\n", gvector_result.fitness_delta, gvector_result.ending_fitness);
   HILL_CLIMBING_RESULT phenotype_result = phenotype_acclivity(w);
-  printf("phenotype acclivity: fitness delta = %lf, absolute fitness = %lf\n", phenotype_result.fitness_delta, phenotype_result.ending_fitness);
+  printf("acclivity: ph_fitness_delta = %lf, ph_absolute_fitness = %lf\n", phenotype_result.fitness_delta, phenotype_result.ending_fitness);
 }
 
 void run_world(World *w) {
@@ -1254,13 +1267,15 @@ void run_world(World *w) {
 
   open_ancestor_log(w->log);
 
-  srand(w->random_seed);
+  srand(w->seed);
   init_random_population(w);
   for (int e = 1; e <= w->num_epochs; e++) {
     run_epoch(w, e);
   }
-  dump_virtual_fitness_func(w);
-  dump_phenotype_fitness_func(w);
+  if (!quiet) {
+    dump_virtual_fitness_func(w);
+    dump_phenotype_fitness_func(w);
+  }
   printf("epoch fitness deltas: ");
   print_stats(w->epoch_fitness_deltas);
   //print_data(w->epoch_fitness_deltas);
@@ -1771,7 +1786,7 @@ void quick_test(int seed) {
   verbose = 1;
   World *w = create_world();
   w->num_organisms = 2;
-  w->random_seed = seed;
+  w->seed = seed;
   w->generations_per_epoch = 1;
   w->num_epochs = 1;
   w->num_nodes = 10;
@@ -1783,7 +1798,7 @@ void dot_test(int seed) {
   dot = true;
   World *w = create_world();
   w->num_organisms = 1;
-  w->random_seed = seed;
+  w->seed = seed;
   w->generations_per_epoch = 1;
   w->num_epochs = 1;
   w->num_nodes = 10;
@@ -1813,7 +1828,7 @@ void easier_oblique_ridge(World *w) {
 
 void long_test_start_small(int seed) {
   World *w = create_world();
-  w->random_seed = seed;
+  w->seed = seed;
   w->num_epochs = 200;
   w->sa_timesteps = 20;
   //w->generations_per_epoch = 20;
@@ -1841,15 +1856,15 @@ void long_test_start_small(int seed) {
 
 typedef struct {
   int id;
-  int random_seed;
+  int seed;
   double ridge_radius;
   enum {YX_RIDGE, OBLIQUE_RIDGE} ridge_type;
   int edge_inheritance;
 } PARAMS;
 
-void init_params(PARAMS *p, int random_seed) {
+void init_params(PARAMS *p, int seed) {
   p->id = 0;
-  p->random_seed = random_seed;
+  p->seed = seed;
   p->ridge_radius = 0.05;
   p->ridge_type = OBLIQUE_RIDGE;
   p->edge_inheritance = INHERIT_SRC_EDGES_FROM_MOMMY;
@@ -1868,7 +1883,7 @@ void reopen_stdout_from_param(PARAMS *p) {
 World *create_world_from_param(PARAMS *p) {
   World *w = create_world();
   w->num_organisms = 40;
-  w->random_seed = p->random_seed;
+  w->seed = p->seed;
   w->num_epochs = 400;
 
   w->ridge_radius = p->ridge_radius;
@@ -1920,7 +1935,7 @@ void parameter_sweep(int seed) {
 void one_long_epoch(int seed) {
   World *w = create_world();
   w->num_organisms = 40;
-  w->random_seed = seed;
+  w->seed = seed;
   w->generations_per_epoch = 5000;
   w->num_epochs = 1;
   run_world(w);
@@ -1929,7 +1944,7 @@ void one_long_epoch(int seed) {
 void good_run_oblique() {
   World *w = create_world();
   w->num_organisms = 40;
-  w->random_seed=203540935;
+  w->seed=203540935;
   w->ridge_radius=0.200000;
   w->c2=2.000000; w->c3=0.450000;
   w->spreading_rate=0.010000;
@@ -1950,7 +1965,7 @@ void good_run_oblique() {
 void good_run_oblique2() {
   World *w = create_world();
   w->num_organisms = 40;
-  w->random_seed=203540935;
+  w->seed=203540935;
   w->ridge_radius=0.200000;
   w->c2=2.000000; w->c3=0.450000;
   w->spreading_rate=0.010000;
@@ -1969,7 +1984,7 @@ void good_run_oblique2() {
 void good_run_with_bumps() {
   World *w = create_world();
   w->num_organisms = 40;
-  w->random_seed=23992348;
+  w->seed=23992348;
   w->ridge_radius=0.200000;
   w->c2=1.000000; w->c3=0.000000;
   w->spreading_rate=0.010000;
@@ -1992,7 +2007,7 @@ void good_run_with_bumps() {
 
 void tom() {
   World *w = create_world();
-  w->random_seed=520664716;
+  w->seed=520664716;
   w->num_epochs = 200;
   w->ridge_radius=0.200000;
   w->c2=1.000000; w->c3=0.000000;
@@ -2018,15 +2033,13 @@ int get_seed(char **argv, int argc) {
   if (argc > 1) {
     return atoi(argv[1]);
   } else {
-    struct timespec tm;
-    clock_gettime(CLOCK_REALTIME, &tm);
-    return tm.tv_nsec;
+    return make_random_seed();
   }
 }
 
 void acclivation_test(int seed) {
   World *w = create_world();
-  w->random_seed = seed;
+  w->seed = seed;
   w->num_epochs = 20;
   w->sa_timesteps = 20;
   //w->generations_per_epoch = 20;
@@ -2089,6 +2102,8 @@ void run_from_options(int argc, char **argv) {
     { "knob_constant", required_argument, 0, 0 },
     { "knob_type", required_argument, 0, 0 },
     { "num_hill_climbers", required_argument, 0, 0 },
+    { "quiet", no_argument, 0, 0 },
+    { NULL, 0, 0, 0 },
   };
   int c;
 
@@ -2099,7 +2114,7 @@ void run_from_options(int argc, char **argv) {
     if (c == 0) {
       switch (option_index) {
       case 0:
-        w->random_seed = atoi(optarg);
+        w->seed = atoi(optarg);
         break;
       case 1:
         w->num_organisms = atoi(optarg);
@@ -2182,15 +2197,23 @@ void run_from_options(int argc, char **argv) {
       case 27:
         w->num_hill_climbers = atoi(optarg);
         break;
+      case 28:
+        quiet = true;
+        break;
+      default:
+        printf("Internal error\n");
+        exit(3);
       }
     } else {
-      printf("Something bad\n");
+      // unrecognized option
+      exit(2);
     }
    }
    if (optind < argc) {
      printf("unknown args --\n");
      while (optind < argc)
        printf("  %s\n", argv[optind++]);
+     exit(1);
    }
 
    run_world(w);
