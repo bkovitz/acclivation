@@ -20,6 +20,7 @@
 #include <strings.h>
 #include <time.h>
 #include <unistd.h>
+#include <getopt.h>
 
 #define MAXS 128
 #define array_len(a) (sizeof(a) / sizeof(a[0]))
@@ -1235,6 +1236,7 @@ void print_world_params(World *w) {
   printf("w->generations_per_epoch=%d;\n", w->generations_per_epoch);
   printf("w->num_epochs=%d;\n", w->num_epochs);
   printf("w->sa_timesteps=%d;\n", w->sa_timesteps);
+  printf("w->num_hill_climbers=%d;\n", w->num_hill_climbers);
 }
 
 void print_acclivity_measures_of_best(World *w) {
@@ -2055,16 +2057,156 @@ void acclivation_test(int seed) {
   printf("phenotype: average delta = %lf, average fitness = %lf\n", phenotype_result.fitness_delta, phenotype_result.ending_fitness);
 }
 
+void run_from_options(int argc, char **argv) {
+  World *w = create_world();
+  int option_index = 0;
+  static struct option long_options[] = {
+    { "seed", required_argument, 0, 0 },
+    { "num_organisms", required_argument, 0, 0 },
+    { "sa_timesteps", required_argument, 0, 0 },
+    { "generations_per_epoch", required_argument, 0, 0 },
+    { "num_epochs", required_argument, 0, 0 },
+    { "num_nodes", required_argument, 0, 0 },
+    { "num_edges", required_argument, 0, 0 },
+    { "num_in", required_argument, 0, 0 },
+    { "num_out", required_argument, 0, 0 },
+    { "decay", required_argument, 0, 0 },
+    { "spreading_rate", required_argument, 0, 0 },
+    { "activation_types", required_argument, 0, 0 },
+    { "edge_weights", required_argument, 0, 0 },
+    { "distance_weight", required_argument, 0, 0 },
+    { "bumps", required_argument, 0, 0 },
+    { "c2", required_argument, 0, 0 },
+    { "c3", required_argument, 0, 0 },
+    { "c1_lb", required_argument, 0, 0 },
+    { "c1_ub", required_argument, 0, 0 },
+    { "ridge_radius", required_argument, 0, 0 },
+    { "mutation_type_ub", required_argument, 0, 0 },
+    { "extra_mutation_rate", required_argument, 0, 0 },
+    { "crossover_freq", required_argument, 0, 0 },
+    { "edge_inheritance", required_argument, 0, 0 },
+    { "num_candidates", required_argument, 0, 0 },
+    { "knob_constant", required_argument, 0, 0 },
+    { "knob_type", required_argument, 0, 0 },
+    { "num_hill_climbers", required_argument, 0, 0 },
+  };
+  int c;
+
+  for (;;) {
+    c = getopt_long(argc, argv, "", long_options, &option_index);
+    if (c == -1)
+      break;
+    if (c == 0) {
+      switch (option_index) {
+      case 0:
+        w->random_seed = atoi(optarg);
+        break;
+      case 1:
+        w->num_organisms = atoi(optarg);
+        break;
+      case 2:
+        w->sa_timesteps = atoi(optarg);
+        break;
+      case 3:
+        w->generations_per_epoch = atoi(optarg);
+        break;
+      case 4:
+        w->num_epochs = atoi(optarg);
+        break;
+      case 5:
+        w->num_nodes = atoi(optarg);
+        break;
+      case 6:
+        w->num_edges = atoi(optarg);
+        break;
+      case 7:
+        w->num_in = atoi(optarg);
+        break;
+      case 8:
+        w->num_out = atoi(optarg);
+        break;
+      case 9:
+        w->decay = atof(optarg);
+        break;
+      case 10:
+        w->spreading_rate = atof(optarg);
+        break;
+      case 11:
+        w->activation_types = atoi(optarg);
+        break;
+      case 12:
+        w->edge_weights = atoi(optarg);
+        break;
+      case 13:
+        w->distance_weight = atof(optarg);
+        break;
+      case 14:
+        w->bumps = atoi(optarg);
+        break;
+      case 15:
+        w->c2 = atof(optarg);
+        break;
+      case 16:
+        w->c3 = atof(optarg);
+        break;
+      case 17:
+        w->c1_lb = atof(optarg);
+        break;
+      case 18:
+        w->c1_ub = atof(optarg);
+        break;
+      case 19:
+        w->ridge_radius = atof(optarg);
+        break;
+      case 20:
+        w->mutation_type_ub = atoi(optarg);
+        break;
+      case 21:
+        w->extra_mutation_rate = atof(optarg);
+        break;
+      case 22:
+        w->crossover_freq = atof(optarg);
+        break;
+      case 23:
+        w->edge_inheritance = atoi(optarg);
+        break;
+      case 24:
+        w->num_candidates = atoi(optarg);
+        break;
+      case 25:
+        w->knob_constant = atof(optarg);
+        break;
+      case 26:
+        w->knob_type = atoi(optarg);
+        break;
+      case 27:
+        w->num_hill_climbers = atoi(optarg);
+        break;
+      }
+    } else {
+      printf("Something bad\n");
+    }
+   }
+   if (optind < argc) {
+     printf("unknown args --\n");
+     while (optind < argc)
+       printf("  %s\n", argv[optind++]);
+   }
+
+   run_world(w);
+}
+
 _Pragma("GCC diagnostic push")
 _Pragma("GCC diagnostic ignored \"-Wunused-variable\"")
 int main(int argc, char **argv) {
   int seed = get_seed(argv, argc);
+  run_from_options(argc, argv);
   //sa_test();
   //sa_test2();
   //quick_test(seed);
   //dot_test(seed);
   //long_test(seed);
-  long_test_start_small(seed);  //(677953487); // the main test
+  //long_test_start_small(seed);  //(677953487); // the main test
   //parameter_sweep(seed);
   //good_run_oblique();
   //good_run_oblique2();

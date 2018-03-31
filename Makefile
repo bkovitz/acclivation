@@ -68,10 +68,30 @@ many: sa
 	@tail -3 /tmp/out
 	@$(foreach i,$(NRUNS),./sa >> /tmp/out; tail -3 /tmp/out;)
 
+tom: sa
+	@./sa --seed=520664716 \
+			--num_epochs=200 \
+  		--ridge_radius=0.200000 \
+  		--c2=1.000000 \
+			--c3=0.000000 \
+			--decay=0.900000 \
+  		--spreading_rate=0.200000 \
+  		--distance_weight=10.000000 \
+  		--bumps=1 \
+  		--mutation_type_ub=16 \
+  		--extra_mutation_rate=0.100000 \
+  		--crossover_freq=0.300000 \
+  		--edge_inheritance=5 \
+  		--edge_weights=0 \
+  		--activation_types=1 \
+  		--num_candidates=7 \
+  		--generations_per_epoch=20 \
+  		--sa_timesteps=20
+
 clean:
 	rm sa test.pdf test.dot
 
 tags:
 	ctags *.[ch]
 
-.PHONY: tags run all dot clean plot fitness with_seed out
+.PHONY: tags run all dot clean plot fitness with_seed out tom
