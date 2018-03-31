@@ -2,6 +2,7 @@
 import itertools
 import subprocess
 import re
+import sys
 
 num_iterations_per_param_set = 20
 
@@ -34,6 +35,7 @@ def main():
             if row_num == 0:
                 print ','.join(sorted_names)
             print ','.join([name_vals[n] for n in sorted_names])
+            sys.stdout.flush()
 
 if __name__ == '__main__':
     main()
