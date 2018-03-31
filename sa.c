@@ -1251,6 +1251,8 @@ void print_world_params(World *w) {
   printf("w->num_epochs=%d;\n", w->num_epochs);
   printf("w->sa_timesteps=%d;\n", w->sa_timesteps);
   printf("w->num_hill_climbers=%d;\n", w->num_hill_climbers);
+  printf("w->num_nodes=%d;\n", w->num_nodes);
+  printf("w->num_edges=%d;\n", w->num_edges);
 }
 
 void print_acclivity_measures_of_best(World *w) {
