@@ -32,7 +32,7 @@ def main():
                     name_vals[name] = val
                     continue
             sorted_names = sorted(name_vals.keys())
-            if row_num == 0:
+            if row_num == 0 and i == 0:
                 print ','.join(sorted_names)
             print ','.join([name_vals[n] for n in sorted_names])
             sys.stdout.flush()
