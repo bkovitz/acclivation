@@ -23,7 +23,8 @@ def main():
         ['--decay=0.5'], #, '--decay=0.6', '--decay=0.7', '--decay=0.8', '--decay=0.9'],
         ['--allow_move_edge=0'], #, '--allow_move_edge=1'],
         ['--num_epochs=50'],
-        ['--extra_mutation_rate=0', '--extra_mutation_rate=0.1', '--extra_mutation_rate=0.2']
+        ['--extra_mutation_rate=0'], #, '--extra_mutation_rate=0.1', '--extra_mutation_rate=0.2']
+        ['--multi_edges=0', '--multi_edges=1']
     ]
     for row_num, params in enumerate(itertools.product(*paramss)):
         #print params

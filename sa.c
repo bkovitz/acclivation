@@ -1087,7 +1087,7 @@ HILL_CLIMBING_RESULT climb_hill(World *w, Organism *o) {
   sa(o, w->sa_timesteps, w->decay, w->spreading_rate);
   o->fitness = w->phenotype_fitness_func(w, o->genotype);
 
-  double starting_fitness = o->fitness;
+  const double starting_fitness = o->fitness;
   double last_fitness = starting_fitness;
   double nudge_amount = w->knob_constant;
 
@@ -1120,8 +1120,14 @@ HILL_CLIMBING_RESULT climb_hill(World *w, Organism *o) {
       num_neutral_steps = 0;
     } else if (candidates[best_candidate_index]->fitness == last_fitness) {
       // neutral plateau
-      if (++num_neutral_steps >= 200)
+      if (++num_neutral_steps >= 1000) {
+        //printf("crazy plateau\n");
         break;
+      }
+      free_organism(o);
+      o = copy_organism(candidates[rand_int(0, num_candidates - 1)]);
+      for (int i = 0; i < num_candidates; i++)
+        free_organism(candidates[i]);
     } else {
       // reached a peak
       break;
