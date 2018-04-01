@@ -345,6 +345,20 @@ void free_genotype(Genotype *g) {
   }
 }
 
+Genotype *copy_genotype(Genotype *g) {
+  Genotype *new_g = calloc(sizeof(Genotype), 1);
+  new_g->num_nodes = g->num_nodes;
+  new_g->num_nodes_in_use = g->num_nodes_in_use;
+  new_g->num_edges = g->num_edges;
+  new_g->num_in = g->num_in;
+  new_g->num_out = g->num_out;
+  new_g->nodes = malloc(new_g->num_nodes * sizeof(Node));
+  memcpy(new_g->nodes, g->nodes, sizeof(Node) * new_g->num_nodes);
+  new_g->edges = malloc(new_g->num_edges * sizeof(Edge));
+  memcpy(new_g->edges, g->edges, sizeof(Edge) * new_g->num_edges);
+  return new_g;
+}
+
 void print_phenotype(Genotype *g) {
   printf("phenotype: ");
   for (int p = g->num_in; p < g->num_in + g->num_out; p++) {
@@ -358,6 +372,7 @@ void print_phenotype(Genotype *g) {
 typedef struct {
   Genotype *genotype;
   double fitness;
+  bool from_turned_knob;
 } Organism;
 
 /*void init_organism(Organism *o, Genotype *g) {
@@ -378,6 +393,19 @@ void free_organisms(Organism **organisms, int num_organisms) {
       free_organism(organisms[i]);
     free(organisms);
   }
+}
+
+/*void copy_organism(Organism *new_o, Organism *old_o) {
+  new_o->genotype = copy_genotype(old_o->genotype);
+  new_o->fitness = old_o->fitness;
+}*/
+
+Organism *copy_organism(Organism *o) {
+  Organism *new_o = calloc(1, sizeof(Organism));
+  new_o->genotype = copy_genotype(o->genotype);
+  new_o->fitness = o->fitness;
+  new_o->from_turned_knob = false;
+  return new_o;
 }
 
 void print_organism_dot(Organism *o, FILE *f) {
@@ -455,6 +483,7 @@ typedef struct world_t {
   ACTIVATION_TYPES activation_types;
   EDGE_WEIGHTS edge_weights;
   bool multi_edges;
+  bool allow_move_edge;
   //Genotype *genotypes;
   Organism **organisms;
   double (*phenotype_fitness_func)(struct world_t *, Genotype *);
@@ -483,6 +512,8 @@ typedef struct world_t {
   DATA *epoch_fitness_deltas;
   ANCESTOR_LOG *log;
   int num_hill_climbers;
+  int num_generations_measured;
+  int num_fitness_increases_from_knob_turn;
 } World;
 
 double phenotype_fitness(World *, Genotype *);
@@ -495,8 +526,8 @@ World *create_world() {
   w->sa_timesteps = 20;
   w->generations_per_epoch = 20;
   w->num_epochs = 100;
-  w->num_nodes = 8;
-  w->num_edges = 16;
+  w->num_nodes = 4; //8;
+  w->num_edges = 0; //16;
   w->num_in = 2;
   w->num_out = 2;
   w->decay = 0.8;
@@ -504,6 +535,7 @@ World *create_world() {
   w->activation_types = SUM_AND_MULT_INCOMING; //SUM_AND_MIN_INCOMING;
   w->edge_weights = EDGE_WEIGHTS_POS_OR_NEG;
   w->multi_edges = true;
+  w->allow_move_edge = false;
   //w->genotypes = NULL; //calloc(num_organisms, sizeof(Genotype)); // THIS IS CRAZY!
   w->organisms = NULL; //calloc(num_organisms, sizeof(Organism));
   w->phenotype_fitness_func = phenotype_fitness;
@@ -533,6 +565,9 @@ World *create_world() {
   w->epoch_fitness_deltas = create_data();
   w->log = create_ancestor_log();
   w->num_hill_climbers = 30;
+
+  w->num_generations_measured = 0;
+  w->num_fitness_increases_from_knob_turn = 0;
   return w;
 }
 
@@ -655,6 +690,7 @@ Organism *create_random_organism(World *w) {
   Organism *o = calloc(1, sizeof(Organism));
   o->genotype = create_random_genotype(w);
   o->fitness = 0.0;
+  o->from_turned_knob = false;
   return o;
 }
 
@@ -1150,8 +1186,22 @@ void change_fitness_constants(World *w) {
   w->c1 = rand_double(w->c1_lb, w->c1_ub);
 }
 
+void check_knob_turn(World *w, double last_fitness) {
+  int best_organism_index = find_best_organism(w);
+  Organism *best = w->organisms[best_organism_index];
+  double fitness_delta = best->fitness - last_fitness;
+  w->num_generations_measured++;
+  if (fitness_delta > 0.0) {
+    if (best->from_turned_knob) {
+      w->num_fitness_increases_from_knob_turn++;
+      //printf("    from_knob_turn: delta: %lf\n", fitness_delta);
+    }
+  }
+}
+
 void run_epoch(World *w, int e) {
   double epoch_start_fitness;
+  double last_fitness;
   change_fitness_constants(w);
   if (!quiet && !dot)
     printf("\nepoch %d (c1=%lf, c2=%lf, c3=%lf)\n", e, w->c1, w->c2, w->c3);
@@ -1164,6 +1214,7 @@ void run_epoch(World *w, int e) {
   for (w->generation = 1;
        w->generation <= w->generations_per_epoch;
        w->generation++) {
+    last_fitness = max(find_best_fitness(w), 0.0);
     run_generation(w);
     if (!quiet) {
       print_generation_results(w);
@@ -1173,6 +1224,7 @@ void run_epoch(World *w, int e) {
       if (w->epoch % 10 == 0 && w->generation == w->generations_per_epoch)
         dump_fitness_nbhd(w);
     }
+    check_knob_turn(w, last_fitness);
   }
   add_datum(w->epoch_fitness_deltas,
     ((find_best_fitness(w) - epoch_start_fitness) /
@@ -1260,6 +1312,7 @@ void print_world_params(World *w) {
   puts(";");
   printf("w->edge_weights=%s;\n", edge_weights_string(w->edge_weights));
   printf("w->multi_edges=%s;\n", w->multi_edges ? "true" : "false");
+  printf("w->allow_move_edge=%s;\n", w->allow_move_edge ? "true" : "false");
   printf("w->activation_types=%s;\n",
       activation_types_string(w->activation_types));
   putchar('\n');
@@ -1282,6 +1335,11 @@ void print_acclivity_measures_of_best(World *w) {
   printf("acclivity: ph_fitness_delta = %lf, ph_absolute_fitness = %lf\n", phenotype_result.fitness_delta, phenotype_result.ending_fitness);
 }
 
+void print_knob_fitness_numbers(World *w) {
+  printf("pos_knob_turns = %lf\n", w->num_fitness_increases_from_knob_turn /
+      (double) w->num_generations_measured);
+}
+
 void run_world(World *w) {
   printf("--------------------------------------------------------------------------------\n");
   print_world_params(w);
@@ -1301,6 +1359,7 @@ void run_world(World *w) {
   print_stats(w->epoch_fitness_deltas);
   //print_data(w->epoch_fitness_deltas);
   print_acclivity_measures_of_best(w);
+  print_knob_fitness_numbers(w);
 
   close_ancestor_log(w->log);
   //free_world();
@@ -1378,32 +1437,6 @@ double phenotype_fitness(World *w, Genotype *g) {
 }
 
 // -- next generation via crossover and mutation -----------------------------
-
-Genotype *copy_genotype(Genotype *g) {
-  Genotype *new_g = calloc(sizeof(Genotype), 1);
-  new_g->num_nodes = g->num_nodes;
-  new_g->num_nodes_in_use = g->num_nodes_in_use;
-  new_g->num_edges = g->num_edges;
-  new_g->num_in = g->num_in;
-  new_g->num_out = g->num_out;
-  new_g->nodes = malloc(new_g->num_nodes * sizeof(Node));
-  memcpy(new_g->nodes, g->nodes, sizeof(Node) * new_g->num_nodes);
-  new_g->edges = malloc(new_g->num_edges * sizeof(Edge));
-  memcpy(new_g->edges, g->edges, sizeof(Edge) * new_g->num_edges);
-  return new_g;
-}
-
-/*void copy_organism(Organism *new_o, Organism *old_o) {
-  new_o->genotype = copy_genotype(old_o->genotype);
-  new_o->fitness = old_o->fitness;
-}*/
-
-Organism *copy_organism(Organism *o) {
-  Organism *new_o = calloc(1, sizeof(Organism));
-  new_o->genotype = copy_genotype(o->genotype);
-  new_o->fitness = o->fitness;
-  return new_o;
-}
 
 bool has_node(Genotype *g, int n) {
   return n >= 0 && n < g->num_nodes && g->nodes[n].in_use;
@@ -1534,6 +1567,7 @@ void mut_turn_knob(World *w, Organism *o) {
   Node *node_to_change = &o->genotype->nodes[genotype_index];
   node_to_change->initial_activation =
       clamp(node_to_change->initial_activation + nudge);
+  o->from_turned_knob = true;
 }
 
 void mut_alter_activation_type(World *w, Organism *o) {
@@ -1587,29 +1621,31 @@ Organism *mutate(World *w, Organism *old_o) {
     int mutation_type = rand_int(0, w->mutation_type_ub); //rand() % 16;
     switch (mutation_type) {
     case 0:
-      mut_move_edge(w, o);
-      log_mutation(w, "move_edge");
-      break;
-    case 1:
       mut_add_node(w, o);
       log_mutation(w, "add_node");
       break;
-    case 2:
+    case 1:
       mut_remove_node(o);
       log_mutation(w, "remove_node");
       break;
-    case 3:
+    case 2:
       mut_add_edge(w, o);
       log_mutation(w, "add_edge");
       break;
-    case 4:
+    case 3:
       mut_remove_edge(o);
       log_mutation(w, "remove_edge");
       break;
-    case 5:
+    case 4:
       mut_alter_activation_type(w, o);
       log_mutation(w, "alter_act_type");
       break;
+    case 5:
+      if (w->allow_move_edge) {
+        mut_move_edge(w, o);
+        log_mutation(w, "move_edge");
+        break;
+      }
     default:
       mut_turn_knob(w, o);
       log_mutation(w, "turn_knob");
@@ -1640,6 +1676,7 @@ Organism *crossover(World *w, Organism *m, Organism *d) {
   Genotype *baby = calloc(1, sizeof(Genotype));
   baby_o->genotype = baby;
   baby_o->fitness = 0.0;
+  baby_o->from_turned_knob = false;
 
   double crossover_frac = rand_float();
   int mommy_crossover_point = mommy->num_nodes * crossover_frac;
@@ -2153,6 +2190,7 @@ void run_from_options(int argc, char **argv) {
     { "num_hill_climbers", required_argument, 0, 0 },
     { "quiet", no_argument, 0, 0 },
     { "multi_edges", required_argument, 0, 0 },
+    { "allow_move_edge", required_argument, 0, 0 },
     { NULL, 0, 0, 0 },
   };
   int c;
@@ -2252,6 +2290,9 @@ void run_from_options(int argc, char **argv) {
         break;
       case 29:
         w->multi_edges = atoi(optarg);
+        break;
+      case 30:
+        w->allow_move_edge = atoi(optarg);
         break;
       default:
         printf("Internal error\n");
