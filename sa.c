@@ -1,14 +1,3 @@
-// todo:
-// - clean up options
-//   - move any hardcoded ones to world
-// - improve organism sanity_check
-// - clean up output
-//   - option to output dot (given organism/generation/epoch)
-//   - option to output dot for every best fitness per generation
-//   - option to dump virtual fitness func for given organism/generation/epoch
-//   - minimal standard output
-// - hill climb (from given organism/generation/epoch)
-
 #include <assert.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -66,7 +55,8 @@ double rand_activation() {
 
 typedef enum {
   SUM_INCOMING,
-  MULT_INCOMING
+  MULT_INCOMING,
+  MIN_INCOMING
 } ACTIVATION_TYPE;
 
 const char *activation_type_string(ACTIVATION_TYPE activation_type) {
@@ -75,6 +65,8 @@ const char *activation_type_string(ACTIVATION_TYPE activation_type) {
     return "+";
   case MULT_INCOMING:
     return "*";
+  case MIN_INCOMING:
+    return "m";
   default:
     assert(false);
   }
@@ -82,7 +74,8 @@ const char *activation_type_string(ACTIVATION_TYPE activation_type) {
 
 typedef enum {
   ONLY_SUM_INCOMING,
-  SUM_AND_MULT_INCOMING
+  SUM_AND_MULT_INCOMING,
+  SUM_AND_MIN_INCOMING
 } ACTIVATION_TYPES;
 
 const char *activation_types_string(ACTIVATION_TYPES activation_types) {
@@ -91,6 +84,8 @@ const char *activation_types_string(ACTIVATION_TYPES activation_types) {
     return "ONLY_SUM_INCOMING";
   case SUM_AND_MULT_INCOMING:
     return "SUM_AND_MULT_INCOMING";
+  case SUM_AND_MIN_INCOMING:
+    return "SUM_AND_MIN_INCOMING";
   default:
     assert(false);
   }
@@ -419,8 +414,8 @@ typedef struct {
 
 ANCESTOR_LOG *create_ancestor_log() {
   ANCESTOR_LOG *log = malloc(sizeof(ANCESTOR_LOG));
-  log->enabled = false;
-  log->path = NULL;
+  log->enabled = true;
+  log->path = "ancestors";
   log->f = NULL;
   return log;
 }
@@ -459,6 +454,7 @@ typedef struct world_t {
   double spreading_rate;
   ACTIVATION_TYPES activation_types;
   EDGE_WEIGHTS edge_weights;
+  bool multi_edges;
   //Genotype *genotypes;
   Organism **organisms;
   double (*phenotype_fitness_func)(struct world_t *, Genotype *);
@@ -499,19 +495,20 @@ World *create_world() {
   w->sa_timesteps = 20;
   w->generations_per_epoch = 20;
   w->num_epochs = 100;
-  w->num_nodes = 4;
-  w->num_edges = 0;
+  w->num_nodes = 8;
+  w->num_edges = 16;
   w->num_in = 2;
   w->num_out = 2;
-  w->decay = 0.9;
+  w->decay = 0.8;
   w->spreading_rate = 0.2;
-  w->activation_types = ONLY_SUM_INCOMING;
+  w->activation_types = SUM_AND_MULT_INCOMING; //SUM_AND_MIN_INCOMING;
   w->edge_weights = EDGE_WEIGHTS_POS_OR_NEG;
+  w->multi_edges = true;
   //w->genotypes = NULL; //calloc(num_organisms, sizeof(Genotype)); // THIS IS CRAZY!
   w->organisms = NULL; //calloc(num_organisms, sizeof(Organism));
   w->phenotype_fitness_func = phenotype_fitness;
   w->distance_weight = 10.0;
-  w->bumps = false;
+  w->bumps = true;
   w->epoch = 0;
   w->generation = 0;
   w->c1 = 0.5;
@@ -522,9 +519,9 @@ World *create_world() {
   //w->c2 = 1.0;
   //w->c3 = 0.0;
   w->ridge_radius = 0.2;
-  w->mutation_type_ub = 16;
+  w->mutation_type_ub = 10;
   w->extra_mutation_rate = 0.1;
-  w->crossover_freq = 0.1;
+  w->crossover_freq = 0.02;
   w->edge_inheritance = INHERIT_SRC_EDGES_FROM_MOMMY;
   w->num_candidates = 7;
   w->knob_constant = 0.02;
@@ -601,16 +598,23 @@ void init_random_node(World *w, Node *n) {
       break;
     case SUM_AND_MULT_INCOMING:
       n->activation_type = coin_flip() ? SUM_INCOMING : MULT_INCOMING;
+      break;
+    case SUM_AND_MIN_INCOMING:
+      n->activation_type = coin_flip() ? SUM_INCOMING : MIN_INCOMING;
+      break;
   }
 }
+
+void add_edge(World *, Genotype *, int, int, double);
 
 Genotype *create_random_genotype(World *w) {
   Genotype *g = calloc(1, sizeof(Genotype));
   g->nodes = malloc(sizeof(Node) * w->num_nodes);
-  g->edges = malloc(sizeof(Edge) * w->num_edges);
+  //g->edges = malloc(sizeof(Edge) * w->num_edges);
+  g->edges = NULL;
   g->num_nodes = w->num_nodes;
   g->num_nodes_in_use = w->num_nodes;
-  g->num_edges = w->num_edges;
+  g->num_edges = 0; //w->num_edges;
   g->num_in = w->num_in;
   g->num_out = w->num_out;
   for (int n = 0; n < g->num_nodes; n++) {
@@ -632,9 +636,13 @@ Genotype *create_random_genotype(World *w) {
     }*/
   }
   for (int e = 0; e < g->num_edges; e++) {
-    g->edges[e].src = rand() % g->num_nodes;
-    g->edges[e].dst = rand() % g->num_nodes;
-    g->edges[e].weight = rand_edge_weight(w);
+    int src = rand() % g->num_nodes;
+    int dst = rand() % g->num_nodes;
+    double weight = rand_edge_weight(w);
+    add_edge(w, g, src, dst, weight);
+//    g->edges[e].src = rand() % g->num_nodes;
+//    g->edges[e].dst = rand() % g->num_nodes;
+//    g->edges[e].weight = rand_edge_weight(w);
   }
   return g;
 }
@@ -713,6 +721,12 @@ void sa(Organism *o, int timesteps, double decay, double spreading_rate) {
             incoming_activations[edge->dst] *=
                   edge->weight * activations[edge->src];
             break;
+          case MIN_INCOMING:
+            if (incoming_activations[edge->dst] == UNWRITTEN)
+              incoming_activations[edge->dst] = activations[edge->src];
+            else if (activations[edge->src] < incoming_activations[edge->dst])
+              incoming_activations[edge->dst] = activations[edge->src];
+            break;
         }
       }
     }
@@ -733,6 +747,9 @@ void sa(Organism *o, int timesteps, double decay, double spreading_rate) {
               // ignore previous activation
               activations[n] = sigmoid(incoming_activations[n]);
               break;
+            case MIN_INCOMING:
+              // ignore previous activation
+              activations[n] = incoming_activations[n];
           }
         }
       }
@@ -1242,6 +1259,7 @@ void print_world_params(World *w) {
   }
   puts(";");
   printf("w->edge_weights=%s;\n", edge_weights_string(w->edge_weights));
+  printf("w->multi_edges=%s;\n", w->multi_edges ? "true" : "false");
   printf("w->activation_types=%s;\n",
       activation_types_string(w->activation_types));
   putchar('\n');
@@ -1343,7 +1361,7 @@ double phenotype_fitness(World *w, Genotype *g) {
       //(5 * (sqrt8 - distance(w->c1, w->c1, phenotype[0], phenotype[1])));
       require_valid_region(w, phenotype[0], phenotype[1]) *
       along_ridge(w, phenotype[0], phenotype[1]) *
-      (w->distance_weight * scaled_dist);
+      (w->distance_weight * scaled_dist * scaled_dist);
     if (w->bumps) {
       double bump_amt = many_small_hills(phenotype);
 //      if (bump_amt <= 0.0)
@@ -1400,22 +1418,24 @@ bool has_edge(Genotype *g, int src, int dst) {
   return false;
 }
 
-void add_edge(Genotype *g, int src, int dst, double weight) {
+void add_edge(World *w, Genotype *g, int src, int dst, double weight) {
   assert(has_node(g, src));
   assert(src >= 0);
   assert(has_node(g, dst));
   assert(dst >= 0);
-  g->num_edges++;
-  g->edges = realloc(g->edges, sizeof(Edge) * g->num_edges);
-  int e = g->num_edges - 1;
-  g->edges[e].src = src;
-  g->edges[e].dst = dst;
-  g->edges[e].weight = weight;
+  if (w->multi_edges || !has_edge(g, src, dst)) {
+    g->num_edges++;
+    g->edges = realloc(g->edges, sizeof(Edge) * g->num_edges);
+    int e = g->num_edges - 1;
+    g->edges[e].src = src;
+    g->edges[e].dst = dst;
+    g->edges[e].weight = weight;
+  }
 }
 
 void mut_add_edge(World *w, Organism *o) {
   Genotype *g = o->genotype;
-  add_edge(g, select_in_use_node(g), select_in_use_node(g), rand_edge_weight(w));
+  add_edge(w, g, select_in_use_node(g), select_in_use_node(g), rand_edge_weight(w));
 //  g->num_edges++;
 //  g->edges = realloc(g->edges, sizeof(Edge) * g->num_edges);
 //  int add_index = g->num_edges - 1;
@@ -1469,6 +1489,10 @@ void mut_add_node(World *w, Organism *o) {
       break;
     case SUM_AND_MULT_INCOMING:
       g->nodes[add_index].activation_type = coin_flip() ? SUM_INCOMING : MULT_INCOMING;
+      break;
+    case SUM_AND_MIN_INCOMING:
+      g->nodes[add_index].activation_type = coin_flip() ? SUM_INCOMING : MIN_INCOMING;
+      break;
   }
 }
 
@@ -1514,23 +1538,45 @@ void mut_turn_knob(World *w, Organism *o) {
 
 void mut_alter_activation_type(World *w, Organism *o) {
   switch (w->activation_types) {
-    case ONLY_SUM_INCOMING:
-      mut_turn_knob(w, o);
-      break;
-    case SUM_AND_MULT_INCOMING:
-      {
-        int n = select_in_use_node(o->genotype);
-        Node *node_to_change = &o->genotype->nodes[n];
-        switch (node_to_change->activation_type) {
-          case SUM_INCOMING:
-            node_to_change->activation_type = MULT_INCOMING;
-            break;
-          case MULT_INCOMING:
-            node_to_change->activation_type = SUM_INCOMING;
-            break;
-        }
+  case ONLY_SUM_INCOMING:
+    mut_turn_knob(w, o);
+    break;
+  case SUM_AND_MULT_INCOMING:
+    {
+      int n = select_in_use_node(o->genotype);
+      Node *node_to_change = &o->genotype->nodes[n];
+      switch (node_to_change->activation_type) {
+        case SUM_INCOMING:
+          node_to_change->activation_type = MULT_INCOMING;
+          break;
+        case MULT_INCOMING:
+          node_to_change->activation_type = SUM_INCOMING;
+          break;
+        default:
+          // shouldn't reach
+          assert(false);
+          break;
       }
-      break;
+    }
+    break;
+  case SUM_AND_MIN_INCOMING:
+    {
+      int n = select_in_use_node(o->genotype);
+      Node *node_to_change = &o->genotype->nodes[n];
+      switch (node_to_change->activation_type) {
+        case SUM_INCOMING:
+          node_to_change->activation_type = MIN_INCOMING;
+          break;
+        case MIN_INCOMING:
+          node_to_change->activation_type = SUM_INCOMING;
+          break;
+        default:
+          // shouldn't reach
+          assert(false);
+          break;
+      }
+    }
+    break;
   }
 }
 
@@ -1636,39 +1682,39 @@ Organism *crossover(World *w, Organism *m, Organism *d) {
     switch (w->edge_inheritance) {
       case NO_EDGES_ACROSS_PARENTS:
         if (edge->src < mommy_crossover_point && edge->dst < mommy_crossover_point) {
-          add_edge(baby, edge->src, edge->dst, edge->weight);
+          add_edge(w, baby, edge->src, edge->dst, edge->weight);
         }
         break;
       case INHERIT_SRC_EDGES_FROM_MOMMY:
       case INHERIT_SRC_EDGES_FROM_BOTH_PARENTS:
         if (edge->src < mommy_crossover_point &&
             has_node(baby, edge->src) && has_node(baby, edge->dst)) {
-          add_edge(baby, edge->src, edge->dst, edge->weight);
+          add_edge(w, baby, edge->src, edge->dst, edge->weight);
         }
         break;
       case INHERIT_HALF_OF_CROSSOVER_EDGES:
         if ((edge->src < mommy_crossover_point || edge->dst < mommy_crossover_point) &&
             coin_flip() &&
             has_node(baby, edge->src) && has_node(baby, edge->dst)) {
-          add_edge(baby, edge->src, edge->dst, edge->weight);
+          add_edge(w, baby, edge->src, edge->dst, edge->weight);
         }
         break;
       case INHERIT_HALF_OF_ALL_EDGES:
         if (coin_flip() &&
             has_node(baby, edge->src) && has_node(baby, edge->dst)) {
-          add_edge(baby, edge->src, edge->dst, edge->weight);
+          add_edge(w, baby, edge->src, edge->dst, edge->weight);
         }
         break;
       case INHERIT_ALL_EDGES:
         if (has_node(baby, edge->src) && has_node(baby, edge->dst)) {
-          add_edge(baby, edge->src, edge->dst, edge->weight);
+          add_edge(w, baby, edge->src, edge->dst, edge->weight);
         }
         break;
 //    else if ((edge->src < baby->num_nodes && baby->nodes[edge->src].in_use) &&
 //               (edge->dst < baby->num_nodes && baby->nodes[edge->dst].in_use) ) { //&&
                //!has_edge(baby, edge->src, edge->dst)) {
       //baby->edges[e++] = *edge;
-//      add_edge(baby, edge->src, edge->dst, edge->weight);
+//      add_edge(w, baby, edge->src, edge->dst, edge->weight);
     }
   }
   for (int d = 0; d < daddy->num_edges; d++) {
@@ -1682,7 +1728,7 @@ Organism *crossover(World *w, Organism *m, Organism *d) {
           //baby->edges[e].dst = (edge->dst - daddy_crossover_point) + mommy_crossover_point;
           //baby->edges[e].weight = edge->weight;
           //e++;
-          add_edge(baby, bsrc, bdst, edge->weight);
+          add_edge(w, baby, bsrc, bdst, edge->weight);
         }
         break;
       case INHERIT_SRC_EDGES_FROM_MOMMY:
@@ -1691,33 +1737,33 @@ Organism *crossover(World *w, Organism *m, Organism *d) {
       case INHERIT_SRC_EDGES_FROM_BOTH_PARENTS:
         if (edge->src >= daddy_crossover_point &&
             has_node(baby, bsrc) && has_node(baby, bdst)) {
-          add_edge(baby, bsrc, bdst, edge->weight);
+          add_edge(w, baby, bsrc, bdst, edge->weight);
         }
         break;
       case INHERIT_HALF_OF_CROSSOVER_EDGES:
         if ((edge->src >= daddy_crossover_point || edge->dst >= daddy_crossover_point) &&
             coin_flip() &&
             has_node(baby, bsrc) && has_node(baby, bdst)) {
-          add_edge(baby, bsrc, bdst, edge->weight);
+          add_edge(w, baby, bsrc, bdst, edge->weight);
         }
         break;
       case INHERIT_HALF_OF_ALL_EDGES:
         if (coin_flip() &&
             !has_edge(mommy, bsrc, bdst) &&
             has_node(baby, bsrc) && has_node(baby, bdst)) {
-          add_edge(baby, bsrc, bdst, edge->weight);
+          add_edge(w, baby, bsrc, bdst, edge->weight);
         }
         break;
       case INHERIT_ALL_EDGES:
         if (!has_edge(mommy, bsrc, bdst) &&
             has_node(baby, bsrc) && has_node(baby, bdst)) {
-          add_edge(baby, bsrc, bdst, edge->weight);
+          add_edge(w, baby, bsrc, bdst, edge->weight);
         }
         break;
 //        if (edge->src >= daddy_crossover_point &&
 //            coin_flip() &&
 //            has_node(baby, bsrc) && has_node(baby, bdst % baby->num_nodes)) {
-//          add_edge(baby, bsrc, bdst % baby->num_nodes, edge->weight);
+//          add_edge(w, baby, bsrc, bdst % baby->num_nodes, edge->weight);
 //        }
 //        break;
     }
@@ -2106,6 +2152,7 @@ void run_from_options(int argc, char **argv) {
     { "knob_type", required_argument, 0, 0 },
     { "num_hill_climbers", required_argument, 0, 0 },
     { "quiet", no_argument, 0, 0 },
+    { "multi_edges", required_argument, 0, 0 },
     { NULL, 0, 0, 0 },
   };
   int c;
@@ -2202,6 +2249,9 @@ void run_from_options(int argc, char **argv) {
         break;
       case 28:
         quiet = true;
+        break;
+      case 29:
+        w->multi_edges = atoi(optarg);
         break;
       default:
         printf("Internal error\n");
