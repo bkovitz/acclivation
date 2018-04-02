@@ -18,7 +18,7 @@
 
 int verbose = 0;
 bool quiet = false;
-bool debug = true;
+bool debug = false;
 bool dot = false;
 
 double max(double x, double y) {
@@ -919,7 +919,7 @@ void sa(Organism *o, int timesteps, double decay, double spreading_rate) {
     }
 
     // Update each Node's 'control' from next_controls
-    for (int n = 0; n <= g->num_nodes; n++) {
+    for (int n = 0; n < g->num_nodes; n++) {
       Node *node = &g->nodes[n];
       if (node->in_use && next_controls[n] != UNWRITTEN) {
         node->control = next_controls[n];
@@ -1539,8 +1539,8 @@ void print_world_params(World *w) {
   printf("w->spreading_rate=%lf;\n", w->spreading_rate);
   printf("w->distance_weight=%lf;\n", w->distance_weight);
   printf("w->bumps=%s;\n", w->bumps ? "true" : "false");
-  printf("w->knob_type=%d\n;", w->knob_type);
-  printf("w->knob_constant=%lf\n;", w->knob_constant);
+  printf("w->knob_type=%d;\n", w->knob_type);
+  printf("w->knob_constant=%lf;\n", w->knob_constant);
   printf("w->mutation_type_ub=%d;\n", w->mutation_type_ub);
   printf("w->extra_mutation_rate=%lf;\n", w->extra_mutation_rate);
   printf("w->crossover_freq=%lf;\n", w->crossover_freq);
