@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <getopt.h>
 #include <math.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -9,7 +10,8 @@
 #include <strings.h>
 #include <time.h>
 #include <unistd.h>
-#include <getopt.h>
+
+#define M_PI 3.14159265358979323846
 
 #define MAXS 128
 #define array_len(a) (sizeof(a) / sizeof(a[0]))
@@ -106,6 +108,17 @@ const char *edge_weights_string(EDGE_WEIGHTS edge_weights) {
       assert(false);
   }
 }
+
+typedef enum {
+  PASS_THROUGH,  // output = activation
+  STEEP_SIGMOID
+} OUTPUT_TYPE;
+
+
+typedef enum {
+  ONLY_PASS_THROUGH,
+  PASS_THROUGH_AND_STEEP_SIGMOID
+} OUTPUT_TYPES;
 
 // -- accumulating data ------------------------------------------------------
 
@@ -241,6 +254,15 @@ double clamp(double x) {
   return x <= -1.0 ? -1.0 : (x >= 1.0 ? 1.0 : x);
 }
 
+double clamp2(double x, double lb, double ub) {
+  if (x < lb)
+    return lb;
+  else if (x > ub)
+    return ub;
+  else
+    return x;
+}
+
 // float in range 0 to 1
 double rand_float() {
   return (double) rand() / RAND_MAX;
@@ -267,7 +289,35 @@ double sigmoid(double x) {
   double xcenter = 0.0, ymin = -1.0, ymax = 1.0, slope = 2.1972274554893376;
   double yscale = ymax - ymin;
   double ycenter = (ymax + ymin) / 2.0;
-  double yoffset =- ycenter - (yscale / 2.0);
+  double yoffset = ycenter - (yscale / 2.0);
+  double denom = (1.0 + exp(slope * (xcenter - x)));
+  if (verbose > 1)
+    printf("x = %lf; denom = %lf\n", x, denom);
+  assert(denom != 0.0);
+  return (yscale / denom) + yoffset;
+}
+
+/*double steep_sigmoid(double x) {
+  //double xcenter = 0.0, ymin = -1.0, ymax = 1.0, slope = 4.0;
+  double xcenter = 0.5, ymin = 0.0, ymax = 1.0, slope = 2.0;
+  double yscale = ymax - ymin;
+  double ycenter = (ymax + ymin) / 2.0;
+  double yoffset = ycenter - (yscale / 2.0);
+  double denom = (1.0 + exp(slope * (xcenter - x)));
+  if (verbose > 1)
+    printf("x = %lf; denom = %lf\n", x, denom);
+  assert(denom != 0.0);
+  return (yscale / denom) + yoffset;
+}*/
+
+double steep_sigmoid(double x, double xcenter) {
+  //double xcenter = 0.0, ymin = -1.0, ymax = 1.0, slope = 4.0;
+  //double ymin = 0.0, ymax = 1.0;
+  double ymin = 1.0, ymax = 0;
+  double slope = 2.0;
+  double yscale = ymax - ymin;
+  double ycenter = (ymax + ymin) / 2.0;
+  double yoffset = ycenter - (yscale / 2.0);
   double denom = (1.0 + exp(slope * (xcenter - x)));
   if (verbose > 1)
     printf("x = %lf; denom = %lf\n", x, denom);
@@ -280,7 +330,8 @@ typedef struct {
   double initial_activation;
   double final_activation;
   double (*threshold_func)(double);
-  ACTIVATION_TYPE activation_type;
+  ACTIVATION_TYPE activation_type; // activation level as a function of inputs
+  OUTPUT_TYPE output_type;  // output level as a function of activation level
 } Node;
 
 typedef struct {
@@ -421,9 +472,20 @@ void print_organism_dot(Organism *o, FILE *f) {
     fprintf(f, "n%d ->", g->num_in + o);
   fprintf(f, " n%d }\n", g->num_in + g->num_out - 1);
   for (int n = 0; n < g->num_nodes; n++) {
-    if (g->nodes[n].in_use)
-      fprintf(f, "  n%d [label=\"%.3lf %s\"]\n", n, g->nodes[n].final_activation,
-             activation_type_string(g->nodes[n].activation_type));
+    if (g->nodes[n].in_use) {
+      switch (g->nodes[n].output_type) {
+      case PASS_THROUGH:
+        fprintf(f, "  n%d [label=\"%.3lf %s P\"]\n", n, g->nodes[n].final_activation,
+               activation_type_string(g->nodes[n].activation_type));
+        break;
+      case STEEP_SIGMOID:
+        fprintf(f, "  n%d [label=\"%.3lf %s S %.3lf\"]\n", n, g->nodes[n].final_activation,
+               activation_type_string(g->nodes[n].activation_type),
+               steep_sigmoid(g->nodes[n].final_activation,
+                 g->nodes[n].initial_activation));
+        break;
+      }
+    }
   }
   for (int e = 0; e < g->num_edges; e++) {
     fprintf(f, "  n%d -> n%d [label=%.3lf];\n", g->edges[e].src, g->edges[e].dst,
@@ -466,6 +528,11 @@ void close_ancestor_log(ANCESTOR_LOG *log) {
   }
 }
 
+typedef enum {
+  LINE,
+  CIRCLE
+} RIDGE_TYPE;
+
 // -- world ------------------------------------------------------------------
 
 typedef struct world_t {
@@ -482,6 +549,7 @@ typedef struct world_t {
   double spreading_rate;
   ACTIVATION_TYPES activation_types;
   EDGE_WEIGHTS edge_weights;
+  OUTPUT_TYPES output_types;
   bool multi_edges;
   bool allow_move_edge;
   //Genotype *genotypes;
@@ -493,6 +561,10 @@ typedef struct world_t {
   int generation;
   double c1, c2, c3;
   double c1_lb, c1_ub;
+  double peak_x, peak_y;
+  enum { JUMPY_PEAK_MOVEMENT, GRADUAL_PEAK_MOVEMENT } peak_movement;
+  double max_dist;
+  RIDGE_TYPE ridge_type;
   double ridge_radius;
   int mutation_type_ub;
   double extra_mutation_rate;
@@ -533,9 +605,10 @@ World *create_world() {
   w->decay = 0.8;
   w->spreading_rate = 0.2;
   w->activation_types = SUM_AND_MULT_INCOMING; //SUM_AND_MIN_INCOMING;
-  w->edge_weights = EDGE_WEIGHTS_POS_OR_NEG;
+  w->edge_weights = EDGE_WEIGHTS_ONLY_PLUS_1; //EDGE_WEIGHTS_POS_OR_NEG;
   w->multi_edges = true;
   w->allow_move_edge = false;
+  w->output_types = ONLY_PASS_THROUGH;
   //w->genotypes = NULL; //calloc(num_organisms, sizeof(Genotype)); // THIS IS CRAZY!
   w->organisms = NULL; //calloc(num_organisms, sizeof(Organism));
   w->phenotype_fitness_func = phenotype_fitness;
@@ -546,13 +619,18 @@ World *create_world() {
   w->c1 = 0.5;
   w->c2 = 1.0;
   w->c3 = 0.0;
-  w->c1_lb = 0.1;
-  w->c1_ub = 0.9;
+  w->c1_lb = 0.2;
+  w->c1_ub = 0.8;
+  w->peak_movement = JUMPY_PEAK_MOVEMENT;
+  w->peak_x = 0.0; // dependent variable
+  w->peak_y = 0.0; // dependent variable
+  w->max_dist = 0.0; // dependent variable
   //w->c2 = 1.0;
   //w->c3 = 0.0;
+  w->ridge_type = LINE;
   w->ridge_radius = 0.2;
   w->mutation_type_ub = 10;
-  w->extra_mutation_rate = 0.1;
+  w->extra_mutation_rate = 0.0; //0.1;
   w->crossover_freq = 0.02;
   w->edge_inheritance = INHERIT_SRC_EDGES_FROM_MOMMY;
   w->num_candidates = 7;
@@ -636,6 +714,14 @@ void init_random_node(World *w, Node *n) {
       break;
     case SUM_AND_MIN_INCOMING:
       n->activation_type = coin_flip() ? SUM_INCOMING : MIN_INCOMING;
+      break;
+  }
+  switch (w->output_types) {
+    case ONLY_PASS_THROUGH:
+      n->output_type = PASS_THROUGH;
+      break;
+    case PASS_THROUGH_AND_STEEP_SIGMOID:
+      n->output_type = coin_flip() ? PASS_THROUGH : STEEP_SIGMOID;
       break;
   }
 }
@@ -725,6 +811,18 @@ void print_all_activations(Genotype *g, double *activations) {
   printf("\n");
 }
 
+double src_output(Node *src, int index, double *activations) {
+  switch (src->output_type) {
+    case PASS_THROUGH:
+      return activations[index];
+    case STEEP_SIGMOID:
+      //return steep_sigmoid(activations[index], src->initial_activation);
+      return steep_sigmoid(activations[index], activations[index]);
+    default:
+      assert(false);
+  }
+}
+
 void sa(Organism *o, int timesteps, double decay, double spreading_rate) {
   Genotype *g = o->genotype;
 
@@ -743,25 +841,33 @@ void sa(Organism *o, int timesteps, double decay, double spreading_rate) {
     }
     for (int e = 0; e < g->num_edges; e++) {
       Edge *edge = &g->edges[e];
+      double incoming_output = src_output(&g->nodes[edge->src], edge->src,
+          activations);
       if (activations[edge->src] != UNWRITTEN) {
         switch (g->nodes[edge->dst].activation_type) {
           case SUM_INCOMING:
             if (incoming_activations[edge->dst] == UNWRITTEN)
               incoming_activations[edge->dst] = 0.0;
             incoming_activations[edge->dst] +=
-                  edge->weight * activations[edge->src];
+                  //edge->weight * activations[edge->src];
+                  edge->weight * incoming_output; //src_output(src_node);
             break;
           case MULT_INCOMING:
             if (incoming_activations[edge->dst] == UNWRITTEN)
               incoming_activations[edge->dst] = 1.0;
             incoming_activations[edge->dst] *=
-                  edge->weight * activations[edge->src];
+                  //edge->weight * activations[edge->src];
+                  edge->weight * incoming_output;
             break;
           case MIN_INCOMING:
+//            if (incoming_activations[edge->dst] == UNWRITTEN)
+//              incoming_activations[edge->dst] = activations[edge->src];
+//            else if (activations[edge->src] < incoming_activations[edge->dst])
+//              incoming_activations[edge->dst] = activations[edge->src];
             if (incoming_activations[edge->dst] == UNWRITTEN)
-              incoming_activations[edge->dst] = activations[edge->src];
-            else if (activations[edge->src] < incoming_activations[edge->dst])
-              incoming_activations[edge->dst] = activations[edge->src];
+              incoming_activations[edge->dst] = incoming_output;
+            else if (incoming_output < incoming_activations[edge->dst])
+              incoming_activations[edge->dst] = incoming_output;
             break;
         }
       }
@@ -1120,7 +1226,7 @@ HILL_CLIMBING_RESULT climb_hill(World *w, Organism *o) {
       num_neutral_steps = 0;
     } else if (candidates[best_candidate_index]->fitness == last_fitness) {
       // neutral plateau
-      if (++num_neutral_steps >= 1000) {
+      if (++num_neutral_steps >= 200) {
         //printf("crazy plateau\n");
         break;
       }
@@ -1187,9 +1293,63 @@ void free_world(World *w) {
   free(w);
 }
 
+double distance(double x1, double y1, double x2, double y2);
+
 void change_fitness_constants(World *w) {
   //w->c1 = rand_activation();
-  w->c1 = rand_double(w->c1_lb, w->c1_ub);
+  const double sqrt2 = sqrt(2.0);
+  switch (w->ridge_type) {
+  case LINE:
+    switch (w->peak_movement) {
+    case JUMPY_PEAK_MOVEMENT:
+      w->c1 = rand_double(w->c1_lb, w->c1_ub);
+      break;
+    case GRADUAL_PEAK_MOVEMENT:
+      w->c1 += sample_normal(0.4);
+      if (w->c1 < w->c1_lb || w->c1 > w->c1_ub)
+        w->c1 = rand_double(w->c1_lb, w->c1_ub);
+      break;
+    default:
+      assert(false);
+    }
+    // dependent variables
+    w->peak_x = w->c1;
+    w->peak_y = clamp2(w->c2 * w->c1 + w->c3, w->c1_lb, w->c1_ub);
+    //w->max_dist = sqrt2; // wrong
+    w->max_dist = distance(w->peak_x, w->peak_y, -1.0, -1.0);
+    double d = distance(w->peak_x, w->peak_y, -1.0, +1.0);
+    if (d > w->max_dist)
+      w->max_dist = d;
+    d = distance(w->peak_x, w->peak_y, +1.0, -1.0);
+    if (d > w->max_dist)
+      w->max_dist = d;
+    d = distance(w->peak_x, w->peak_y, +1.0, +1.0);
+    if (d > w->max_dist)
+      w->max_dist = d;
+    printf("peak=(%lf,%lf) max_dist=%lf\n", w->peak_x, w->peak_y, w->max_dist);
+    break;
+  case CIRCLE:
+    switch (w->peak_movement) {
+    case JUMPY_PEAK_MOVEMENT:
+      w->c1 = rand_double(0.0, 2 * M_PI);
+      break;
+    case GRADUAL_PEAK_MOVEMENT:
+      {
+        //double delta = sample_normal(2 * M_PI / 10.0);
+        double delta = rand_double(2 * M_PI / 10, 2 * M_PI / 5.0);
+        printf("c1 delta = %lf\n", delta);
+        w->c1 += delta;
+      }
+      break;
+    default:
+      assert(false);
+    }
+    // dependent variables
+    w->peak_x = 0.5 * cos(w->c1);
+    w->peak_y = 0.5 * sin(w->c1);
+    w->max_dist = 0.5 + sqrt2; // radius + edge-of-circle-to-corner
+    break;
+  }
 }
 
 void check_knob_turn(World *w, double last_fitness) {
@@ -1281,9 +1441,32 @@ void dump_phenotype_fitness_func(World *w) {
 
 void print_world_params(World *w) {
   printf("w->seed=%d;\n", w->seed);
+  printf("w->ridge_type=");
+  switch (w->ridge_type) {
+    case LINE:
+      printf("LINE;\n");
+      break;
+    case CIRCLE:
+      printf("CIRCLE;\n");
+      break;
+    default:
+      assert(false);
+      break;
+  }
   printf("w->ridge_radius=%lf;\n", w->ridge_radius);
   printf("w->c2=%lf; w->c3=%lf;\n", w->c2, w->c3);
   printf("w->c1_lb=%lf; w->c1_ub=%lf;\n", w->c1_lb, w->c1_ub);
+  printf("w->peak_movement=");
+  switch (w->peak_movement) {
+  case JUMPY_PEAK_MOVEMENT:
+    printf("JUMPY_PEAK_MOVEMENT;\n");
+    break;
+  case GRADUAL_PEAK_MOVEMENT:
+    printf("GRADUAL_PEAK_MOVEMENT;\n");
+    break;
+  default:
+    assert(false);
+  }
   printf("w->decay=%lf;\n", w->decay);
   printf("w->spreading_rate=%lf;\n", w->spreading_rate);
   printf("w->distance_weight=%lf;\n", w->distance_weight);
@@ -1322,6 +1505,17 @@ void print_world_params(World *w) {
   printf("w->activation_types=%s;\n",
       activation_types_string(w->activation_types));
   putchar('\n');
+  printf("w->output_types=");
+  switch (w->output_types) {
+    case ONLY_PASS_THROUGH:
+      puts("ONLY_PASS_THROUGH;");
+      break;
+    case PASS_THROUGH_AND_STEEP_SIGMOID:
+      puts("PASS_THROUGH_AND_STEEP_SIGMOID;");
+      break;
+    default:
+      assert(false);
+  }
   printf("w->num_organisms=%d;\n", w->num_organisms);
   printf("w->num_candidates=%d;\n", w->num_candidates);
   printf("w->generations_per_epoch=%d;\n", w->generations_per_epoch);
@@ -1391,37 +1585,52 @@ double invv(double target, double radius, double x) {
 
 double along_ridge(World *w, double x, double y) {
   //printf("x = %lf; y = %lf; fabs(%lf) = %lf\n", x, y, y - (w->c2 * x + w->c3), fabs(y - (w->c2 * x + w->c3)));
-  return invv(0.0, w->ridge_radius, fabs(y - (w->c2 * x + w->c3)));
+  switch (w->ridge_type) {
+  case LINE:
+    return invv(0.0, w->ridge_radius, fabs(y - (w->c2 * x + w->c3)));
+  case CIRCLE:
+    return invv(0.0, w->ridge_radius, fabs((x*x + y*y) - (0.5*0.5)));
+  default:
+    assert(false);
+  }
 }
 
 double require_valid_region(World *w, double x, double y) {
-  if (x >= w->c1_lb && x <= w->c1_ub &&
-      //y >= w->c2 * w->c1_lb + w->c3 && y <= w->c2 * w->c1_ub + w->c3
-      y >= w->c1_lb && y <= w->c1_ub
-      )
+  switch (w->ridge_type) {
+  case LINE:
+    if (x >= w->c1_lb && x <= w->c1_ub &&
+        //y >= w->c2 * w->c1_lb + w->c3 && y <= w->c2 * w->c1_ub + w->c3
+        y >= w->c1_lb && y <= w->c1_ub
+        )
+      return 1.0;
+    else
+      return 0.0;
+  case CIRCLE:
     return 1.0;
-  else
-    return 0.0;
+  default:
+    assert(false);
+  }
 }
 
 double phenotype_fitness(World *w, Genotype *g) {
   //const double sqrt8 = sqrt(8.0);
-  const double sqrt2 = sqrt(2.0);
+  //const double sqrt2 = sqrt(2.0);
   double phenotype[2] = {
     g->nodes[g->num_in].final_activation,
     g->nodes[g->num_in + 1].final_activation
   };
-  double peak_x = w->c1;
-  double peak_y = w->c2 * w->c1 + w->c3;
+  //double peak_x = w->c1;
+  //double peak_y = w->c2 * w->c1 + w->c3;
   if (verbose >= 2) {
     printf("require_valid_region(w, %lf, %lf) = %lf\n", phenotype[0], phenotype[1], require_valid_region(w, phenotype[0], phenotype[1]));
     printf("along_ridge(%lf, %lf) = %lf\n", phenotype[0], phenotype[1], along_ridge(w, phenotype[0], phenotype[1]));
   }
   double fitness = 0.0;
   if (phenotype[0] != UNWRITTEN && phenotype[1] != UNWRITTEN) {
-    double dist = distance(peak_x, peak_y, phenotype[0], phenotype[1]);
+    double dist = distance(w->peak_x, w->peak_y, phenotype[0], phenotype[1]);
     //double scaled_dist = (sqrt8 - dist) / sqrt8;  // 0.0 to 1.0; 1.0 is right on it
-    double scaled_dist = (sqrt2 - dist) / sqrt2;  // 0.0 to 1.0; 1.0 is right on it
+    //double scaled_dist = (sqrt2 - dist) / sqrt2;  // 0.0 to 1.0; 1.0 is right on it
+    double scaled_dist = (w->max_dist - dist) / w->max_dist;
     fitness = //many_small_hills(phenotype) +
       //(5 * (sqrt8 - distance(w->c1, w->c1, phenotype[0], phenotype[1])));
       require_valid_region(w, phenotype[0], phenotype[1]) *
@@ -1533,6 +1742,14 @@ void mut_add_node(World *w, Organism *o) {
       g->nodes[add_index].activation_type = coin_flip() ? SUM_INCOMING : MIN_INCOMING;
       break;
   }
+  switch (w->output_types) {
+    case ONLY_PASS_THROUGH:
+      g->nodes[add_index].output_type = PASS_THROUGH;
+      break;
+    case PASS_THROUGH_AND_STEEP_SIGMOID:
+      g->nodes[add_index].output_type = coin_flip() ? PASS_THROUGH : STEEP_SIGMOID;
+      break;
+  }
 }
 
 void mut_remove_node(Organism *o) {
@@ -1620,6 +1837,29 @@ void mut_alter_activation_type(World *w, Organism *o) {
   }
 }
 
+void mut_alter_output_type(World *w, Organism *o) {
+  switch (w->output_types) {
+    case ONLY_PASS_THROUGH:
+      break;
+    case PASS_THROUGH_AND_STEEP_SIGMOID:
+      {
+        int n = select_in_use_node(o->genotype);
+        Node *node_to_change = &o->genotype->nodes[n];
+        switch (node_to_change->output_type) {
+          case PASS_THROUGH:
+            node_to_change->output_type = STEEP_SIGMOID;
+            break;
+          case STEEP_SIGMOID:
+            node_to_change->output_type = PASS_THROUGH;
+            break;
+          default:
+            assert(false);
+        }
+      }
+      break;
+  }
+}
+
 Organism *mutate(World *w, Organism *old_o) {
   Organism *o = copy_organism(old_o);
   int num_mutations = 1 + (int)(w->extra_mutation_rate * rand_float() * (o->genotype->num_nodes + o->genotype->num_edges));
@@ -1647,6 +1887,10 @@ Organism *mutate(World *w, Organism *old_o) {
       log_mutation(w, "alter_act_type");
       break;
     case 5:
+      mut_alter_output_type(w, o);
+      log_mutation(w, "alter_out_type");
+      break;
+    case 6:
       if (w->allow_move_edge) {
         mut_move_edge(w, o);
         log_mutation(w, "move_edge");
@@ -2197,6 +2441,9 @@ void run_from_options(int argc, char **argv) {
     { "quiet", no_argument, 0, 0 },
     { "multi_edges", required_argument, 0, 0 },
     { "allow_move_edge", required_argument, 0, 0 },
+    { "ridge_type", required_argument, 0, 0 },
+    { "peak_movement", required_argument, 0, 0 },
+    { "output_types", required_argument, 0, 0 },
     { NULL, 0, 0, 0 },
   };
   int c;
@@ -2299,6 +2546,15 @@ void run_from_options(int argc, char **argv) {
         break;
       case 30:
         w->allow_move_edge = atoi(optarg);
+        break;
+      case 31:
+        w->ridge_type = atoi(optarg);
+        break;
+      case 32:
+        w->peak_movement = atoi(optarg);
+        break;
+      case 33:
+        w->output_types = atoi(optarg);
         break;
       default:
         printf("Internal error\n");
