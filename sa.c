@@ -18,7 +18,7 @@
 
 int verbose = 0;
 bool quiet = false;
-bool debug = false;
+bool debug = true;
 bool dot = false;
 
 double max(double x, double y) {
@@ -310,11 +310,11 @@ double sigmoid(double x) {
   return (yscale / denom) + yoffset;
 }*/
 
-double steep_sigmoid(double x, double xcenter) {
+double steep_sigmoid(double x, double xcenter, double slope) {
   //double xcenter = 0.0, ymin = -1.0, ymax = 1.0, slope = 4.0;
   //double ymin = 0.0, ymax = 1.0;
   double ymin = 1.0, ymax = 0;
-  double slope = 2.0;
+  //double slope = 2.0;
   double yscale = ymax - ymin;
   double ycenter = (ymax + ymin) / 2.0;
   double yoffset = ycenter - (yscale / 2.0);
@@ -329,6 +329,7 @@ typedef struct {
   bool in_use;
   double initial_activation;
   double final_activation;
+  double control;  // a control parameter for the output_type function
   double output;
   double (*threshold_func)(double);
   ACTIVATION_TYPE activation_type; // activation level as a function of inputs
@@ -727,6 +728,7 @@ void init_random_node(World *w, Node *n) {
   //else
       //g->nodes[n].initial_activation = 0.0;
   n->final_activation = 0.0;
+  n->control = 1.0;
   n->in_use = true;
   n->threshold_func = clamp;
   n->output = node_output(n, n->initial_activation);
@@ -829,7 +831,8 @@ double node_output(Node *node, double activation) {
       case PASS_THROUGH:
         return activation;
       case STEEP_SIGMOID:
-        return steep_sigmoid(activation, node->initial_activation);
+        //return steep_sigmoid(activation, node->initial_activation);
+        return steep_sigmoid(activation, 0.0, node->control);
       default:
         assert(false);
     }
@@ -858,6 +861,8 @@ void sa(Organism *o, int timesteps, double decay, double spreading_rate) {
   double activations[g->num_nodes];
   memset(activations, 0, sizeof(double) * g->num_nodes);
   init_activations(g, activations);
+  
+  double next_controls[g->num_nodes];
 
   double incoming_activations[g->num_nodes];
 
@@ -865,42 +870,63 @@ void sa(Organism *o, int timesteps, double decay, double spreading_rate) {
     print_all_activations(g, activations);
 
   for (int timestep = 1; timestep <= timesteps; timestep++) {
+
+    // Initialize incoming_activations and next_controls for this timestep
     for (int n = 0; n < g->num_nodes; n++) {
       incoming_activations[n] = UNWRITTEN;
+      next_controls[n] = UNWRITTEN;
     }
+
+    // Load incoming_activations[] and next_controls[] with values coming
+    // in to nodes via their edges
     for (int e = 0; e < g->num_edges; e++) {
       Edge *edge = &g->edges[e];
-      double incoming_output = src_output(&g->nodes[edge->src], edge->src,
-          activations);
       if (activations[edge->src] != UNWRITTEN) {
-        switch (g->nodes[edge->dst].activation_type) {
-          case SUM_INCOMING:
-            if (incoming_activations[edge->dst] == UNWRITTEN)
-              incoming_activations[edge->dst] = 0.0;
-            incoming_activations[edge->dst] +=
-                  //edge->weight * activations[edge->src];
-                  edge->weight * incoming_output; //src_output(src_node);
-            break;
-          case MULT_INCOMING:
-            if (incoming_activations[edge->dst] == UNWRITTEN)
-              incoming_activations[edge->dst] = 1.0;
-            incoming_activations[edge->dst] *=
-                  //edge->weight * activations[edge->src];
-                  edge->weight * incoming_output;
-            break;
-          case MIN_INCOMING:
-//            if (incoming_activations[edge->dst] == UNWRITTEN)
-//              incoming_activations[edge->dst] = activations[edge->src];
-//            else if (activations[edge->src] < incoming_activations[edge->dst])
-//              incoming_activations[edge->dst] = activations[edge->src];
-            if (incoming_activations[edge->dst] == UNWRITTEN)
-              incoming_activations[edge->dst] = incoming_output;
-            else if (incoming_output < incoming_activations[edge->dst])
-              incoming_activations[edge->dst] = incoming_output;
-            break;
+        double incoming_output = src_output(&g->nodes[edge->src], edge->src,
+            activations);
+        if (g->nodes[edge->dst].output_type == STEEP_SIGMOID &&
+            next_controls[edge->dst] == UNWRITTEN) {
+          next_controls[edge->dst] = incoming_output;
+        } else {
+          switch (g->nodes[edge->dst].activation_type) {
+            case SUM_INCOMING:
+              if (incoming_activations[edge->dst] == UNWRITTEN)
+                incoming_activations[edge->dst] = 0.0;
+              incoming_activations[edge->dst] +=
+                    //edge->weight * activations[edge->src];
+                    edge->weight * incoming_output; //src_output(src_node);
+              break;
+            case MULT_INCOMING:
+              if (incoming_activations[edge->dst] == UNWRITTEN)
+                incoming_activations[edge->dst] = 1.0;
+              incoming_activations[edge->dst] *=
+                    //edge->weight * activations[edge->src];
+                    edge->weight * incoming_output;
+              break;
+            case MIN_INCOMING:
+  //            if (incoming_activations[edge->dst] == UNWRITTEN)
+  //              incoming_activations[edge->dst] = activations[edge->src];
+  //            else if (activations[edge->src] < incoming_activations[edge->dst])
+  //              incoming_activations[edge->dst] = activations[edge->src];
+              if (incoming_activations[edge->dst] == UNWRITTEN)
+                incoming_activations[edge->dst] = incoming_output;
+              else if (incoming_output < incoming_activations[edge->dst])
+                incoming_activations[edge->dst] = incoming_output;
+              break;
+          }
         }
       }
     }
+
+    // Update each Node's 'control' from next_controls
+    for (int n = 0; n <= g->num_nodes; n++) {
+      Node *node = &g->nodes[n];
+      if (node->in_use && next_controls[n] != UNWRITTEN) {
+        node->control = next_controls[n];
+      }
+    }
+
+    // Load activations[] from incoming_activations[]
     for (int n = 0; n < g->num_nodes; n++) {
       Node *node = &g->nodes[n];
       if (node->in_use) {
@@ -931,6 +957,7 @@ void sa(Organism *o, int timesteps, double decay, double spreading_rate) {
     }
   }
 
+  // Update each Node's 'final_activation' and 'output' from activations[]
   for (int n = 0; n < g->num_nodes; n++) {
     Node *node = &g->nodes[n];
     if (node->in_use) {
@@ -1304,10 +1331,10 @@ HILL_CLIMBING_RESULT measure_acclivity(World *w, Organism *test_o) {
 
 HILL_CLIMBING_RESULT phenotype_acclivity(World *w) {
   Node nodes[] = {
-    { true, 0.0, 0.0, 0.0, clamp },
-    { true, 0.0, 0.0, 0.0, clamp },
-    { true, 0.0, 0.0, 0.0, clamp },
-    { true, 0.0, 0.0, 0.0, clamp }
+    { true, 0.0, 0.0, 0.0, 0.0, clamp },
+    { true, 0.0, 0.0, 0.0, 0.0, clamp },
+    { true, 0.0, 0.0, 0.0, 0.0, clamp },
+    { true, 0.0, 0.0, 0.0, 0.0, clamp }
   };
   Edge edges[] = {
     { 0, 2, 1.0 },
@@ -1792,6 +1819,7 @@ void mut_add_node(World *w, Organism *o) {
   g->nodes[add_index].in_use = true;
   g->nodes[add_index].initial_activation = rand_activation();
   g->nodes[add_index].final_activation = 0.0;
+  g->nodes[add_index].control = 1.0;
   g->nodes[add_index].threshold_func = sigmoid; //clamp;
   g->nodes[add_index].output = node_output(&g->nodes[add_index],
       g->nodes[add_index].initial_activation);
@@ -2108,12 +2136,12 @@ Organism *crossover(World *w, Organism *m, Organism *d) {
 
 void sa_test() {
   Node nodes[6] = {
-    { true, 0.2, 0.0, 0.0, clamp },
-    { true, 0.4, 0.0, 0.0, clamp },
-    { true, 0.0, 0.0, 0.0, clamp },
-    { true, 0.0, 0.0, 0.0, clamp },
-    { true, 0.0, 0.0, 0.0, clamp },
-    { true, 0.0, 0.0, 0.0, clamp }
+    { true, 0.2, 0.0, 0.0, 0.0, clamp },
+    { true, 0.4, 0.0, 0.0, 0.0, clamp },
+    { true, 0.0, 0.0, 0.0, 0.0, clamp },
+    { true, 0.0, 0.0, 0.0, 0.0, clamp },
+    { true, 0.0, 0.0, 0.0, 0.0, clamp },
+    { true, 0.0, 0.0, 0.0, 0.0, clamp }
   };
   Edge edges[6] = {
     { 0, 4, 1.0 },
@@ -2132,11 +2160,11 @@ void sa_test() {
 
 void sa_test2() {
   Node nodes[] = {
-    { true, 0.0, 0.0, 0.0, clamp },
-    { true, 0.0, 0.0, 0.0, clamp },
-    { true, 0.0, 0.0, 0.0, clamp },
-    { true, 0.0, 0.0, 0.0, clamp },
-    { true, -1.0, 0.0, 0.0, clamp }
+    { true, 0.0, 0.0, 0.0, 0.0, clamp },
+    { true, 0.0, 0.0, 0.0, 0.0, clamp },
+    { true, 0.0, 0.0, 0.0, 0.0, clamp },
+    { true, 0.0, 0.0, 0.0, 0.0, clamp },
+    { true, -1.0, 0.0, 0.0, 0.0, clamp }
   };
   Edge edges[] = {
     { 4, 2, 1 },
