@@ -313,7 +313,7 @@ double sigmoid(double x) {
 double steep_sigmoid(double x, double xcenter, double slope) {
   //double xcenter = 0.0, ymin = -1.0, ymax = 1.0, slope = 4.0;
   //double ymin = 0.0, ymax = 1.0;
-  double ymin = 1.0, ymax = 0;
+  double ymin = 0.0, ymax = +1.0;
   //double slope = 2.0;
   double yscale = ymax - ymin;
   double ycenter = (ymax + ymin) / 2.0;
@@ -482,9 +482,10 @@ void print_organism_dot(Organism *o, FILE *f) {
                activation_type_string(g->nodes[n].activation_type));
         break;
       case STEEP_SIGMOID:
-        fprintf(f, "  n%d [label=\"%.3lf %s S %.3lf\"]\n", n, g->nodes[n].final_activation,
+        fprintf(f, "  n%d [label=\"a=%.3lf %s S o=%.3lf c=%.3lf\"]\n", n, g->nodes[n].final_activation,
                activation_type_string(g->nodes[n].activation_type),
-               g->nodes[n].output);
+               g->nodes[n].output,
+               g->nodes[n].control);
 //               steep_sigmoid(g->nodes[n].final_activation,
 //                 g->nodes[n].initial_activation));
         break;
@@ -855,6 +856,10 @@ double src_output(Node *src, int index, double *activations) {
   return node_output(src, activations[index]);
 }
 
+double control_value(double input) {
+  return exp(input);
+}
+
 void sa(Organism *o, int timesteps, double decay, double spreading_rate) {
   Genotype *g = o->genotype;
 
@@ -886,7 +891,7 @@ void sa(Organism *o, int timesteps, double decay, double spreading_rate) {
             activations);
         if (g->nodes[edge->dst].output_type == STEEP_SIGMOID &&
             next_controls[edge->dst] == UNWRITTEN) {
-          next_controls[edge->dst] = incoming_output;
+          next_controls[edge->dst] = control_value(incoming_output);
         } else {
           switch (g->nodes[edge->dst].activation_type) {
             case SUM_INCOMING:

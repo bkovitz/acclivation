@@ -8,11 +8,32 @@ PDFFILES = $(TEXFILES:.tex=.pdf)
 BIBFILES = $(wildcard *.bib)
 DOT = dot -Tpdf
 
-OK_LINE_ARGS = --ridge_type=0 --bumps=1 --ridge_radius=0.2 --activation_types=1 --mutation_type_ub=10 \
-  --knob_type=0 --multi_edges=0 --peak_movement=0 --output_types=0 --c2=1 --c3=0 \
-  --spreading_rate=0.2 --edge_weights=0 --c1_lb=0.1 --c1_ub=0.9 --extra_mutation_rate=0.05 \
-  --decay=0.8 --allow_move_edge=0
+OK_LINE_ARGS = --ridge_type=0 --bumps=1 --ridge_radius=0.2 \
+	--activation_types=1 --mutation_type_ub=10 --knob_type=0 --multi_edges=0 \
+	--peak_movement=0 --output_types=0 --c2=1 --c3=0 --spreading_rate=0.2 \
+	--edge_weights=0 --c1_lb=0.1 --c1_ub=0.9 --extra_mutation_rate=0.05 \
+	--decay=0.8 --allow_move_edge=0
 
+CIRCLE_ARGS = --ridge_type=1 --bumps=1 --ridge_radius=0.1 \
+	--activation_types=1 --mutation_type_ub=10 --knob_type=0 --multi_edges=0 \
+	--peak_movement=0 --output_types=1 --c2=1 --c3=0 --spreading_rate=0.2 \
+	--edge_weights=0 --c1_lb=0.1 --c1_ub=0.9 --extra_mutation_rate=0.05 \
+	--decay=0.8 --allow_move_edge=0
+
+#This produced a near-optimal result
+GOOD_XLINE_ARGS = --num_epochs=60 --ridge_type=0 --bumps=0 --ridge_radius=0.2 \
+	--activation_types=1 --mutation_type_ub=10 --knob_type=0 --multi_edges=0 \
+	--peak_movement=1 --output_types=1 --c2=1 --c3=0 --spreading_rate=0.2 \
+	--edge_weights=1 --c1_lb=-1 --c1_ub=1 --extra_mutation_rate=0.00 \
+	--decay=0.8 --allow_move_edge=0 --crossover_freq=0.1 --edge_inheritance=4 \
+	--num_organisms=200
+
+XLINE_ARGS = --num_epochs=60 --ridge_type=0 --bumps=1 --ridge_radius=0.2 \
+	--activation_types=1 --mutation_type_ub=16 --knob_type=0 --multi_edges=1 \
+	--peak_movement=0 --output_types=1 --c2=1 --c3=0 --spreading_rate=0.01 \
+	--edge_weights=0 --c1_lb=-1 --c1_ub=1 --extra_mutation_rate=0.00 \
+	--decay=0.8 --allow_move_edge=0 --crossover_freq=0.1 --edge_inheritance=4 \
+	--num_organisms=200
 all: sa
 
 $(PDFFILES): $(BIBFILES)
@@ -40,6 +61,16 @@ out: sa
 okline: sa
 	./sa $(OK_LINE_ARGS) > out
 	tail -3 out
+
+circle: sa
+	./sa $(CIRCLE_ARGS) > out
+	tail -3 out
+
+# Experimenting with args on 'line' ridge
+xline: sa
+	./sa $(XLINE_ARGS) > out
+	tail -3 out
+	@echo
 
 outs: sa
 	./sa > out
