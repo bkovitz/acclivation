@@ -16,9 +16,12 @@
 #define MAXS 128
 #define array_len(a) (sizeof(a) / sizeof(a[0]))
 
-int verbose = 0;
+#define UNWRITTEN -1000.0  // activation/output level that means that
+                           // no activation/output level has been written
+                           // to the node yet.
+int verbose = 9;
 bool quiet = false;
-bool debug = false;
+bool debug = true;
 bool dot = false;
 
 double max(double x, double y) {
@@ -58,7 +61,8 @@ double rand_activation() {
 typedef enum {
   SUM_INCOMING,
   MULT_INCOMING,
-  MIN_INCOMING
+  MIN_INCOMING,
+  SIGMOID_SUM
 } ACTIVATION_TYPE;
 
 const char *activation_type_string(ACTIVATION_TYPE activation_type) {
@@ -69,15 +73,17 @@ const char *activation_type_string(ACTIVATION_TYPE activation_type) {
     return "*";
   case MIN_INCOMING:
     return "m";
-  default:
-    assert(false);
+  case SIGMOID_SUM:
+    return "~";
   }
+  assert(false);
 }
 
 typedef enum {
   ONLY_SUM_INCOMING,
   SUM_AND_MULT_INCOMING,
-  SUM_AND_MIN_INCOMING
+  SUM_AND_MIN_INCOMING,
+  ONLY_SIGMOID_SUM
 } ACTIVATION_TYPES;
 
 const char *activation_types_string(ACTIVATION_TYPES activation_types) {
@@ -88,6 +94,8 @@ const char *activation_types_string(ACTIVATION_TYPES activation_types) {
     return "SUM_AND_MULT_INCOMING";
   case SUM_AND_MIN_INCOMING:
     return "SUM_AND_MIN_INCOMING";
+  case ONLY_SIGMOID_SUM:
+    return "ONLY_SIGMOID_SUM";
   default:
     assert(false);
   }
@@ -313,7 +321,7 @@ double sigmoid(double x) {
 double steep_sigmoid(double x, double xcenter, double slope) {
   //double xcenter = 0.0, ymin = -1.0, ymax = 1.0, slope = 4.0;
   //double ymin = 0.0, ymax = 1.0;
-  double ymin = 0.0, ymax = +1.0;
+  double ymin = -1.0, ymax = +1.0;
   //double slope = 2.0;
   double yscale = ymax - ymin;
   double ycenter = (ymax + ymin) / 2.0;
@@ -475,21 +483,40 @@ void print_organism_dot(Organism *o, FILE *f) {
     fprintf(f, "n%d ->", g->num_in + o);
   fprintf(f, " n%d }\n", g->num_in + g->num_out - 1);
   for (int n = 0; n < g->num_nodes; n++) {
-    if (g->nodes[n].in_use) {
-      switch (g->nodes[n].output_type) {
+    Node *node = &g->nodes[n];
+    if (node->in_use) {
+      // TODO Output initial activations for appropriate nodes
+      fprintf(f, "  n%d [label=\"n%d ", n, n);
+      if (node->initial_activation != UNWRITTEN) {
+        fprintf(f, "i=%.3lf ", node->initial_activation);
+      }
+      if (node->final_activation != UNWRITTEN) {
+        fprintf(f, "%.3lf ", node->final_activation);
+      }
+      switch (node->output_type) {
       case PASS_THROUGH:
-        fprintf(f, "  n%d [label=\"%.3lf %s P\"]\n", n, g->nodes[n].final_activation,
-               activation_type_string(g->nodes[n].activation_type));
+        switch (node->activation_type) {
+          case SUM_INCOMING:
+          case MULT_INCOMING:
+          case MIN_INCOMING:
+            fprintf(f, "%s", activation_type_string(node->activation_type));
+            break;
+          case SIGMOID_SUM:
+            fprintf(f, "~ c=%.3lf", node->control);
+            break;
+        }
         break;
       case STEEP_SIGMOID:
-        fprintf(f, "  n%d [label=\"a=%.3lf %s S o=%.3lf c=%.3lf\"]\n", n, g->nodes[n].final_activation,
-               activation_type_string(g->nodes[n].activation_type),
-               g->nodes[n].output,
-               g->nodes[n].control);
+        //fprintf(f, "  n%d [label=\"a=%.3lf %s S o=%.3lf c=%.3lf\"]\n", n, g->nodes[n].final_activation,
+        fprintf(f, "%sS o=%.3lf c=%.3lf",
+          activation_type_string(node->activation_type),
+          node->output,
+          node->control);
 //               steep_sigmoid(g->nodes[n].final_activation,
 //                 g->nodes[n].initial_activation));
         break;
       }
+      fprintf(f, "\"]\n");
     }
   }
   for (int e = 0; e < g->num_edges; e++) {
@@ -704,6 +731,7 @@ double rand_edge_weight(World *w) {
 double node_output(Node *node, double activation);
 
 void init_random_node(World *w, Node *n) {
+  n->control = 1.0;
   switch (w->activation_types) {
     case ONLY_SUM_INCOMING:
       n->activation_type = SUM_INCOMING;
@@ -714,9 +742,15 @@ void init_random_node(World *w, Node *n) {
     case SUM_AND_MIN_INCOMING:
       n->activation_type = coin_flip() ? SUM_INCOMING : MIN_INCOMING;
       break;
+    case ONLY_SIGMOID_SUM:
+      n->activation_type = SIGMOID_SUM;
+      n->control = rand_activation();
+      break;
   }
+  // TODO Refactor to remove conceptual overlap between SIGMOID_SUM
+  // and PASS_THROUGH.
   switch (w->output_types) {
-    case ONLY_PASS_THROUGH:
+    case ONLY_PASS_THROUGH:  // SIGMOID_SUM should have PASS_THROUGH
       n->output_type = PASS_THROUGH;
       break;
     case PASS_THROUGH_AND_STEEP_SIGMOID:
@@ -729,13 +763,13 @@ void init_random_node(World *w, Node *n) {
   //else
       //g->nodes[n].initial_activation = 0.0;
   n->final_activation = 0.0;
-  n->control = 1.0;
   n->in_use = true;
   n->threshold_func = clamp;
   n->output = node_output(n, n->initial_activation);
 }
 
 void add_edge(World *, Genotype *, int, int, double);
+double node_output(Node *node, double activation);
 
 Genotype *create_random_genotype(World *w) {
   Genotype *g = calloc(1, sizeof(Genotype));
@@ -765,11 +799,21 @@ Genotype *create_random_genotype(World *w) {
         g->nodes[n].activation_type = coin_flip() ? SUM_INCOMING : MULT_INCOMING;
     }*/
   }
-  g->nodes[2].initial_activation = -1000.0;
-  g->nodes[3].initial_activation = -1000.0;
-  g->nodes[2].output = -1000.0;
-  g->nodes[3].output = -1000.0;
-  for (int e = 0; e < g->num_edges; e++) {
+  // special initialization for g-vector
+  for (int n = 0; n < g->num_in; n++) {
+    Node *node = &g->nodes[n];
+    node->initial_activation = rand_int(-100, +100) * 0.01;
+    node->output = node_output(node, node->initial_activation);
+  }
+  // initialize phenotype vector to UNWRITTEN
+  for (int n = g->num_in; n < g->num_in + g->num_out; n++) {
+    Node *node = &g->nodes[n];
+    node->initial_activation = node->output = UNWRITTEN;
+  }
+//  g->nodes[3].initial_activation = -1000.0;
+//  g->nodes[2].output = -1000.0;
+//  g->nodes[3].output = -1000.0;
+  for (int e = 0; e < w->num_edges; e++) {
     int src = rand() % g->num_nodes;
     int dst = rand() % g->num_nodes;
     double weight = rand_edge_weight(w);
@@ -794,8 +838,6 @@ Organism *create_random_organism(World *w) {
 }
 
 // -- spreading activation ---------------------------------------------------
-
-#define UNWRITTEN -1000.0
 
 void init_activations(Genotype *g, double *activations) {
   // "in" activations get their initial activations from the Genotype
@@ -832,8 +874,8 @@ double node_output(Node *node, double activation) {
       case PASS_THROUGH:
         return activation;
       case STEEP_SIGMOID:
-        //return steep_sigmoid(activation, node->initial_activation);
-        return steep_sigmoid(activation, 0.0, node->control);
+        //return steep_sigmoid(activation, 0.0, node->control);
+        return steep_sigmoid(activation, node->control / 4.0, node->control);
       default:
         assert(false);
     }
@@ -857,7 +899,7 @@ double src_output(Node *src, int index, double *activations) {
 }
 
 double control_value(double input) {
-  return exp(input);
+  return exp(2.0 * input);
 }
 
 void sa(Organism *o, int timesteps, double decay, double spreading_rate) {
@@ -867,6 +909,13 @@ void sa(Organism *o, int timesteps, double decay, double spreading_rate) {
   memset(activations, 0, sizeof(double) * g->num_nodes);
   init_activations(g, activations);
   
+  for (int n = 0; n < g->num_nodes; n++) {
+    Node *node = &g->nodes[n];
+    if (node->in_use && node->output_type == STEEP_SIGMOID) {
+      node->control = 1.0;
+    }
+  }
+
   double next_controls[g->num_nodes];
 
   double incoming_activations[g->num_nodes];
@@ -892,9 +941,14 @@ void sa(Organism *o, int timesteps, double decay, double spreading_rate) {
         if (g->nodes[edge->dst].output_type == STEEP_SIGMOID &&
             next_controls[edge->dst] == UNWRITTEN) {
           next_controls[edge->dst] = control_value(incoming_output);
+//          printf("%d->%d incoming_output=%.3lf prev_control = %.3lf next_control=%.3lf\n",
+//            edge->src, edge->dst, incoming_output,
+//            g->nodes[edge->dst].control,
+//            next_controls[edge->dst]);
         } else {
           switch (g->nodes[edge->dst].activation_type) {
             case SUM_INCOMING:
+            case SIGMOID_SUM:
               if (incoming_activations[edge->dst] == UNWRITTEN)
                 incoming_activations[edge->dst] = 0.0;
               incoming_activations[edge->dst] +=
@@ -926,7 +980,9 @@ void sa(Organism *o, int timesteps, double decay, double spreading_rate) {
     // Update each Node's 'control' from next_controls
     for (int n = 0; n < g->num_nodes; n++) {
       Node *node = &g->nodes[n];
-      if (node->in_use && next_controls[n] != UNWRITTEN) {
+      if (node->in_use &&
+          node->output_type == STEEP_SIGMOID &&
+          next_controls[n] != UNWRITTEN) {
         node->control = next_controls[n];
       }
     }
@@ -938,8 +994,9 @@ void sa(Organism *o, int timesteps, double decay, double spreading_rate) {
         if (incoming_activations[n] != UNWRITTEN) {
           switch (node->activation_type) {
             case SUM_INCOMING:
-              if (activations[n] == UNWRITTEN)
+              if (activations[n] == UNWRITTEN) {
                 activations[n] = 0.0;
+              }
               activations[n] = node->threshold_func(
                   activations[n] + spreading_rate
                                    * incoming_activations[n]
@@ -952,6 +1009,19 @@ void sa(Organism *o, int timesteps, double decay, double spreading_rate) {
             case MIN_INCOMING:
               // ignore previous activation
               activations[n] = incoming_activations[n];
+            case SIGMOID_SUM:
+              if (activations[n] == UNWRITTEN) {
+                activations[n] = 0.0;
+              }
+              printf("steep_sigmoid(%.16lf, 0.0, %.16lf) = %.16lf\n",
+                activations[n] + spreading_rate * incoming_activations[n],
+                4 * node->control,
+                4 * steep_sigmoid(incoming_activations[n], 0.0, node->control));
+              activations[n] = steep_sigmoid(
+                activations[n] + spreading_rate * incoming_activations[n],
+                0.0,
+                4 * node->control
+              );
           }
         }
       }
@@ -977,10 +1047,14 @@ void sa(Organism *o, int timesteps, double decay, double spreading_rate) {
 
 // ------------------------------------------------------------------------
 
+void sanity_check(World *w);
+
 void set_phenotypes_and_fitnesses(World *w) {
   for (int n = 0; n < w->num_organisms; n++) {
     Organism *o = w->organisms[n];
     sa(o, w->sa_timesteps, w->decay, w->spreading_rate);
+    if (debug)
+      sanity_check(w);
 //    if (dot)
 //      print_organism_dot(o, stdout);
     o->fitness = w->phenotype_fitness_func(w, o->genotype);
@@ -1028,24 +1102,37 @@ int tournament_select(World *w) {
 Organism *copy_organism(Organism *);
 Organism *crossover(World *, Organism *, Organism *);
 
+void sanity_check_organism(World *w, Organism *o) {
+  //Organism *o = w->organisms[p];
+  Genotype *g = o->genotype;
+  assert(g);
+  // check in/out nodes in use
+  for (int i = 0; i < g->num_in + g->num_out; i++)
+    assert(g->nodes[i].in_use);
+  for (int i = 0; i < g->num_in; i++)
+    assert(g->nodes[i].initial_activation != UNWRITTEN);
+  for (int i = g->num_in; i < g->num_in + g->num_out; i++)
+    assert(g->nodes[i].initial_activation == UNWRITTEN);
+  for (int i = 0; i < g->num_nodes; i++) {
+    Node *node = &g->nodes[i];
+    if (node->activation_type == SIGMOID_SUM)
+      assert(node->control != UNWRITTEN);
+  }
+  // check edges
+  for (int e = 0; e < g->num_edges; e++) {
+    Edge *edge = &g->edges[e];
+    assert(edge->src >= 0);
+    assert(edge->src < g->num_nodes);
+    assert(edge->dst >= 0);
+    assert(edge->dst < g->num_nodes);
+    assert(g->nodes[edge->src].in_use);
+    assert(g->nodes[edge->dst].in_use);
+  }
+}
+
 void sanity_check(World *w) {
   for (int p = 0; p < w->num_organisms; p++) {
-    Organism *o = w->organisms[p];
-    Genotype *g = o->genotype;
-    assert(g);
-    // check in/out nodes in use
-    for (int i = 0; i < g->num_in + g->num_out; i++)
-      assert(g->nodes[i].in_use);
-    // check edges
-    for (int e = 0; e < g->num_edges; e++) {
-      Edge *edge = &g->edges[e];
-      assert(edge->src >= 0);
-      assert(edge->src < g->num_nodes);
-      assert(edge->dst >= 0);
-      assert(edge->dst < g->num_nodes);
-      assert(g->nodes[edge->src].in_use);
-      assert(g->nodes[edge->dst].in_use);
-    }
+    sanity_check_organism(w, w->organisms[p]);
   }
 }
 
@@ -1147,6 +1234,8 @@ void run_generation(World *w) {
     free_organism(w->organisms[p]);
   free(old_population);*/
   w->organisms = new_population;
+  if (debug)
+    sanity_check(w);
   set_phenotypes_and_fitnesses(w);
   if (debug)
     sanity_check(w);
@@ -1439,7 +1528,8 @@ void run_epoch(World *w, int e) {
   double last_fitness;
   change_fitness_constants(w);
   if (!quiet && !dot)
-    printf("\nepoch %d (c1=%lf, c2=%lf, c3=%lf)\n", e, w->c1, w->c2, w->c3);
+    printf("\nepoch %d (c1=%lf, c2=%lf, c3=%lf) peak=(%.3lf, %.3lf)\n",
+      e, w->c1, w->c2, w->c3, w->peak_x, w->peak_y);
   w->epoch = e;
   w->generation = 0;
   set_phenotypes_and_fitnesses(w);
@@ -1801,33 +1891,49 @@ void mut_add_node(World *w, Organism *o) {
     g->nodes = realloc(g->nodes, sizeof(Node) * g->num_nodes);
     add_index = g->num_nodes - 1;
   }
+  Node *node = &g->nodes[add_index];
+  //g->nodes[add_index].initial_activation = 0.0;
+  //g->nodes[add_index].in_use = true;
+  //g->nodes[add_index].threshold_func = clamp;  // sigmoid; //clamp;
+  //g->nodes[add_index].output = node_output(&g->nodes[add_index],
+  //    g->nodes[add_index].initial_activation);
+  //g->nodes[add_index].control = 1.0;
+  node->in_use = true;
+  node->threshold_func = clamp;  // sigmoid; //clamp;
   switch (w->activation_types) {
     case ONLY_SUM_INCOMING:
-      g->nodes[add_index].activation_type = SUM_INCOMING;
+      node->activation_type = SUM_INCOMING;
+      node->initial_activation = rand_activation();
+      node->output = node->initial_activation;
       break;
     case SUM_AND_MULT_INCOMING:
-      g->nodes[add_index].activation_type = coin_flip() ? SUM_INCOMING : MULT_INCOMING;
+      node->activation_type = coin_flip() ? SUM_INCOMING : MULT_INCOMING;
+      node->initial_activation = rand_activation();
+      node->output = node->initial_activation;
       break;
     case SUM_AND_MIN_INCOMING:
-      g->nodes[add_index].activation_type = coin_flip() ? SUM_INCOMING : MIN_INCOMING;
+      node->activation_type = coin_flip() ? SUM_INCOMING : MIN_INCOMING;
+      node->initial_activation = rand_activation();
+      node->output = node->initial_activation;
+      break;
+    case ONLY_SIGMOID_SUM:
+      node->activation_type = SIGMOID_SUM;
+      node->initial_activation = UNWRITTEN;
+      node->control = rand_activation();
+      node->output = UNWRITTEN;
       break;
   }
   switch (w->output_types) {
     case ONLY_PASS_THROUGH:
-      g->nodes[add_index].output_type = PASS_THROUGH;
+      node->output_type = PASS_THROUGH;
       break;
     case PASS_THROUGH_AND_STEEP_SIGMOID:
-      g->nodes[add_index].output_type = coin_flip() ? PASS_THROUGH : STEEP_SIGMOID;
+      node->output_type = coin_flip() ? PASS_THROUGH : STEEP_SIGMOID;
       break;
   }
-  //g->nodes[add_index].initial_activation = 0.0;
-  g->nodes[add_index].in_use = true;
-  g->nodes[add_index].initial_activation = rand_activation();
-  g->nodes[add_index].final_activation = 0.0;
-  g->nodes[add_index].control = 1.0;
-  g->nodes[add_index].threshold_func = sigmoid; //clamp;
-  g->nodes[add_index].output = node_output(&g->nodes[add_index],
-      g->nodes[add_index].initial_activation);
+  node->final_activation = UNWRITTEN;
+  if (debug)
+    sanity_check_organism(w, o);
 }
 
 void mut_remove_node(Organism *o) {
@@ -1912,6 +2018,16 @@ void mut_alter_activation_type(World *w, Organism *o) {
       }
     }
     break;
+  case ONLY_SIGMOID_SUM:
+    // We don't change the activation type for ONLY_SIGMOID_SUM.
+    // Instead, we turn the control knob of a random node.
+    {
+      int n = select_in_use_node(o->genotype);
+      Node *node_to_change = &o->genotype->nodes[n];
+      assert(node_to_change->output_type == PASS_THROUGH);
+      node_to_change->control += sample_normal(0.02);
+    }
+    break;
   }
 }
 
@@ -1940,12 +2056,18 @@ void mut_alter_output_type(World *w, Organism *o) {
 
 Organism *mutate(World *w, Organism *old_o) {
   Organism *o = copy_organism(old_o);
-  int num_mutations = 1 + (int)(w->extra_mutation_rate * rand_float() * (o->genotype->num_nodes + o->genotype->num_edges));
+  int num_mutations =
+      1 + (int)(w->extra_mutation_rate *
+                rand_float() *
+                (o->genotype->num_nodes + o->genotype->num_edges));
   for (int i = 0; i < num_mutations; i++) {
     int mutation_type = rand_int(0, w->mutation_type_ub); //rand() % 16;
     switch (mutation_type) {
     case 0:
       mut_add_node(w, o);
+      // TODO Move all these log_mutation messages into the called functions.
+      // They're not always correct, depending on what the mutation function
+      // actually does.
       log_mutation(w, "add_node");
       break;
     case 1:
@@ -1980,6 +2102,8 @@ Organism *mutate(World *w, Organism *old_o) {
       break;
     }
   }
+  if (debug)
+    sanity_check_organism(w, o);
   return o;
 }
 
@@ -2006,6 +2130,11 @@ Organism *crossover(World *w, Organism *m, Organism *d) {
   baby_o->fitness = 0.0;
   baby_o->from_turned_knob = false;
 
+  assert(mommy->num_in == daddy->num_in);
+  assert(mommy->num_out == daddy->num_out);
+  baby->num_in = mommy->num_in;
+  baby->num_out = mommy->num_out;
+
   double crossover_frac = rand_float();
   int mommy_crossover_point = mommy->num_nodes * crossover_frac;
   int daddy_crossover_point = daddy->num_nodes * crossover_frac;
@@ -2016,21 +2145,24 @@ Organism *crossover(World *w, Organism *m, Organism *d) {
   baby->nodes = malloc(sizeof(Node) * baby->num_nodes);
   assert(baby->num_nodes >= mommy->num_in + mommy->num_out);
   int n = 0;
-  for (int m = 0; m < mommy_crossover_point; m++)
+  for (int m = 0; m < mommy_crossover_point; m++) {
     baby->nodes[n++] = mommy->nodes[m];
-  for (int d = daddy_crossover_point; d < daddy->num_nodes; d++)
-    baby->nodes[n++] = daddy->nodes[d];
+  }
+  for (int d = daddy_crossover_point; d < daddy->num_nodes; d++) {
+    baby->nodes[n] = daddy->nodes[d];
+    if (n < baby->num_in && baby->nodes[n].initial_activation == UNWRITTEN) {
+      baby->nodes[n].initial_activation = mommy->nodes[n].initial_activation;
+    }
+    n++;
+  }
   assert(n == baby->num_nodes);
-
-  assert(mommy->num_in == daddy->num_in);
-  assert(mommy->num_out == daddy->num_out);
-  baby->num_in = mommy->num_in;
-  baby->num_out = mommy->num_out;
 
   int in_use = 0;
   for (int n = 0; n < baby->num_nodes; n++) {
     if (n < baby->num_in + baby->num_out)
       baby->nodes[n].in_use = true;
+    if (n >= baby->num_in && n < baby->num_in + baby->num_out)
+      baby->nodes[n].initial_activation = UNWRITTEN;
     if (baby->nodes[n].in_use)
       in_use++;
   }
@@ -2134,6 +2266,8 @@ Organism *crossover(World *w, Organism *m, Organism *d) {
     }
   }
   //assert(e == baby->num_edges);
+  if (debug)
+    sanity_check_organism(w, baby_o);
   return baby_o;
 }
 

@@ -28,12 +28,13 @@ GOOD_XLINE_ARGS = --num_epochs=60 --ridge_type=0 --bumps=0 --ridge_radius=0.2 \
 	--decay=0.8 --allow_move_edge=0 --crossover_freq=0.1 --edge_inheritance=4 \
 	--num_organisms=200
 
-XLINE_ARGS = --num_epochs=60 --ridge_type=0 --bumps=1 --ridge_radius=0.2 \
-	--activation_types=1 --mutation_type_ub=16 --knob_type=0 --multi_edges=1 \
-	--peak_movement=0 --output_types=1 --c2=1 --c3=0 --spreading_rate=0.01 \
-	--edge_weights=0 --c1_lb=-1 --c1_ub=1 --extra_mutation_rate=0.00 \
-	--decay=0.8 --allow_move_edge=0 --crossover_freq=0.1 --edge_inheritance=4 \
-	--num_organisms=200
+XLINE_ARGS = --num_epochs=1 --ridge_type=0 --bumps=0 --ridge_radius=0.2 \
+	--activation_types=3 --mutation_type_ub=10 --knob_type=0 --multi_edges=0 \
+	--peak_movement=0 --output_types=0 --c2=1 --c3=0 --spreading_rate=0.2 \
+	--edge_weights=1 --c1_lb=-1 --c1_ub=1 --extra_mutation_rate=0.10 \
+	--decay=0.9 --allow_move_edge=0 --crossover_freq=0.1 --edge_inheritance=5 \
+	--num_organisms=1 --num_nodes=4 --num_edges=10 --seed=601051974
+
 all: sa
 
 $(PDFFILES): $(BIBFILES)
@@ -56,33 +57,38 @@ run: sa
 out: sa
 	./sa > out
 	#grep "epoch fitness" out
-	tail -3 out
+	tail -4 out
 
 okline: sa
 	./sa $(OK_LINE_ARGS) > out
-	tail -3 out
+	tail -4 out
 
 circle: sa
 	./sa $(CIRCLE_ARGS) > out
-	tail -3 out
+	tail -4 out
 
 # Experimenting with args on 'line' ridge
 xline: sa
 	./sa $(XLINE_ARGS) > out
-	tail -3 out
+	tail -4 out
+	@echo
+
+goodxline: sa
+	./sa $(GOOD_XLINE_ARGS) > out
+	tail -4 out
 	@echo
 
 outs: sa
 	./sa > out
-	tail -3 out
+	tail -4 out
 	./sa >> out
-	tail -3 out
+	tail -4 out
 	./sa >> out
-	tail -3 out
+	tail -4 out
 	./sa >> out
-	tail -3 out
+	tail -4 out
 	./sa >> out
-	tail -3 out
+	tail -4 out
 
 outs2: sa
 	./sa --ridge_type=1 --bumps=0 --ridge_radius=0.05 --activation_types=1 \
@@ -147,9 +153,9 @@ with_seed:
 
 NRUNS = $(shell seq 1 20)
 many: sa
-	@./sa > /tmp/out
-	@tail -3 /tmp/out
-	@$(foreach i,$(NRUNS),./sa >> /tmp/out; tail -3 /tmp/out;)
+	@./sa $(XLINE_ARGS) > /tmp/out
+	@tail -4 /tmp/out
+	@$(foreach i,$(NRUNS),./sa $(XLINE_ARGS) >> /tmp/out; tail -4 /tmp/out;)
 
 tom: sa
 	@./sa --seed=520664716 \
