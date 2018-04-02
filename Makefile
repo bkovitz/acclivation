@@ -28,12 +28,20 @@ GOOD_XLINE_ARGS = --num_epochs=60 --ridge_type=0 --bumps=0 --ridge_radius=0.2 \
 	--decay=0.8 --allow_move_edge=0 --crossover_freq=0.1 --edge_inheritance=4 \
 	--num_organisms=200
 
-XLINE_ARGS = --num_epochs=1 --ridge_type=0 --bumps=0 --ridge_radius=0.2 \
+#This produced a very hill-shaped hill for the y=x line
+GOOD_YXLINE_RUN = --num_epochs=120 --ridge_type=0 --bumps=0 --ridge_radius=0.2 \
 	--activation_types=3 --mutation_type_ub=10 --knob_type=0 --multi_edges=0 \
-	--peak_movement=0 --output_types=0 --c2=1 --c3=0 --spreading_rate=0.2 \
-	--edge_weights=1 --c1_lb=-1 --c1_ub=1 --extra_mutation_rate=0.10 \
-	--decay=0.9 --allow_move_edge=0 --crossover_freq=0.1 --edge_inheritance=5 \
-	--num_organisms=1 --num_nodes=4 --num_edges=10 --seed=601051974
+	--peak_movement=0 --output_types=0 --c2=1 --c3=0 --spreading_rate=0.1 \
+	--edge_weights=1 --c1_lb=-1 --c1_ub=1 --extra_mutation_rate=0.00 \
+	--decay=0.8 --allow_move_edge=0 --crossover_freq=0.1 --edge_inheritance=5 \
+	--num_organisms=80 --num_nodes=4 --num_edges=10 --seed=853488368
+
+XLINE_ARGS = --num_epochs=120 --ridge_type=0 --bumps=0 --ridge_radius=0.2 \
+	--activation_types=3 --mutation_type_ub=10 --knob_type=0 --multi_edges=0 \
+	--peak_movement=0 --output_types=0 --c2=1 --c3=0 --spreading_rate=0.1 \
+	--edge_weights=1 --c1_lb=-1 --c1_ub=1 --extra_mutation_rate=0.00 \
+	--decay=0.8 --allow_move_edge=0 --crossover_freq=0.1 --edge_inheritance=5 \
+	--num_organisms=80 --num_nodes=4 --num_edges=10 #--seed=601051974
 
 all: sa
 
@@ -75,6 +83,11 @@ xline: sa
 
 goodxline: sa
 	./sa $(GOOD_XLINE_ARGS) > out
+	tail -4 out
+	@echo
+
+goodyxline: sa
+	./sa $(GOOD_YXLINE_RUN) > out
 	tail -4 out
 	@echo
 

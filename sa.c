@@ -19,9 +19,9 @@
 #define UNWRITTEN -1000.0  // activation/output level that means that
                            // no activation/output level has been written
                            // to the node yet.
-int verbose = 9;
+int verbose = 0;
 bool quiet = false;
-bool debug = true;
+bool debug = false;
 bool dot = false;
 
 double max(double x, double y) {
@@ -987,6 +987,11 @@ void sa(Organism *o, int timesteps, double decay, double spreading_rate) {
       }
     }
 
+    if (verbose) {
+      puts("incoming:");
+      print_all_activations(g, incoming_activations);
+    }
+
     // Load activations[] from incoming_activations[]
     for (int n = 0; n < g->num_nodes; n++) {
       Node *node = &g->nodes[n];
@@ -1010,18 +1015,22 @@ void sa(Organism *o, int timesteps, double decay, double spreading_rate) {
               // ignore previous activation
               activations[n] = incoming_activations[n];
             case SIGMOID_SUM:
-              if (activations[n] == UNWRITTEN) {
-                activations[n] = 0.0;
+              {
+                if (activations[n] == UNWRITTEN) {
+                  activations[n] = 0.0;
+                }
+                double x = spreading_rate *
+                           incoming_activations[n] *
+                           pow(decay, timestep - 1);
+                double slope = 6.0 * node->control;
+                if (verbose > 2) {
+                  printf("activations[%d] = %.16lf\n", n, activations[n]);
+                  printf("steep_sigmoid(%.16lf, 0.0, %.16lf) = %.16lf\n",
+                    x, slope, steep_sigmoid(x, 0.0, slope));
+                }
+                activations[n] = clamp(
+                  activations[n] + steep_sigmoid(x, 0.0, slope));
               }
-              printf("steep_sigmoid(%.16lf, 0.0, %.16lf) = %.16lf\n",
-                activations[n] + spreading_rate * incoming_activations[n],
-                4 * node->control,
-                4 * steep_sigmoid(incoming_activations[n], 0.0, node->control));
-              activations[n] = steep_sigmoid(
-                activations[n] + spreading_rate * incoming_activations[n],
-                0.0,
-                4 * node->control
-              );
           }
         }
       }
