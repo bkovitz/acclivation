@@ -36,12 +36,17 @@ GOOD_YXLINE_RUN = --num_epochs=120 --ridge_type=0 --bumps=0 --ridge_radius=0.2 \
 	--decay=0.8 --allow_move_edge=0 --crossover_freq=0.1 --edge_inheritance=5 \
 	--num_organisms=80 --num_nodes=4 --num_edges=10 --seed=853488368
 
-XLINE_ARGS = --num_epochs=120 --ridge_type=0 --bumps=0 --ridge_radius=0.2 \
-	--activation_types=3 --mutation_type_ub=10 --knob_type=0 --multi_edges=0 \
-	--peak_movement=0 --output_types=0 --c2=1 --c3=0 --spreading_rate=0.1 \
+#This produces a respectable line down the middle on y=x with bumps
+OK_YXLINE_BUMPS = #Oops, wrong params
+
+#A parameter set for experimentation. Try the good ideas here, run with
+#'make x', and save noteworthy parameter sets under a different name.
+X_ARGS = --num_epochs=10 --ridge_type=0 --bumps=1 --ridge_radius=0.2 \
+	--activation_types=3 --mutation_type_ub=10 --knob_type=0 --multi_edges=1 \
+	--peak_movement=0 --output_types=0 --c2=1 --c3=-0 --spreading_rate=0.2 \
 	--edge_weights=1 --c1_lb=-1 --c1_ub=1 --extra_mutation_rate=0.00 \
-	--decay=0.8 --allow_move_edge=0 --crossover_freq=0.1 --edge_inheritance=5 \
-	--num_organisms=80 --num_nodes=4 --num_edges=10 #--seed=601051974
+	--decay=0.6 --allow_move_edge=0 --crossover_freq=0.1 --edge_inheritance=1 \
+	--num_organisms=200 --num_nodes=4 --num_edges=10 #--seed=601051974
 
 all: sa
 
@@ -75,9 +80,9 @@ circle: sa
 	./sa $(CIRCLE_ARGS) > out
 	tail -4 out
 
-# Experimenting with args on 'line' ridge
-xline: sa
-	./sa $(XLINE_ARGS) > out
+# Experimentation target
+x: sa
+	./sa $(X_ARGS) > out
 	tail -4 out
 	@echo
 
@@ -166,9 +171,9 @@ with_seed:
 
 NRUNS = $(shell seq 1 20)
 many: sa
-	@./sa $(XLINE_ARGS) > /tmp/out
+	@./sa $(X_ARGS) > /tmp/out
 	@tail -4 /tmp/out
-	@$(foreach i,$(NRUNS),./sa $(XLINE_ARGS) >> /tmp/out; tail -4 /tmp/out;)
+	@$(foreach i,$(NRUNS),./sa $(X_ARGS) >> /tmp/out; tail -4 /tmp/out;)
 
 tom: sa
 	@./sa --seed=520664716 \
