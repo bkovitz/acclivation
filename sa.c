@@ -470,62 +470,6 @@ Organism *copy_organism(Organism *o) {
   return new_o;
 }
 
-void print_organism_dot(Organism *o, FILE *f) {
-  Genotype *g = o->genotype;
-
-  fprintf(f, "digraph g {\n");
-  fprintf(f, "  { rank=source edge [style=\"invis\"] ");
-  for (int i = 0; i < g->num_in - 1; i++)
-    fprintf(f, "n%d ->", i);
-  fprintf(f, " n%d }\n", g->num_in - 1);
-  fprintf(f, "  { rank=sink edge [style=\"invis\"] ");
-  for (int o = 0; o < g->num_out - 1; o++)
-    fprintf(f, "n%d ->", g->num_in + o);
-  fprintf(f, " n%d }\n", g->num_in + g->num_out - 1);
-  for (int n = 0; n < g->num_nodes; n++) {
-    Node *node = &g->nodes[n];
-    if (node->in_use) {
-      // TODO Output initial activations for appropriate nodes
-      fprintf(f, "  n%d [label=\"n%d ", n, n);
-      if (node->initial_activation != UNWRITTEN) {
-        fprintf(f, "i=%.3lf ", node->initial_activation);
-      }
-      if (node->final_activation != UNWRITTEN) {
-        fprintf(f, "%.3lf ", node->final_activation);
-      }
-      switch (node->output_type) {
-      case PASS_THROUGH:
-        switch (node->activation_type) {
-          case SUM_INCOMING:
-          case MULT_INCOMING:
-          case MIN_INCOMING:
-            fprintf(f, "%s", activation_type_string(node->activation_type));
-            break;
-          case SIGMOID_SUM:
-            fprintf(f, "~ c=%.3lf", node->control);
-            break;
-        }
-        break;
-      case STEEP_SIGMOID:
-        //fprintf(f, "  n%d [label=\"a=%.3lf %s S o=%.3lf c=%.3lf\"]\n", n, g->nodes[n].final_activation,
-        fprintf(f, "%sS o=%.3lf c=%.3lf",
-          activation_type_string(node->activation_type),
-          node->output,
-          node->control);
-//               steep_sigmoid(g->nodes[n].final_activation,
-//                 g->nodes[n].initial_activation));
-        break;
-      }
-      fprintf(f, "\"]\n");
-    }
-  }
-  for (int e = 0; e < g->num_edges; e++) {
-    fprintf(f, "  n%d -> n%d [label=%.3lf];\n", g->edges[e].src, g->edges[e].dst,
-      g->edges[e].weight);
-  }
-  fprintf(f, "}\n");
-}
-
 // -- ancestor logging -------------------------------------------------------
 
 typedef struct {
@@ -839,6 +783,62 @@ Organism *create_random_organism(World *w) {
   o->fitness = 0.0;
   o->from_turned_knob = false;
   return o;
+}
+
+void print_organism_dot(World *w, Organism *o, FILE *f) {
+  Genotype *g = o->genotype;
+
+  fprintf(f, "digraph e%dg%d {\n", w->epoch, w->generation);
+  fprintf(f, "  { rank=source edge [style=\"invis\"] ");
+  for (int i = 0; i < g->num_in - 1; i++)
+    fprintf(f, "n%d ->", i);
+  fprintf(f, " n%d }\n", g->num_in - 1);
+  fprintf(f, "  { rank=sink edge [style=\"invis\"] ");
+  for (int o = 0; o < g->num_out - 1; o++)
+    fprintf(f, "n%d ->", g->num_in + o);
+  fprintf(f, " n%d }\n", g->num_in + g->num_out - 1);
+  for (int n = 0; n < g->num_nodes; n++) {
+    Node *node = &g->nodes[n];
+    if (node->in_use) {
+      // TODO Output initial activations for appropriate nodes
+      fprintf(f, "  n%d [label=\"n%d ", n, n);
+      if (node->initial_activation != UNWRITTEN) {
+        fprintf(f, "i=%.3lf ", node->initial_activation);
+      }
+      if (node->final_activation != UNWRITTEN) {
+        fprintf(f, "%.3lf ", node->final_activation);
+      }
+      switch (node->output_type) {
+      case PASS_THROUGH:
+        switch (node->activation_type) {
+          case SUM_INCOMING:
+          case MULT_INCOMING:
+          case MIN_INCOMING:
+            fprintf(f, "%s", activation_type_string(node->activation_type));
+            break;
+          case SIGMOID_SUM:
+            fprintf(f, "~ c=%.3lf", node->control);
+            break;
+        }
+        break;
+      case STEEP_SIGMOID:
+        //fprintf(f, "  n%d [label=\"a=%.3lf %s S o=%.3lf c=%.3lf\"]\n", n, g->nodes[n].final_activation,
+        fprintf(f, "%sS o=%.3lf c=%.3lf",
+          activation_type_string(node->activation_type),
+          node->output,
+          node->control);
+//               steep_sigmoid(g->nodes[n].final_activation,
+//                 g->nodes[n].initial_activation));
+        break;
+      }
+      fprintf(f, "\"]\n");
+    }
+  }
+  for (int e = 0; e < g->num_edges; e++) {
+    fprintf(f, "  n%d -> n%d [label=%.3lf];\n", g->edges[e].src, g->edges[e].dst,
+      g->edges[e].weight);
+  }
+  fprintf(f, "}\n");
 }
 
 // -- spreading activation ---------------------------------------------------
@@ -1169,7 +1169,7 @@ void log_organisms(World *w) {
 //        g->nodes[3].final_activation);
         g->nodes[2].output,
         g->nodes[3].output);
-      print_organism_dot(o, w->log->f);
+      print_organism_dot(w, o, w->log->f);
     }
   }
 }
@@ -1307,7 +1307,7 @@ void print_best_fitness(World *w) {
 //    g->nodes[3].final_activation);
     g->nodes[2].output,
     g->nodes[3].output);
-  print_organism_dot(o, stdout);
+  print_organism_dot(w, o, stdout);
 }
 
 void print_generation_results(World *w) {
