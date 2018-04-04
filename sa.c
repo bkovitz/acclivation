@@ -43,6 +43,7 @@ bool coin_flip() {
   return rand() & 1;
 }
 
+// Lower bound and upper bound are both inclusive.
 int rand_int(int lb, int ub) {
   return (rand() % (ub - lb + 1)) + lb;
 }
@@ -53,7 +54,8 @@ double rand_double(double lb, double ub) {
 
 // float in range -1 to 1
 double rand_activation() {
-  return (double) rand() / RAND_MAX * 2.0 - 1.0;
+  return rand_double(-1.0, +1.0);
+  //return (double) rand() / RAND_MAX * 2.0 - 1.0;
 }
 
 // -- activation types -------------------------------------------------------
@@ -299,24 +301,11 @@ double sigmoid(double x) {
   double ycenter = (ymax + ymin) / 2.0;
   double yoffset = ycenter - (yscale / 2.0);
   double denom = (1.0 + exp(slope * (xcenter - x)));
-  if (verbose > 1)
+  if (verbose >= 5)
     printf("x = %lf; denom = %lf\n", x, denom);
   assert(denom != 0.0);
   return (yscale / denom) + yoffset;
 }
-
-/*double steep_sigmoid(double x) {
-  //double xcenter = 0.0, ymin = -1.0, ymax = 1.0, slope = 4.0;
-  double xcenter = 0.5, ymin = 0.0, ymax = 1.0, slope = 2.0;
-  double yscale = ymax - ymin;
-  double ycenter = (ymax + ymin) / 2.0;
-  double yoffset = ycenter - (yscale / 2.0);
-  double denom = (1.0 + exp(slope * (xcenter - x)));
-  if (verbose > 1)
-    printf("x = %lf; denom = %lf\n", x, denom);
-  assert(denom != 0.0);
-  return (yscale / denom) + yoffset;
-}*/
 
 double steep_sigmoid(double x, double xcenter, double slope) {
   //double xcenter = 0.0, ymin = -1.0, ymax = 1.0, slope = 4.0;
@@ -327,7 +316,7 @@ double steep_sigmoid(double x, double xcenter, double slope) {
   double ycenter = (ymax + ymin) / 2.0;
   double yoffset = ycenter - (yscale / 2.0);
   double denom = (1.0 + exp(slope * (xcenter - x)));
-  if (verbose > 1)
+  if (verbose >= 5)
     printf("x = %lf; denom = %lf\n", x, denom);
   assert(denom != 0.0);
   return (yscale / denom) + yoffset;
@@ -364,7 +353,7 @@ typedef struct {
 
 // MAYBE: shuffle and take without replace for deterministic select
 int select_in_use_node(Genotype *g) {
-  for (;;) {
+  for ( ; ; ) {
     int index = rand() % g->num_nodes;
     if (g->nodes[index].in_use)
       return index;
@@ -372,7 +361,7 @@ int select_in_use_node(Genotype *g) {
 }
 
 int select_in_use_removable_node(Genotype *g) {
-  for (;;) {
+  for ( ; ; ) {
     int unremovable = g->num_in + g->num_out;
     if (g->num_nodes <= unremovable)
       return -1;
@@ -456,11 +445,6 @@ void free_organisms(Organism **organisms, int num_organisms) {
     free(organisms);
   }
 }
-
-/*void copy_organism(Organism *new_o, Organism *old_o) {
-  new_o->genotype = copy_genotype(old_o->genotype);
-  new_o->fitness = old_o->fitness;
-}*/
 
 Organism *copy_organism(Organism *o) {
   Organism *new_o = calloc(1, sizeof(Organism));
@@ -566,7 +550,7 @@ typedef struct world_t {
 
 double phenotype_fitness(World *, Genotype *);
 
-//World *create_world(int num_organisms) {
+// Returns an empty world with all default parameters.
 World *create_world() {
   World *w = calloc(1, sizeof(World));
   w->seed = make_random_seed();
@@ -585,7 +569,6 @@ World *create_world() {
   w->multi_edges = true;
   w->allow_move_edge = false;
   w->output_types = ONLY_PASS_THROUGH;
-  //w->genotypes = NULL; //calloc(num_organisms, sizeof(Genotype)); // THIS IS CRAZY!
   w->organisms = NULL; //calloc(num_organisms, sizeof(Organism));
   w->phenotype_fitness_func = phenotype_fitness;
   w->distance_weight = 10.0;
@@ -601,8 +584,6 @@ World *create_world() {
   w->peak_x = 0.0; // dependent variable
   w->peak_y = 0.0; // dependent variable
   w->max_dist = 0.0; // dependent variable
-  //w->c2 = 1.0;
-  //w->c3 = 0.0;
   w->ridge_type = LINE;
   w->ridge_radius = 0.2;
   w->mutation_type_ub = 10;
@@ -635,42 +616,6 @@ double rand_edge_weight(World *w) {
       assert(false);
   }
 }
-
-/*void init_random_genotype(World *w, Genotype *g, int num_edges, int num_nodes,
-        int num_in, int num_out) {
-  assert(num_in >= 1);
-  assert(num_out >= 1);
-  assert(num_in + num_out <= num_nodes);
-  g->nodes = malloc(sizeof(Node) * num_nodes);
-  g->edges = malloc(sizeof(Edge) * num_edges);
-  g->num_nodes = num_nodes;
-  g->num_nodes_in_use = num_nodes;
-  g->num_edges = num_edges;
-  g->num_in = num_in;
-  g->num_out = num_out;
-  for (int n = 0; n < num_nodes; n++) {
-    //if (n < num_in)
-        //g->nodes[n].initial_activation = rand_activation();
-        g->nodes[n].initial_activation = rand_int(-100, +100) * 0.01;
-    //else
-        //g->nodes[n].initial_activation = 0.0;
-    g->nodes[n].final_activation = 0.0;
-    g->nodes[n].in_use = true;
-    g->nodes[n].threshold_func = clamp;
-    switch (w->activation_types) {
-      case ONLY_SUM_INCOMING:
-        g->nodes[n].activation_type = SUM_INCOMING;
-        break;
-      case SUM_AND_MULT_INCOMING:
-        g->nodes[n].activation_type = coin_flip() ? SUM_INCOMING : MULT_INCOMING;
-    }
-  }
-  for (int e = 0; e < num_edges; e++) {
-    g->edges[e].src = rand() % num_nodes;
-    g->edges[e].dst = rand() % num_nodes;
-    g->edges[e].weight = rand_edge_weight(w);
-  }
-}*/
 
 double node_output(Node *node, double activation);
 
@@ -731,21 +676,6 @@ Genotype *create_random_genotype(World *w) {
   g->num_out = w->num_out;
   for (int n = 0; n < g->num_nodes; n++) {
     init_random_node(w, &g->nodes[n]);
-    /* //if (n < num_in)
-        //g->nodes[n].initial_activation = rand_activation();
-        g->nodes[n].initial_activation = rand_int(-100, +100) * 0.01;
-    //else
-        //g->nodes[n].initial_activation = 0.0;
-    g->nodes[n].final_activation = 0.0;
-    g->nodes[n].in_use = true;
-    g->nodes[n].threshold_func = clamp;
-    switch (w->activation_types) {
-      case ONLY_SUM_INCOMING:
-        g->nodes[n].activation_type = SUM_INCOMING;
-        break;
-      case SUM_AND_MULT_INCOMING:
-        g->nodes[n].activation_type = coin_flip() ? SUM_INCOMING : MULT_INCOMING;
-    }*/
   }
   // special initialization for g-vector
   for (int n = 0; n < g->num_in; n++) {
@@ -758,17 +688,11 @@ Genotype *create_random_genotype(World *w) {
     Node *node = &g->nodes[n];
     node->initial_activation = node->output = UNWRITTEN;
   }
-//  g->nodes[3].initial_activation = -1000.0;
-//  g->nodes[2].output = -1000.0;
-//  g->nodes[3].output = -1000.0;
   for (int e = 0; e < w->num_edges; e++) {
     int src = rand() % g->num_nodes;
     int dst = rand() % g->num_nodes;
     double weight = rand_edge_weight(w);
     add_edge(w, g, src, dst, weight);
-//    g->edges[e].src = rand() % g->num_nodes;
-//    g->edges[e].dst = rand() % g->num_nodes;
-//    g->edges[e].weight = rand_edge_weight(w);
   }
   return g;
 }
@@ -827,8 +751,6 @@ void print_organism_dot(World *w, Organism *o, FILE *f) {
           activation_type_string(node->activation_type),
           node->output,
           node->control);
-//               steep_sigmoid(g->nodes[n].final_activation,
-//                 g->nodes[n].initial_activation));
         break;
       }
       fprintf(f, "\"]\n");
@@ -844,21 +766,17 @@ void print_organism_dot(World *w, Organism *o, FILE *f) {
 // -- spreading activation ---------------------------------------------------
 
 void init_activations(Genotype *g, double *activations) {
-  // "in" activations get their initial activations from the Genotype
-  for (int i = 0; i < g->num_in; i++) {
-    activations[i] = g->nodes[i].initial_activation;
-  }
-  // all other nodes get initialized to UNWRITTEN
-  //for (int o = g->num_in; o < g->num_nodes; o++) {
-    //activations[o] = UNWRITTEN;
-  //}
-  // out nodes get initialized to UNWRITTEN
-  for (int o = g->num_in; o < g->num_in + g->num_out; o++) {
-    activations[o] = UNWRITTEN;
-  }
-  // all others get their initial activations from the Genotype
-  for (int n = g->num_in + g->num_out; n < g->num_nodes; n++) {
-    activations[n] = g->nodes[n].initial_activation;
+  for (int n = 0; n < g->num_nodes; n++) {
+    if (n < g->num_in) {
+      // "in" activations get their initial activations from the Genotype
+      activations[n] = g->nodes[n].initial_activation;
+    } else if (n < g->num_out) {
+      // phenotype ("out") nodes get initialized to UNWRITTEN
+      activations[n] = UNWRITTEN;
+    } else {
+      // all others get their initial activations from the Genotype
+      activations[n] = g->nodes[n].initial_activation;
+    }
   }
 }
 
@@ -885,18 +803,6 @@ double node_output(Node *node, double activation) {
     }
   }
 }
-
-//double src_output(Node *src, int index, double *activations) {
-//  switch (src->output_type) {
-//    case PASS_THROUGH:
-//      return activations[index];
-//    case STEEP_SIGMOID:
-//      return steep_sigmoid(activations[index], src->initial_activation);
-//      //return steep_sigmoid(activations[index], activations[index]);
-//    default:
-//      assert(false);
-//  }
-//}
 
 double src_output(Node *src, int index, double *activations) {
   return node_output(src, activations[index]);
@@ -928,7 +834,6 @@ void sa(Organism *o, int timesteps, double decay, double spreading_rate) {
     print_all_activations(g, activations);
 
   for (int timestep = 1; timestep <= timesteps; timestep++) {
-
     // Initialize incoming_activations and next_controls for this timestep
     for (int n = 0; n < g->num_nodes; n++) {
       incoming_activations[n] = UNWRITTEN;
@@ -967,14 +872,10 @@ void sa(Organism *o, int timesteps, double decay, double spreading_rate) {
                     edge->weight * incoming_output;
               break;
             case MIN_INCOMING:
-  //            if (incoming_activations[edge->dst] == UNWRITTEN)
-  //              incoming_activations[edge->dst] = activations[edge->src];
-  //            else if (activations[edge->src] < incoming_activations[edge->dst])
-  //              incoming_activations[edge->dst] = activations[edge->src];
-              if (incoming_activations[edge->dst] == UNWRITTEN)
+              if (incoming_activations[edge->dst] == UNWRITTEN ||
+                  incoming_output < incoming_activations[edge->dst]) {
                 incoming_activations[edge->dst] = incoming_output;
-              else if (incoming_output < incoming_activations[edge->dst])
-                incoming_activations[edge->dst] = incoming_output;
+              }
               break;
           }
         }
@@ -1033,9 +934,9 @@ void sa(Organism *o, int timesteps, double decay, double spreading_rate) {
                     x, slope, steep_sigmoid(x, 0.0, slope));
                 }
                 activations[n] = clamp(
-                  //activations[n] + steep_sigmoid(x, 0.0, slope));
+                  activations[n] + steep_sigmoid(x, 0.0, slope));
                   //activations[n] + steep_sigmoid(x, node->control, 0.2));
-                  activations[n] + steep_sigmoid(x, node->control, node->control));
+                  //activations[n] + steep_sigmoid(x, node->control, node->control));
               }
           }
         }
@@ -1077,20 +978,11 @@ void set_phenotypes_and_fitnesses(World *w) {
 }
 
 void init_random_population(World *w) {
-  /*if (w->organisms != NULL) {
-    for (int i = 0; i < w->num_organisms; i++)
-      free_organism(w->organisms[i]);
-  }*/
   free_organisms(w->organisms, w->num_organisms);
   w->organisms = calloc(w->num_organisms, sizeof(Organism *));
 
   for (int n = 0; n < w->num_organisms; n++) {
     w->organisms[n] = create_random_organism(w);
-    //init_random_genotype(w, &w->genotypes[n],
-        //w->num_edges, w->num_nodes, w->num_in, w->num_out);
-    //if (verbose > 1)
-      //print_genotype(&w->genotypes[n]);
-    //init_organism(&w->organisms[n], &w->genotypes[n]);
   }
   set_phenotypes_and_fitnesses(w);
 }
@@ -1118,7 +1010,6 @@ Organism *copy_organism(Organism *);
 Organism *crossover(World *, Organism *, Organism *);
 
 void sanity_check_organism(World *w, Organism *o) {
-  //Organism *o = w->organisms[p];
   Genotype *g = o->genotype;
   assert(g);
   // check in/out nodes in use
@@ -1230,24 +1121,16 @@ void run_generation(World *w) {
     if (rand_float() <= w->crossover_freq) {
       int mommy = tournament_select(w);
       int daddy = tournament_select(w);
-      //Organism *baby = &new_population[p];
-      //baby->genotype = calloc(1, sizeof(Genotype)); // SUPER UGLY
-      //crossover(w, baby, &old_population[mommy], &old_population[daddy]);
       new_population[p] = crossover(w, old_population[mommy], old_population[daddy]);
       log_crossover(w, mommy, daddy, p);
     } else {
       int selected_organism = tournament_select(w);
-      //copy_organism(&new_population[p], &w->organisms[selected_organism]);
       log_mutation_start(w, selected_organism, p);
-      //mutate(w, &new_population[p]);
       new_population[p] = mutate(w, old_population[selected_organism]);
       log_mutation_end(w);
     }
   }
   free_organisms(w->organisms, w->num_organisms);
-  /*for (int p = 0; p < w->num_organisms; p++)
-    free_organism(w->organisms[p]);
-  free(old_population);*/
   w->organisms = new_population;
   if (debug)
     sanity_check(w);
@@ -1274,18 +1157,6 @@ int find_best_organism_in(Organism **organisms, int num_organisms) {
 int find_best_organism(World *w) {
   return find_best_organism_in(w->organisms, w->num_organisms);
 }
-/*int find_best_organism(World *w) {
-  double max_fitness = -1e20;
-  int max_fitness_index = -1;
-  for (int n = 0; n < w->num_organisms; n++) {
-    if (w->organisms[n].fitness > max_fitness) {
-      max_fitness = w->organisms[n].fitness;
-      max_fitness_index = n;
-    }
-  }
-  assert(max_fitness_index > -1);
-  return max_fitness_index;
-}*/
 
 double find_best_fitness(World *w) {
   int best_organism_index = find_best_organism(w);
@@ -1321,8 +1192,6 @@ void dump_fitness_nbhd(World *w) {
   int best_organism_index = find_best_organism(w);
   double m = 2;
   Organism *original = w->organisms[best_organism_index];
-  //Organism o;
-  //copy_organism(&o, original);
   Organism *o = copy_organism(original);
   Genotype *g = o->genotype;
   printf("neighborhood:\n");
@@ -1376,7 +1245,7 @@ HILL_CLIMBING_RESULT climb_hill(World *w, Organism *o) {
   int num_neutral_steps = 0;
 
   //printf("starting_fitness = %lf\n", starting_fitness);
-  for (;;) {
+  for ( ; ; ) {
     // create organisms that take a step in each possible direction
     for (int i = 0; i < num_candidates; i++) {
       candidates[i] = copy_organism(o);
@@ -1459,8 +1328,6 @@ HILL_CLIMBING_RESULT phenotype_acclivity(World *w) {
 
 void free_world(World *w) {
   free_organisms(w->organisms, w->num_organisms);
-  //for (int i = 0; i < w->num_organisms; i++)
-    //free_organism(w->organisms[i]); // will free associated genotype
   free_data(w->epoch_fitness_deltas);
   free_ancestor_log(w->log);
   free(w);
@@ -1469,7 +1336,6 @@ void free_world(World *w) {
 double distance(double x1, double y1, double x2, double y2);
 
 void change_fitness_constants(World *w) {
-  //w->c1 = rand_activation();
   //const double sqrt2 = sqrt(2.0);
   switch (w->ridge_type) {
   case LINE:
@@ -1488,7 +1354,6 @@ void change_fitness_constants(World *w) {
     // dependent variables
     w->peak_x = w->c1;
     w->peak_y = clamp2(w->c2 * w->c1 + w->c3, w->c1_lb, w->c1_ub);
-    //w->max_dist = sqrt2; // wrong
     w->max_dist = distance(w->peak_x, w->peak_y, -1.0, -1.0);
     double d = distance(w->peak_x, w->peak_y, -1.0, +1.0);
     if (d > w->max_dist)
@@ -1520,8 +1385,7 @@ void change_fitness_constants(World *w) {
     // dependent variables
     w->peak_x = 0.5 * cos(w->c1);
     w->peak_y = 0.5 * sin(w->c1);
-    //w->max_dist = 0.5 + sqrt2; // radius + edge-of-circle-to-corner
-    w->max_dist = 1.0;  // This way, furthest place on circle has 0.0 fitness
+    w->max_dist = 1.0;  // Furthest place on circle gets 0.0 fitness
     break;
   }
 }
@@ -1575,8 +1439,6 @@ void run_epoch(World *w, int e) {
 
 void dump_virtual_fitness_func(World *w) {
   int best_organism_index = find_best_organism(w);
-  //Organism o;
-  //copy_organism(&o, &w->organisms[best_organism_index]);
   Organism *o = copy_organism(w->organisms[best_organism_index]);
   double delta = 0.02;
   puts("BEGIN VFUNC");
@@ -1741,7 +1603,6 @@ void run_world(World *w) {
   print_knob_fitness_numbers(w);
 
   close_ancestor_log(w->log);
-  //free_world();
 }
 
 // -- fitness ----------------------------------------------------------------
@@ -1800,8 +1661,6 @@ double phenotype_fitness(World *w, Genotype *g) {
     g->nodes[g->num_in].output,
     g->nodes[g->num_in + 1].output
   };
-  //double peak_x = w->c1;
-  //double peak_y = w->c2 * w->c1 + w->c3;
   if (verbose >= 2) {
     printf("require_valid_region(w, %lf, %lf) = %lf\n", phenotype[0], phenotype[1], require_valid_region(w, phenotype[0], phenotype[1]));
     printf("along_ridge(%lf, %lf) = %lf\n", phenotype[0], phenotype[1], along_ridge(w, phenotype[0], phenotype[1]));
@@ -1812,17 +1671,15 @@ double phenotype_fitness(World *w, Genotype *g) {
     //double scaled_dist = (sqrt8 - dist) / sqrt8;  // 0.0 to 1.0; 1.0 is right on it
     //double scaled_dist = (sqrt2 - dist) / sqrt2;  // 0.0 to 1.0; 1.0 is right on it
     double scaled_dist = (w->max_dist - dist) / w->max_dist;
-    fitness = //many_small_hills(phenotype) +
-      //(5 * (sqrt8 - distance(w->c1, w->c1, phenotype[0], phenotype[1])));
-      require_valid_region(w, phenotype[0], phenotype[1]) *
-      along_ridge(w, phenotype[0], phenotype[1]) *
-      (w->distance_weight * scaled_dist * scaled_dist);
+    fitness = require_valid_region(w, phenotype[0], phenotype[1]) *
+              along_ridge(w, phenotype[0], phenotype[1]) *
+              (w->distance_weight * scaled_dist * scaled_dist);
     if (w->bumps) {
       double bump_amt = many_small_hills(phenotype);
 //      if (bump_amt <= 0.0)
 //        fitness = 0;
 //      else
-        fitness += bump_amt;
+      fitness += bump_amt;
     }
   }
   if (fitness < 0.0) {
@@ -1865,12 +1722,6 @@ void add_edge(World *w, Genotype *g, int src, int dst, double weight) {
 void mut_add_edge(World *w, Organism *o) {
   Genotype *g = o->genotype;
   add_edge(w, g, select_in_use_node(g), select_in_use_node(g), rand_edge_weight(w));
-//  g->num_edges++;
-//  g->edges = realloc(g->edges, sizeof(Edge) * g->num_edges);
-//  int add_index = g->num_edges - 1;
-//  g->edges[add_index].src = select_in_use_node(g);
-//  g->edges[add_index].dst = select_in_use_node(g);
-//  g->edges[add_index].weight = rand_edge_weight();
 }
 
 void remove_edge(Genotype *g, int e) {
@@ -1916,6 +1767,14 @@ void mut_add_node(World *w, Organism *o) {
   //g->nodes[add_index].control = 1.0;
   node->in_use = true;
   node->threshold_func = clamp;  // sigmoid; //clamp;
+  switch (w->output_types) {
+    case ONLY_PASS_THROUGH:
+      node->output_type = PASS_THROUGH;
+      break;
+    case PASS_THROUGH_AND_STEEP_SIGMOID:
+      node->output_type = coin_flip() ? PASS_THROUGH : STEEP_SIGMOID;
+      break;
+  }
   switch (w->activation_types) {
     case ONLY_SUM_INCOMING:
       node->activation_type = SUM_INCOMING;
@@ -1937,14 +1796,6 @@ void mut_add_node(World *w, Organism *o) {
       node->initial_activation = UNWRITTEN;
       node->control = rand_activation();
       node->output = UNWRITTEN;
-      break;
-  }
-  switch (w->output_types) {
-    case ONLY_PASS_THROUGH:
-      node->output_type = PASS_THROUGH;
-      break;
-    case PASS_THROUGH_AND_STEEP_SIGMOID:
-      node->output_type = coin_flip() ? PASS_THROUGH : STEEP_SIGMOID;
       break;
   }
   node->final_activation = UNWRITTEN;
@@ -1980,8 +1831,7 @@ void mut_turn_knob(World *w, Organism *o) {
   double nudge;
   switch (w->knob_type) {
     case KNOB_DISCRETE:
-      nudge = (rand() & 1) ? w->knob_constant : -w->knob_constant;
-      //nudge = rand_activation() * w->knob_constant;
+      nudge = coin_flip() ? w->knob_constant : -w->knob_constant;
       break;
     case KNOB_NORMAL:
       nudge = sample_normal(w->knob_constant);
@@ -2028,9 +1878,7 @@ void mut_alter_activation_type(World *w, Organism *o) {
           node_to_change->activation_type = SUM_INCOMING;
           break;
         default:
-          // shouldn't reach
           assert(false);
-          break;
       }
     }
     break;
@@ -2135,11 +1983,9 @@ int count_internal_edges(Genotype *g, int start, int end) {
   return num_internal_edges;
 }
 
-//void crossover(World *w, Organism *b, Organism *m, Organism *d) {
 Organism *crossover(World *w, Organism *m, Organism *d) {
   Genotype *mommy = m->genotype;
   Genotype *daddy = d->genotype;
-  //Genotype *baby = b->genotype;
   Organism *baby_o = calloc(1, sizeof(Organism));
   Genotype *baby = calloc(1, sizeof(Genotype));
   baby_o->genotype = baby;
@@ -2184,12 +2030,8 @@ Organism *crossover(World *w, Organism *m, Organism *d) {
   }
   baby->num_nodes_in_use = in_use;
 
-//  baby->num_edges = count_internal_edges(mommy, 0, mommy_crossover_point)
-//    + count_internal_edges(daddy, daddy_crossover_point, daddy->num_nodes);
-  //baby->edges = malloc(sizeof(Edge) * baby->num_edges);
   baby->edges = NULL;
   baby->num_edges = 0;
-  //int e = 0;
   for (int m = 0; m < mommy->num_edges; m++) {
     Edge *edge = &mommy->edges[m];
     switch (w->edge_inheritance) {
@@ -2223,11 +2065,6 @@ Organism *crossover(World *w, Organism *m, Organism *d) {
           add_edge(w, baby, edge->src, edge->dst, edge->weight);
         }
         break;
-//    else if ((edge->src < baby->num_nodes && baby->nodes[edge->src].in_use) &&
-//               (edge->dst < baby->num_nodes && baby->nodes[edge->dst].in_use) ) { //&&
-               //!has_edge(baby, edge->src, edge->dst)) {
-      //baby->edges[e++] = *edge;
-//      add_edge(w, baby, edge->src, edge->dst, edge->weight);
     }
   }
   for (int d = 0; d < daddy->num_edges; d++) {
@@ -2237,10 +2074,6 @@ Organism *crossover(World *w, Organism *m, Organism *d) {
     switch (w->edge_inheritance) {
       case NO_EDGES_ACROSS_PARENTS:
         if (edge->src >= daddy_crossover_point && edge->dst >= daddy_crossover_point) {
-          //baby->edges[e].src = (edge->src - daddy_crossover_point) + mommy_crossover_point;
-          //baby->edges[e].dst = (edge->dst - daddy_crossover_point) + mommy_crossover_point;
-          //baby->edges[e].weight = edge->weight;
-          //e++;
           add_edge(w, baby, bsrc, bdst, edge->weight);
         }
         break;
@@ -2273,15 +2106,8 @@ Organism *crossover(World *w, Organism *m, Organism *d) {
           add_edge(w, baby, bsrc, bdst, edge->weight);
         }
         break;
-//        if (edge->src >= daddy_crossover_point &&
-//            coin_flip() &&
-//            has_node(baby, bsrc) && has_node(baby, bdst % baby->num_nodes)) {
-//          add_edge(w, baby, bsrc, bdst % baby->num_nodes, edge->weight);
-//        }
-//        break;
     }
   }
-  //assert(e == baby->num_edges);
   if (debug)
     sanity_check_organism(w, baby_o);
   return baby_o;
@@ -2466,36 +2292,6 @@ World *create_world_from_param(PARAMS *p) {
   return w;
 }
 
-void parameter_sweep(int seed) {
-  static double ridge_radii[] = {0.05, 0.2};
-  static int ridge_types[] = {YX_RIDGE, OBLIQUE_RIDGE};
-  static int edge_inheritances[] = {
-    NO_EDGES_ACROSS_PARENTS,
-    INHERIT_SRC_EDGES_FROM_MOMMY,
-    INHERIT_SRC_EDGES_FROM_BOTH_PARENTS,
-    INHERIT_HALF_OF_CROSSOVER_EDGES
-  };
-
-  PARAMS p;
-  init_params(&p, seed);
-
-  for (int rr = 0; rr < array_len(ridge_radii); rr++) {
-    for (int rt = 0; rt < array_len(ridge_types); rt++) {
-      for (int ei = 0; ei < array_len(edge_inheritances); ei++) {
-        p.ridge_radius = ridge_radii[rr];
-        p.ridge_type = ridge_types[rt];
-        p.edge_inheritance = edge_inheritances[ei];
-        World *w = create_world_from_param(&p);
-        reopen_stdout_from_param(&p);
-        run_world(w);
-        fflush(stdout);
-        //free_world(w);
-        p.id++;
-      }
-    }
-  }
-}
-
 void one_long_epoch(int seed) {
   World *w = create_world();
   w->num_organisms = 40;
@@ -2676,7 +2472,7 @@ void run_from_options(int argc, char **argv) {
   };
   int c;
 
-  for (;;) {
+  for ( ; ; ) {
     c = getopt_long(argc, argv, "", long_options, &option_index);
     if (c == -1)
       break;
@@ -2815,7 +2611,6 @@ int main(int argc, char **argv) {
   //dot_test(seed);
   //long_test(seed);
   //long_test_start_small(seed);  //(677953487); // the main test
-  //parameter_sweep(seed);
   //good_run_oblique();
   //good_run_oblique2();
   //one_long_epoch(seed);
