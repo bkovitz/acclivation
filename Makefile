@@ -39,20 +39,23 @@ GOOD_YXLINE_RUN = --num_epochs=120 --ridge_type=0 --bumps=0 --ridge_radius=0.2 \
 #This produces a respectable line down the middle on y=x with bumps
 OK_YXLINE_BUMPS = #Oops, wrong params
 
+CIRCLE = --ridge_type=1 --bumps=0 --ridge_radius=0.05 --peak_movement=1
+
 #A parameter set for experimentation. Try the good ideas here, run with
 #'make x', and save noteworthy parameter sets under a different name.
-X_ARGS = --num_epochs=40 --generations_per_epoch=20 \
-	--ridge_type=0 --bumps=0 --ridge_radius=0.05 \
-	--activation_types=3 --mutation_type_ub=10 --knob_type=0 --multi_edges=0 \
-	--peak_movement=1 --output_types=0 --c2=1 --c3=-0 --spreading_rate=0.2 \
+X_ARGS = $(CIRCLE) --num_epochs=200 --generations_per_epoch=5 \
+	--num_candidates=7 \
+	--peak_movement=0 \
+	--activation_types=3 --mutation_type_ub=10 --knob_type=0 --multi_edges=1 \
+	--output_types=0 --c2=1 --c3=0 --spreading_rate=0.2 \
 	--edge_weights=1 --c1_lb=-1 --c1_ub=1 --extra_mutation_rate=0.00 \
-	--decay=0.6 --allow_move_edge=0 --crossover_freq=0.1 --edge_inheritance=3 \
-	--num_organisms=80 --num_nodes=10 --num_edges=20 --seed=138920517
+	--decay=0.6 --allow_move_edge=0 --crossover_freq=0.1 --edge_inheritance=5 \
+	--num_organisms=80 --num_nodes=10 --num_edges=20 #--seed=601051974
 
 CIRCLE_ARGS = --num_epochs=100 --generations_per_epoch=40 \
 	--ridge_type=1 --bumps=0 --ridge_radius=0.05 \
 	--activation_types=3 --mutation_type_ub=10 --knob_type=0 --multi_edges=0 \
-	--peak_movement=1 --output_types=0 --c2=1 --c3=-0 --spreading_rate=0.2 \
+	--peak_movement=1 --output_types=0 --c2=1 --c3=0 --spreading_rate=0.2 \
 	--edge_weights=1 --c1_lb=-1 --c1_ub=1 --extra_mutation_rate=0.00 \
 	--decay=0.6 --allow_move_edge=0 --crossover_freq=0.1 --edge_inheritance=3 \
 	--num_organisms=80 --num_nodes=10 --num_edges=20 --seed=138920517
@@ -76,10 +79,10 @@ data: sa run.py add_param_set.py
 run: sa
 	./sa
 
-out: sa
-	./sa > out
-	#grep "epoch fitness" out
-	tail -4 out
+out: x
+#	./sa > out
+#	#grep "epoch fitness" out
+#	tail -4 out
 
 okline: sa
 	./sa $(OK_LINE_ARGS) > out
@@ -180,9 +183,9 @@ with_seed:
 
 NRUNS = $(shell seq 1 20)
 many: sa
-	@./sa $(X_ARGS) > /tmp/out
-	@tail -4 /tmp/out
-	@$(foreach i,$(NRUNS),./sa $(X_ARGS) >> /tmp/out; tail -4 /tmp/out;)
+	./sa $(X_ARGS) > /tmp/out
+	tail -4 /tmp/out
+	$(foreach i,$(NRUNS),./sa $(X_ARGS) >> /tmp/out; tail -4 /tmp/out;)
 
 tom: sa
 	@./sa --seed=520664716 \

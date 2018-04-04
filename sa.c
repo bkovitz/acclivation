@@ -536,7 +536,7 @@ typedef struct {
 
 ANCESTOR_LOG *create_ancestor_log() {
   ANCESTOR_LOG *log = malloc(sizeof(ANCESTOR_LOG));
-  log->enabled = true;
+  log->enabled = false; //true;
   log->path = "ancestors";
   log->f = NULL;
   return log;
@@ -1508,8 +1508,8 @@ void change_fitness_constants(World *w) {
       break;
     case GRADUAL_PEAK_MOVEMENT:
       {
-        //double delta = sample_normal(2 * M_PI / 10.0);
-        double delta = rand_double(2 * M_PI / 10, 2 * M_PI / 5.0);
+        double delta = sample_normal(2 * M_PI / 10.0);
+        //double delta = rand_double(2 * M_PI / 10, 2 * M_PI / 5.0);
         printf("c1 delta = %lf\n", delta);
         w->c1 += delta;
       }
