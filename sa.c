@@ -735,16 +735,20 @@ void init_random_node(World *w, Node *n) {
   switch (w->activation_types) {
     case ONLY_SUM_INCOMING:
       n->activation_type = SUM_INCOMING;
+      n->initial_activation = rand_int(-100, +100) * 0.01;
       break;
     case SUM_AND_MULT_INCOMING:
       n->activation_type = coin_flip() ? SUM_INCOMING : MULT_INCOMING;
+      n->initial_activation = rand_int(-100, +100) * 0.01;
       break;
     case SUM_AND_MIN_INCOMING:
       n->activation_type = coin_flip() ? SUM_INCOMING : MIN_INCOMING;
+      n->initial_activation = rand_int(-100, +100) * 0.01;
       break;
     case ONLY_SIGMOID_SUM:
       n->activation_type = SIGMOID_SUM;
       n->control = rand_activation();
+      n->initial_activation = UNWRITTEN;
       break;
   }
   // TODO Refactor to remove conceptual overlap between SIGMOID_SUM
@@ -759,7 +763,7 @@ void init_random_node(World *w, Node *n) {
   }
   //if (n < num_in)
       //g->nodes[n].initial_activation = rand_activation();
-      n->initial_activation = rand_int(-100, +100) * 0.01;
+      //n->initial_activation = rand_int(-100, +100) * 0.01;
   //else
       //g->nodes[n].initial_activation = 0.0;
   n->final_activation = 0.0;
@@ -1029,7 +1033,9 @@ void sa(Organism *o, int timesteps, double decay, double spreading_rate) {
                     x, slope, steep_sigmoid(x, 0.0, slope));
                 }
                 activations[n] = clamp(
-                  activations[n] + steep_sigmoid(x, 0.0, slope));
+                  //activations[n] + steep_sigmoid(x, 0.0, slope));
+                  //activations[n] + steep_sigmoid(x, node->control, 0.2));
+                  activations[n] + steep_sigmoid(x, node->control, node->control));
               }
           }
         }
@@ -1464,7 +1470,7 @@ double distance(double x1, double y1, double x2, double y2);
 
 void change_fitness_constants(World *w) {
   //w->c1 = rand_activation();
-  const double sqrt2 = sqrt(2.0);
+  //const double sqrt2 = sqrt(2.0);
   switch (w->ridge_type) {
   case LINE:
     switch (w->peak_movement) {
@@ -1514,7 +1520,8 @@ void change_fitness_constants(World *w) {
     // dependent variables
     w->peak_x = 0.5 * cos(w->c1);
     w->peak_y = 0.5 * sin(w->c1);
-    w->max_dist = 0.5 + sqrt2; // radius + edge-of-circle-to-corner
+    //w->max_dist = 0.5 + sqrt2; // radius + edge-of-circle-to-corner
+    w->max_dist = 1.0;  // This way, furthest place on circle has 0.0 fitness
     break;
   }
 }

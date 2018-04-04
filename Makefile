@@ -14,11 +14,11 @@ OK_LINE_ARGS = --ridge_type=0 --bumps=1 --ridge_radius=0.2 \
 	--edge_weights=0 --c1_lb=0.1 --c1_ub=0.9 --extra_mutation_rate=0.05 \
 	--decay=0.8 --allow_move_edge=0
 
-CIRCLE_ARGS = --ridge_type=1 --bumps=1 --ridge_radius=0.1 \
-	--activation_types=1 --mutation_type_ub=10 --knob_type=0 --multi_edges=0 \
-	--peak_movement=0 --output_types=1 --c2=1 --c3=0 --spreading_rate=0.2 \
-	--edge_weights=0 --c1_lb=0.1 --c1_ub=0.9 --extra_mutation_rate=0.05 \
-	--decay=0.8 --allow_move_edge=0
+#CIRCLE_ARGS = --ridge_type=1 --bumps=1 --ridge_radius=0.1 \
+#	--activation_types=1 --mutation_type_ub=10 --knob_type=0 --multi_edges=0 \
+#	--peak_movement=0 --output_types=1 --c2=1 --c3=0 --spreading_rate=0.2 \
+#	--edge_weights=0 --c1_lb=0.1 --c1_ub=0.9 --extra_mutation_rate=0.05 \
+#	--decay=0.8 --allow_move_edge=0
 
 #This produced a near-optimal result
 GOOD_XLINE_ARGS = --num_epochs=60 --ridge_type=0 --bumps=0 --ridge_radius=0.2 \
@@ -41,12 +41,21 @@ OK_YXLINE_BUMPS = #Oops, wrong params
 
 #A parameter set for experimentation. Try the good ideas here, run with
 #'make x', and save noteworthy parameter sets under a different name.
-X_ARGS = --num_epochs=10 --ridge_type=0 --bumps=1 --ridge_radius=0.2 \
-	--activation_types=3 --mutation_type_ub=10 --knob_type=0 --multi_edges=1 \
-	--peak_movement=0 --output_types=0 --c2=1 --c3=-0 --spreading_rate=0.2 \
+X_ARGS = --num_epochs=40 --generations_per_epoch=20 \
+	--ridge_type=0 --bumps=0 --ridge_radius=0.05 \
+	--activation_types=3 --mutation_type_ub=10 --knob_type=0 --multi_edges=0 \
+	--peak_movement=1 --output_types=0 --c2=1 --c3=-0 --spreading_rate=0.2 \
 	--edge_weights=1 --c1_lb=-1 --c1_ub=1 --extra_mutation_rate=0.00 \
-	--decay=0.6 --allow_move_edge=0 --crossover_freq=0.1 --edge_inheritance=1 \
-	--num_organisms=200 --num_nodes=4 --num_edges=10 #--seed=601051974
+	--decay=0.6 --allow_move_edge=0 --crossover_freq=0.1 --edge_inheritance=3 \
+	--num_organisms=80 --num_nodes=10 --num_edges=20 --seed=138920517
+
+CIRCLE_ARGS = --num_epochs=100 --generations_per_epoch=40 \
+	--ridge_type=1 --bumps=0 --ridge_radius=0.05 \
+	--activation_types=3 --mutation_type_ub=10 --knob_type=0 --multi_edges=0 \
+	--peak_movement=1 --output_types=0 --c2=1 --c3=-0 --spreading_rate=0.2 \
+	--edge_weights=1 --c1_lb=-1 --c1_ub=1 --extra_mutation_rate=0.00 \
+	--decay=0.6 --allow_move_edge=0 --crossover_freq=0.1 --edge_inheritance=3 \
+	--num_organisms=80 --num_nodes=10 --num_edges=20 --seed=138920517
 
 all: sa
 
