@@ -73,7 +73,7 @@ $(PDFFILES): $(BIBFILES)
 	$(DOT) < $< > $@
 
 sa: sa.c Makefile
-	gcc sa.c --std=c99 -Werror -Wall -D_POSIX_C_SOURCE=199309L -g -o sa -lm
+	gcc sa.c --std=gnu99 -Werror -Wall -g -o sa -lm
 
 data: sa run.py add_param_set.py
 	./run.py > d.csv
