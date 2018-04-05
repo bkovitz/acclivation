@@ -29,8 +29,6 @@ GOOD_XLINE_ARGS = --num_epochs=60 --ridge_type=0 --bumps=0 --ridge_radius=0.2 \
 	--num_organisms=200
 
 #This produced a very hill-shaped hill for the y=x line
-#Until BEN disallowed initial activations that aren't evenly divisible
-#by knob_constant. 4-Apr-2018
 GOOD_YXLINE_RUN = --num_epochs=120 --ridge_type=0 --bumps=0 --ridge_radius=0.2 \
 	--activation_types=3 --mutation_type_ub=10 --knob_type=0 --multi_edges=0 \
 	--peak_movement=0 --output_types=0 --c2=1 --c3=0 --spreading_rate=0.1 \

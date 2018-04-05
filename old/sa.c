@@ -606,41 +606,6 @@ World *create_world() {
   return w;
 }
 
-bool is_gvector_index(World *w, int index) {
-  return index < w->num_in;
-}
-
-bool is_phenotype_index(World *w, int index) {
-  return index >= w->num_in &&
-         index < w->num_in + w->num_out;
-}
-
-double rand_initial_activation(World *w) {
-  int half_range = 1.0 / w->knob_constant;
-  return rand_int(-half_range, +half_range) * w->knob_constant;
-}
-
-void init_initial_activation(World *w, Node *node, int index) {
-  switch (node->activation_type) {
-    case SUM_INCOMING:
-    case SUM_AND_MULT_INCOMING:
-    case SUM_AND_MIN_INCOMING:
-      if (is_phenotype_index(w, index))
-        node->initial_activation = UNWRITTEN;
-      else
-        node->initial_activation = rand_initial_activation(w);
-      break;
-    case SIGMOID_SUM:
-      if (is_gvector_index(w, index))
-        node->initial_activation = rand_initial_activation(w);
-      else
-        node->initial_activation = UNWRITTEN;
-      break;
-    default:
-      assert(false);
-  }
-}
-
 double rand_edge_weight(World *w) {
   switch (w->edge_weights) {
     case EDGE_WEIGHTS_POS_OR_NEG:
@@ -654,27 +619,27 @@ double rand_edge_weight(World *w) {
 
 double node_output(Node *node, double activation);
 
-void init_random_node(World *w, Node *n, int index) {
-  n->in_use = true;
+void init_random_node(World *w, Node *n) {
+  n->control = 1.0;
   switch (w->activation_types) {
     case ONLY_SUM_INCOMING:
       n->activation_type = SUM_INCOMING;
-      n->control = 1.0;
+      n->initial_activation = rand_int(-100, +100) * 0.01;
       break;
     case SUM_AND_MULT_INCOMING:
       n->activation_type = coin_flip() ? SUM_INCOMING : MULT_INCOMING;
-      n->control = 1.0;
+      n->initial_activation = rand_int(-100, +100) * 0.01;
       break;
     case SUM_AND_MIN_INCOMING:
       n->activation_type = coin_flip() ? SUM_INCOMING : MIN_INCOMING;
-      n->control = 1.0;
+      n->initial_activation = rand_int(-100, +100) * 0.01;
       break;
     case ONLY_SIGMOID_SUM:
       n->activation_type = SIGMOID_SUM;
       n->control = rand_activation();
+      n->initial_activation = UNWRITTEN;
       break;
   }
-  init_initial_activation(w, n, index);
   // TODO Refactor to remove conceptual overlap between SIGMOID_SUM
   // and PASS_THROUGH.
   switch (w->output_types) {
@@ -690,11 +655,10 @@ void init_random_node(World *w, Node *n, int index) {
       //n->initial_activation = rand_int(-100, +100) * 0.01;
   //else
       //g->nodes[n].initial_activation = 0.0;
-  //n->final_activation = 0.0;
-  n->final_activation = UNWRITTEN;
+  n->final_activation = 0.0;
+  n->in_use = true;
   n->threshold_func = clamp;
-  //n->output = node_output(n, n->initial_activation);
-  n->output = UNWRITTEN;
+  n->output = node_output(n, n->initial_activation);
 }
 
 void add_edge(World *, Genotype *, int, int, double);
@@ -711,19 +675,19 @@ Genotype *create_random_genotype(World *w) {
   g->num_in = w->num_in;
   g->num_out = w->num_out;
   for (int n = 0; n < g->num_nodes; n++) {
-    init_random_node(w, &g->nodes[n], n);
+    init_random_node(w, &g->nodes[n]);
   }
-//  // special initialization for g-vector
-//  for (int n = 0; n < g->num_in; n++) {
-//    Node *node = &g->nodes[n];
-//    node->initial_activation = rand_int(-100, +100) * 0.01;
-//    node->output = node_output(node, node->initial_activation);
-//  }
-//  // initialize phenotype vector to UNWRITTEN
-//  for (int n = g->num_in; n < g->num_in + g->num_out; n++) {
-//    Node *node = &g->nodes[n];
-//    node->initial_activation = node->output = UNWRITTEN;
-//  }
+  // special initialization for g-vector
+  for (int n = 0; n < g->num_in; n++) {
+    Node *node = &g->nodes[n];
+    node->initial_activation = rand_int(-100, +100) * 0.01;
+    node->output = node_output(node, node->initial_activation);
+  }
+  // initialize phenotype vector to UNWRITTEN
+  for (int n = g->num_in; n < g->num_in + g->num_out; n++) {
+    Node *node = &g->nodes[n];
+    node->initial_activation = node->output = UNWRITTEN;
+  }
   for (int e = 0; e < w->num_edges; e++) {
     int src = rand() % g->num_nodes;
     int dst = rand() % g->num_nodes;
@@ -1800,8 +1764,41 @@ void mut_add_node(World *w, Organism *o) {
   //    g->nodes[add_index].initial_activation);
   //g->nodes[add_index].control = 1.0;
 
-  init_random_node(w, node, add_index);
-
+  // NEXT Call init_random_node to do all this
+  node->in_use = true;
+  node->threshold_func = clamp;  // sigmoid; //clamp;
+  switch (w->output_types) {
+    case ONLY_PASS_THROUGH:
+      node->output_type = PASS_THROUGH;
+      break;
+    case PASS_THROUGH_AND_STEEP_SIGMOID:
+      node->output_type = coin_flip() ? PASS_THROUGH : STEEP_SIGMOID;
+      break;
+  }
+  switch (w->activation_types) {
+    case ONLY_SUM_INCOMING:
+      node->activation_type = SUM_INCOMING;
+      node->initial_activation = rand_activation();
+      node->output = node->initial_activation;
+      break;
+    case SUM_AND_MULT_INCOMING:
+      node->activation_type = coin_flip() ? SUM_INCOMING : MULT_INCOMING;
+      node->initial_activation = rand_activation();
+      node->output = node->initial_activation;
+      break;
+    case SUM_AND_MIN_INCOMING:
+      node->activation_type = coin_flip() ? SUM_INCOMING : MIN_INCOMING;
+      node->initial_activation = rand_activation();
+      node->output = node->initial_activation;
+      break;
+    case ONLY_SIGMOID_SUM:
+      node->activation_type = SIGMOID_SUM;
+      node->initial_activation = UNWRITTEN;
+      node->control = rand_activation();
+      node->output = UNWRITTEN;
+      break;
+  }
+  node->final_activation = UNWRITTEN;
   if (debug)
     sanity_check_organism(w, o);
 }
