@@ -35,10 +35,26 @@ double max(double x, double y) {
 
 // ----------------------------------------------------------------------
 
-double make_random_seed() {
-  struct timespec tm;
-  clock_gettime(CLOCK_REALTIME, &tm);
-  return tm.tv_nsec;
+unsigned int make_random_seed() {
+//  struct timespec tm;
+//  clock_gettime(CLOCK_REALTIME, &tm);
+//  return tm.tv_nsec;
+  // https://developer.apple.com/library/content/documentation/Security/Conceptual/cryptoservices/RandomNumberGenerationAPIs/RandomNumberGenerationAPIs.html
+  FILE *fp = fopen("/dev/random", "r");
+
+  if (!fp) {
+    perror("make_random_seed");
+    exit(-1);
+  }
+
+  unsigned int value = 0;
+  for (int i = 0; i < sizeof(value); i++) {
+    value <<= 8;
+    value |= fgetc(fp);
+  }
+
+  fclose(fp);
+  return value;
 }
 
 bool coin_flip() {
@@ -349,9 +365,9 @@ double steep_sigmoid(double x, double xcenter, double slope) {
 typedef struct {
   bool in_use;
   double initial_activation;
+  double final_output;
   double final_activation;
   double control;  // a control parameter for the output_type function
-  double final_output;
   INPUT_ACC input_acc; // how inputs accumulate during one timestep
   ACTIVATION_TYPE activation_type; // activation as fn of accumulated inputs
   OUTPUT_TYPE output_type;  // output level as a function of activation level
@@ -522,7 +538,7 @@ typedef enum {
 // -- world ------------------------------------------------------------------
 
 typedef struct world_t {
-  int seed;
+  unsigned int seed;
   int num_organisms;
   int sa_timesteps;
   int generations_per_epoch;
@@ -1007,8 +1023,7 @@ void sa(Organism *o, int timesteps, double decay, double spreading_rate) {
 //              }
 //              break;
 //          }
-//        }
-//      }
+        }
     }
 
     // Update each Node's 'control' from next_controls
@@ -1659,8 +1674,7 @@ void print_world_params(World *w) {
   printf("w->edge_weights=%s;\n", edge_weights_string(w->edge_weights));
   printf("w->multi_edges=%s;\n", w->multi_edges ? "true" : "false");
   printf("w->allow_move_edge=%s;\n", w->allow_move_edge ? "true" : "false");
-  printf("w->activation_types=%s;\n",
-      activation_types_string(w->activation_types));
+  printf("w->activation_types=%d;\n", w->activation_types);
   putchar('\n');
   printf("w->output_types=");
   switch (w->output_types) {
@@ -1686,10 +1700,13 @@ void print_world_params(World *w) {
 void print_acclivity_measures_of_best(World *w) {
   int best_organism_index = find_best_organism(w);
   //print_phenotype(w->organisms[best_organism_index]->genotype);
-  HILL_CLIMBING_RESULT gvector_result = measure_acclivity(w, w->organisms[best_organism_index]);
-  printf("gvector_fitness_delta = %lf, gvector_absolute_fitness = %lf\n", gvector_result.fitness_delta, gvector_result.ending_fitness);
+  HILL_CLIMBING_RESULT gvector_result =
+    measure_acclivity(w, w->organisms[best_organism_index]);
+  printf("gvector_fitness_delta = %lf, gvector_absolute_fitness = %lf\n",
+    gvector_result.fitness_delta, gvector_result.ending_fitness);
   HILL_CLIMBING_RESULT phenotype_result = phenotype_acclivity(w);
-  printf("acclivity: ph_fitness_delta = %lf, ph_absolute_fitness = %lf\n", phenotype_result.fitness_delta, phenotype_result.ending_fitness);
+  printf("acclivity: ph_fitness_delta = %lf, ph_absolute_fitness = %lf\n",
+    phenotype_result.fitness_delta, phenotype_result.ending_fitness);
 }
 
 void print_knob_fitness_numbers(World *w) {
@@ -2351,7 +2368,7 @@ void long_test_start_small(int seed) {
   w->edge_weights = EDGE_WEIGHTS_ONLY_PLUS_1;
   //w->edge_weights = EDGE_WEIGHTS_POS_OR_NEG;
   //w->activation_types = ONLY_SUM_INCOMING;
-  w->activation_types = SUM_AND_MULT_INCOMING;
+  w->activation_types = 0x01;
   diagonal_ridge(w);
   w->bumps = true;
   w->ridge_radius = 0.05;
@@ -2480,7 +2497,7 @@ void good_run_with_bumps() {
 
   w->edge_inheritance=INHERIT_ALL_EDGES;
   w->edge_weights=EDGE_WEIGHTS_ONLY_PLUS_1;
-  w->activation_types=SUM_AND_MULT_INCOMING;
+  w->activation_types=0x02; // CLAMP_ONLY only
 
   w->num_organisms=40;
   w->num_candidates=7;
@@ -2505,7 +2522,7 @@ void tom() {
 
   w->edge_inheritance=INHERIT_ALL_EDGES;
   w->edge_weights=EDGE_WEIGHTS_ONLY_PLUS_1;
-  w->activation_types=SUM_AND_MULT_INCOMING;
+  w->activation_types=0x02; // CLAMP_ONLY only
 
   w->num_candidates=7;
   w->generations_per_epoch=20;
@@ -2532,7 +2549,7 @@ void acclivation_test(int seed) {
   w->edge_weights = EDGE_WEIGHTS_ONLY_PLUS_1;
   //w->edge_weights = EDGE_WEIGHTS_POS_OR_NEG;
   //w->activation_types = ONLY_SUM_INCOMING;
-  w->activation_types = SUM_AND_MULT_INCOMING;
+  w->activation_types = 0x02; // CLAMP_ONLY only
   diagonal_ridge(w);
   w->bumps = true;
   w->ridge_radius = 0.2;
@@ -2724,7 +2741,7 @@ void run_from_command_line_options(int argc, char **argv) {
    free_world(w);
 }
 
-#ifdef WITH_SWIG
+//#ifdef WITH_SWIG
 _Pragma("GCC diagnostic push")
 _Pragma("GCC diagnostic ignored \"-Wunused-variable\"")
 int main(int argc, char **argv) {
@@ -2747,4 +2764,4 @@ int main(int argc, char **argv) {
   return 0;
 }
 _Pragma("GCC diagnostic pop")
-#endif
+//#endif
