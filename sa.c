@@ -438,8 +438,8 @@ typedef struct {
 // -- genotype ---------------------------------------------------------------
 
 typedef struct {
-  Node *nodes;
-  Edge *edges;
+  Node *nodes;  // array of num_nodes Nodes
+  Edge *edges;  // array of num_edges Edges
   int num_nodes;
   int num_nodes_in_use;
   int num_edges;
@@ -560,7 +560,7 @@ typedef struct {
 
 ANCESTOR_LOG *create_ancestor_log() {
   ANCESTOR_LOG *log = malloc(sizeof(ANCESTOR_LOG));
-  log->enabled = false; //true;
+  log->enabled = true;
   log->path = "ancestors";
   log->f = NULL;
   return log;
@@ -852,6 +852,17 @@ Organism *create_random_organism(World *w) {
   return o;
 }
 
+// TODO Incorporate input_acc
+const char *node_type_string(const Node *node) {
+  switch (node->activation_type) {
+    case SIGMOID:
+      return "S";
+    case CLAMP_ONLY:
+      return "C";
+  }
+  assert(false);
+}
+
 void print_organism_dot(World *w, Organism *o, FILE *f) {
   Genotype *g = o->genotype;
 
@@ -868,7 +879,7 @@ void print_organism_dot(World *w, Organism *o, FILE *f) {
     Node *node = &g->nodes[n];
     if (node->in_use) {
       // TODO Output initial activations for appropriate nodes
-      fprintf(f, "  n%d [label=\"n%d ", n, n);
+      fprintf(f, "  n%d [label=\"n%d (%s) ", n, n, node_type_string(node));
       if (node->initial_activation != UNWRITTEN) {
         fprintf(f, "i=%.3lf ", node->initial_activation);
       }
@@ -1043,7 +1054,7 @@ void sa(Organism *o, int timesteps, double decay, double spreading_rate) {
                 }
                 activations[n] = clamp(
                   activations[n] + steep_sigmoid(x, 0.0, slope));
-                  //activations[n] + steep_sigmoid(x, node->control, 0.2));
+                  //activations[n] + steep_sigmoid(x, node->control, slope));
                   //activations[n] + steep_sigmoid(x, node->control, node->control));
               }
           }
@@ -1376,7 +1387,7 @@ HILL_CLIMBING_RESULT climb_hill(World *w, Organism *o) {
       num_neutral_steps = 0;
     } else if (candidates[best_candidate_index]->fitness == last_fitness) {
       // neutral plateau
-      if (++num_neutral_steps >= 200) {
+      if (++num_neutral_steps >= 100) {
         //printf("crazy plateau\n");
         break;
       }
@@ -1852,19 +1863,22 @@ void add_edge(World *w, Genotype *g, int src, int dst, double weight) {
 void mut_add_edge(World *w, Organism *o) {
   Genotype *g = o->genotype;
   add_edge(w, g, select_in_use_node(g), select_in_use_node(g), rand_edge_weight(w));
+  log_mutation(w, "add_edge");
 }
 
 void remove_edge(Genotype *g, int e) {
   if (e < g->num_edges - 1)
-    memmove(&g->edges[e], &g->edges[e + 1], sizeof(Edge) * (g->num_edges - e - 1));
+    memmove(&g->edges[e], &g->edges[e + 1],
+        sizeof(Edge) * (g->num_edges - e - 1));
   g->num_edges--;
 }
 
-void mut_remove_edge(Organism *o) {
+void mut_remove_edge(World *w, Organism *o) {
   Genotype *g = o->genotype;
   if (g->num_edges > 0) {
     int selected_edge = rand() % g->num_edges;
     remove_edge(g, selected_edge);
+    log_mutation(w, "remove_edge");
   }
 }
 
@@ -1877,6 +1891,7 @@ void mut_move_edge(World *w, Organism *o) {
     g->edges[selected_edge].src = select_in_use_node(g);
   else
     g->edges[selected_edge].dst = select_in_use_node(g);
+  log_mutation(w, "move_edge");
 }
 
 void mut_add_node(World *w, Organism *o) {
@@ -1891,12 +1906,13 @@ void mut_add_node(World *w, Organism *o) {
   }
   Node *node = &g->nodes[add_index];
   init_random_node(w, node, add_index);
+  log_mutation(w, "add_node");
 
   if (debug)
     sanity_check_organism(w, o);
 }
 
-void mut_remove_node(Organism *o) {
+void mut_remove_node(World *w, Organism *o) {
   Genotype *g = o->genotype;
   int unremovable = g->num_in + g->num_out;
   if (g->num_nodes_in_use <= unremovable)
@@ -1917,6 +1933,7 @@ void mut_remove_node(Organism *o) {
       // can always increment because even when memory doesn't shift, we'll be on last element
       e++;
   }
+  log_mutation(w, "remove_node");
 }
 
 void mut_turn_knob(World *w, Organism *o) {
@@ -1934,6 +1951,7 @@ void mut_turn_knob(World *w, Organism *o) {
   node_to_change->initial_activation =
       clamp(node_to_change->initial_activation + nudge);
   o->from_turned_knob = true;
+  log_mutation(w, "turn_knob");
 }
 
 void mut_alter_activation_type(World *w, Organism *o) {
@@ -1956,6 +1974,7 @@ void mut_alter_activation_type(World *w, Organism *o) {
           default:
             assert(false);
         }
+        log_mutation(w, "alter_act_type");
       }
       break;
     default:
@@ -1984,6 +2003,7 @@ void mut_alter_input_acc(World *w, Organism *o) {
           default:
             assert(false);
         }
+        log_mutation(w, "alter_input_acc");
       }
       break;
     case 0x05: // SUM_INCOMING or MIN_INCOMING
@@ -2000,6 +2020,7 @@ void mut_alter_input_acc(World *w, Organism *o) {
           default:
             assert(false);
         }
+        log_mutation(w, "alter_input_acc");
       }
       break;
     case 0x07: // SUM_INCOMING, MULT_INCOMING, or MIN_INCOMING
@@ -2022,6 +2043,7 @@ void mut_alter_input_acc(World *w, Organism *o) {
           default:
             assert(false);
         }
+        log_mutation(w, "alter_input_acc");
       }
       break;
     default:
@@ -2047,9 +2069,17 @@ void mut_alter_output_type(World *w, Organism *o) {
           default:
             assert(false);
         }
+        log_mutation(w, "alter_out_type");
       }
       break;
   }
+}
+
+void mut_turn_control(World *w, Organism *o) {
+  Genotype *g = o->genotype;
+  Node *node = &g->nodes[select_in_use_node(g)];
+  node->control += clamp(sample_normal(0.02));
+  log_mutation(w, "turn_control");
 }
 
 Organism *mutate(World *w, Organism *old_o) {
@@ -2059,48 +2089,40 @@ Organism *mutate(World *w, Organism *old_o) {
                 rand_float() *
                 (o->genotype->num_nodes + o->genotype->num_edges));
   for (int i = 0; i < num_mutations; i++) {
-    int mutation_type = rand_int(0, w->mutation_type_ub); //rand() % 16;
+    int mutation_type = rand_int(0, w->mutation_type_ub);
     switch (mutation_type) {
     case 0:
       mut_add_node(w, o);
-      // TODO Move all these log_mutation messages into the called functions.
-      // They're not always correct, depending on what the mutation function
-      // actually does.
-      log_mutation(w, "add_node");
       break;
     case 1:
-      mut_remove_node(o);
-      log_mutation(w, "remove_node");
+      mut_remove_node(w, o);
       break;
     case 2:
       mut_add_edge(w, o);
-      log_mutation(w, "add_edge");
       break;
     case 3:
-      mut_remove_edge(o);
-      log_mutation(w, "remove_edge");
+      mut_remove_edge(w, o);
       break;
     case 4:
       mut_alter_activation_type(w, o);
-      log_mutation(w, "alter_act_type");
       break;
     case 5:
-      mut_alter_output_type(w, o);
-      log_mutation(w, "alter_out_type");
+      mut_alter_input_acc(w, o);
       break;
     case 6:
+      mut_alter_output_type(w, o);
+      break;
+    case 7:
+      mut_turn_control(w, o);
+      break;
+    case 8:
       if (w->allow_move_edge) {
         mut_move_edge(w, o);
-        log_mutation(w, "move_edge");
         break;
       }
-    case 7:
-      mut_alter_input_acc(w, o);
-      log_mutation(w, "alter_input_acc");
-      break;
+      // else fall through
     default:
       mut_turn_knob(w, o);
-      log_mutation(w, "turn_knob");
       break;
     }
   }
@@ -2607,6 +2629,7 @@ void run_from_command_line_options(int argc, char **argv) {
     { "peak_movement", required_argument, 0, 0 },
     { "output_types", required_argument, 0, 0 },
     { "dist_exponent", required_argument, 0, 0 },
+    { "input_accs", required_argument, 0, 0 },
     { NULL, 0, 0, 0 },
   };
   int c;
@@ -2721,6 +2744,9 @@ void run_from_command_line_options(int argc, char **argv) {
         break;
       case 34:
         w->dist_exponent = atof(optarg);
+        break;
+      case 35:
+        w->input_accs = atoi(optarg);
         break;
       default:
         printf("Internal error\n");
