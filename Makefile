@@ -64,6 +64,16 @@ X_ARGS = $(YXLINE) --bumps=1 \
 	--multi_edges=0 --allow_move_edge=0 --edge_weights=0 --edge_inheritance=5 \
 	--spreading_rate=0.2 --decay=0.6 #--seed=1043614093
 
+#QUESTION: What happens to the winner here when you turn a knob?
+LOOK_AT_THIS = $(YXLINE) --bumps=1 \
+	--num_epochs=40 --generations_per_epoch=20 \
+	--num_organisms=80 --num_candidates=6 \
+	--num_nodes=4 --num_edges=4 \
+	--input_accs=1 --activation_types=3 --output_types=0 --knob_type=0 \
+	--mutation_type_ub=10 --extra_mutation_rate=0.00 --crossover_freq=0.05 \
+	--multi_edges=0 --allow_move_edge=0 --edge_weights=0 --edge_inheritance=5 \
+	--spreading_rate=0.2 --decay=0.6 --seed=1692985943
+
 all: sa
 
 $(PDFFILES): $(BIBFILES)
@@ -99,6 +109,11 @@ circle: sa
 # Experimentation target
 x: sa
 	./sa $(X_ARGS) > out
+	tail -4 out
+	@echo
+
+lookatthis: sa
+	./sa $(LOOK_AT_THIS) > out
 	tail -4 out
 	@echo
 
