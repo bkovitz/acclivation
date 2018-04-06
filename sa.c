@@ -88,6 +88,26 @@ typedef enum {
 // and bit 2 is MIN_INCOMING
 typedef unsigned int INPUT_ACCS;
 
+const char *input_accs_string(INPUT_ACCS ia) {
+  switch (ia) {
+    case 0x01:
+      return "0x01 /* SUM_INCOMING only */ ";
+    case 0x02:
+      return "0x02 /* MULT_INCOMING only */ ";
+    case 0x03:
+      return "0x03 /* SUM_INCOMING and MULT_INCOMING */ ";
+    case 0x04:
+      return "0x04 /* MIN_INCOMING only */ ";
+    case 0x05:
+      return "0x05 /* SUM_INCOMING and MIN_INCOMING */ ";
+    case 0x06:
+      return "0x06 /* MULT_INCOMING and MIN_INCOMING */ ";
+    case 0x07:
+      return "0x07 /* SUM_INCOMING, MULT_INCOMING, MIN_INCOMING */ ";
+  }
+  assert(false);
+}
+
 // How activation is calculated from accumulated inputs
 typedef enum {
   SIGMOID,
@@ -98,11 +118,34 @@ typedef enum {
 // bits enable corresponding ACTIVATION_TYPEs
 typedef unsigned int ACTIVATION_TYPES;
 
+const char *activation_types_string(ACTIVATION_TYPES at) {
+  switch (at) {
+    case 0x01:
+      return "0x01 /* SIGMOID only */ ";
+    case 0x02:
+      return "0x02 /* CLAMP_ONLY only */ ";
+    case 0x03:
+      return "0x03 /* SIGMOID and CLAMP_ONLY */ ";
+  }
+  assert(false);
+}
+
 // How/whether non-gvector nodes have an initial activation
 typedef enum {
   NO_INITIAL_ACTIVATION,
   HAS_INITIAL_ACTIVATION
 } INITIAL_ACTIVATION_TYPE;
+
+const char *initial_activation_type_string(INITIAL_ACTIVATION_TYPE ia) {
+  switch (ia) {
+    case NO_INITIAL_ACTIVATION:
+      return "NO_INITIAL_ACTIVATION";
+    case HAS_INITIAL_ACTIVATION:
+      return "HAS_INITIAL_ACTIVATION";
+    default:
+      assert(false);
+  }
+}
 
 const char *input_acc_string(INPUT_ACC input_acc) {
   switch (input_acc) {
@@ -169,6 +212,17 @@ typedef enum {
   CONSTANT,         // 'control' doesn't change
   NUDGED_BY_INPUT   // 'control' is altered by first input
 } CONTROL_UPDATE;
+
+const char *control_update_string(CONTROL_UPDATE cu) {
+  switch (cu) {
+    case CONSTANT:
+      return "CONSTANT";
+    case NUDGED_BY_INPUT:
+      return "NUDGED_BY_INPUT";
+    default:
+      assert(false);
+  }
+}
 
 // -- accumulating data ------------------------------------------------------
 
@@ -560,6 +614,7 @@ typedef struct world_t {
   Organism **organisms;
   double (*phenotype_fitness_func)(struct world_t *, Genotype *);
   double distance_weight;
+  double dist_exponent;
   bool bumps;
   int epoch;
   int generation;
@@ -619,14 +674,15 @@ World *create_world() {
   w->organisms = NULL; //calloc(num_organisms, sizeof(Organism));
   w->phenotype_fitness_func = phenotype_fitness;
   w->distance_weight = 10.0;
+  w->dist_exponent = 1.0;
   w->bumps = true;
   w->epoch = 0;
   w->generation = 0;
   w->c1 = 0.5;
   w->c2 = 1.0;
   w->c3 = 0.0;
-  w->c1_lb = 0.2;
-  w->c1_ub = 0.8;
+  w->c1_lb = -1.0;
+  w->c1_ub = +1.0;
   w->peak_movement = JUMPY_PEAK_MOVEMENT;
   w->peak_x = 0.0; // dependent variable
   w->peak_y = 0.0; // dependent variable
@@ -1537,7 +1593,9 @@ void dump_phenotype_fitness_func(World *w) {
 }
 
 void print_world_params(World *w) {
-  printf("w->seed=%d;\n", w->seed);
+  printf("w->seed=%u;\n", w->seed);
+  putchar('\n');
+  puts("// Phenotype fitness");
   printf("w->ridge_type=");
   switch (w->ridge_type) {
     case LINE:
@@ -1550,9 +1608,11 @@ void print_world_params(World *w) {
       assert(false);
       break;
   }
+  printf("w->bumps=%s;\n", w->bumps ? "true" : "false");
   printf("w->ridge_radius=%lf;\n", w->ridge_radius);
   printf("w->c2=%lf; w->c3=%lf;\n", w->c2, w->c3);
   printf("w->c1_lb=%lf; w->c1_ub=%lf;\n", w->c1_lb, w->c1_ub);
+  printf("w->distance_weight=%lf;\n", w->distance_weight);
   printf("w->peak_movement=");
   switch (w->peak_movement) {
   case JUMPY_PEAK_MOVEMENT:
@@ -1564,16 +1624,39 @@ void print_world_params(World *w) {
   default:
     assert(false);
   }
-  printf("w->decay=%lf;\n", w->decay);
-  printf("w->spreading_rate=%lf;\n", w->spreading_rate);
-  printf("w->distance_weight=%lf;\n", w->distance_weight);
-  printf("w->bumps=%s;\n", w->bumps ? "true" : "false");
+  putchar('\n');
+  puts("// gvector");
   printf("w->knob_type=%d;\n", w->knob_type);
   printf("w->knob_constant=%lf;\n", w->knob_constant);
+  putchar('\n');
+  puts("// Spreading activation");
+  printf("w->sa_timesteps=%d;\n", w->sa_timesteps);
+  printf("w->spreading_rate=%lf;\n", w->spreading_rate);
+  printf("w->decay=%lf;\n", w->decay);
+  printf("w->initial_activation_type=%s;\n",
+      initial_activation_type_string(w->initial_activation_type));
+  printf("w->input_accs=%s;\n", input_accs_string(w->input_accs));
+  printf("w->activation_types=%s;\n",
+      activation_types_string(w->activation_types));
+  printf("w->output_types=");
+  switch (w->output_types) {
+    case ONLY_PASS_THROUGH:
+      puts("ONLY_PASS_THROUGH;");
+      break;
+    case PASS_THROUGH_AND_STEEP_SIGMOID:
+      puts("PASS_THROUGH_AND_STEEP_SIGMOID;");
+      break;
+    default:
+      assert(false);
+  }
+  printf("w->control_update=%s;\n", control_update_string(w->control_update));
+  putchar('\n');
+  puts("// Mutation and crossover");
   printf("w->mutation_type_ub=%d;\n", w->mutation_type_ub);
   printf("w->extra_mutation_rate=%lf;\n", w->extra_mutation_rate);
   printf("w->crossover_freq=%lf;\n", w->crossover_freq);
   putchar('\n');
+  puts("// Edge inheritance");
   printf("w->edge_inheritance=");
   switch (w->edge_inheritance) {
     case NO_EDGES_ACROSS_PARENTS:
@@ -1599,27 +1682,16 @@ void print_world_params(World *w) {
   printf("w->edge_weights=%s;\n", edge_weights_string(w->edge_weights));
   printf("w->multi_edges=%s;\n", w->multi_edges ? "true" : "false");
   printf("w->allow_move_edge=%s;\n", w->allow_move_edge ? "true" : "false");
-  printf("w->activation_types=%d;\n", w->activation_types);
   putchar('\n');
-  printf("w->output_types=");
-  switch (w->output_types) {
-    case ONLY_PASS_THROUGH:
-      puts("ONLY_PASS_THROUGH;");
-      break;
-    case PASS_THROUGH_AND_STEEP_SIGMOID:
-      puts("PASS_THROUGH_AND_STEEP_SIGMOID;");
-      break;
-    default:
-      assert(false);
-  }
+  puts("// Overall run parameters");
+  printf("w->num_epochs=%d;\n", w->num_epochs);
+  printf("w->generations_per_epoch=%d;\n", w->generations_per_epoch);
   printf("w->num_organisms=%d;\n", w->num_organisms);
   printf("w->num_candidates=%d;\n", w->num_candidates);
-  printf("w->generations_per_epoch=%d;\n", w->generations_per_epoch);
-  printf("w->num_epochs=%d;\n", w->num_epochs);
-  printf("w->sa_timesteps=%d;\n", w->sa_timesteps);
-  printf("w->num_hill_climbers=%d;\n", w->num_hill_climbers);
   printf("w->num_nodes=%d;\n", w->num_nodes);
   printf("w->num_edges=%d;\n", w->num_edges);
+  putchar('\n');
+  printf("w->num_hill_climbers=%d;\n", w->num_hill_climbers);
 }
 
 void print_acclivity_measures_of_best(World *w) {
@@ -1731,7 +1803,7 @@ double phenotype_fitness(World *w, Genotype *g) {
     double scaled_dist = (w->max_dist - dist) / w->max_dist;
     fitness = require_valid_region(w, phenotype[0], phenotype[1]) *
               along_ridge(w, phenotype[0], phenotype[1]) *
-              (w->distance_weight * scaled_dist * scaled_dist);
+              (w->distance_weight * pow(scaled_dist, w->dist_exponent));
     if (w->bumps) {
       double bump_amt = many_small_hills(phenotype);
 //      if (bump_amt <= 0.0)
@@ -2534,6 +2606,7 @@ void run_from_command_line_options(int argc, char **argv) {
     { "ridge_type", required_argument, 0, 0 },
     { "peak_movement", required_argument, 0, 0 },
     { "output_types", required_argument, 0, 0 },
+    { "dist_exponent", required_argument, 0, 0 },
     { NULL, 0, 0, 0 },
   };
   int c;
@@ -2645,6 +2718,9 @@ void run_from_command_line_options(int argc, char **argv) {
         break;
       case 33:
         w->output_types = atoi(optarg);
+        break;
+      case 34:
+        w->dist_exponent = atof(optarg);
         break;
       default:
         printf("Internal error\n");

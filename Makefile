@@ -7,6 +7,11 @@ TEXFILES = $(wildcard *.tex)
 PDFFILES = $(TEXFILES:.tex=.pdf)
 BIBFILES = $(wildcard *.bib)
 DOT = dot -Tpdf
+ifeq ($(shell uname -s), Darwin)
+VIEW_PDF = open
+else
+VIEW_PDF = evince
+endif
 
 OK_LINE_ARGS = --ridge_type=0 --bumps=1 --ridge_radius=0.2 \
 	--activation_types=1 --mutation_type_ub=10 --knob_type=0 --multi_edges=0 \
@@ -41,25 +46,29 @@ GOOD_YXLINE_RUN = --num_epochs=120 --ridge_type=0 --bumps=0 --ridge_radius=0.2 \
 #This produces a respectable line down the middle on y=x with bumps
 OK_YXLINE_BUMPS = #Oops, wrong params
 
-CIRCLE = --ridge_type=1 --bumps=0 --ridge_radius=0.05 --peak_movement=1 \
+#Thin ridge along y=x
+YXLINE = --ridge_type=0 --ridge_type=0.05 --c2=1 --c3=0 \
+	--c1_lb=-1 --c1_ub=1 
+
+CIRCLE = --ridge_type=1 --bumps=0 --ridge_radius=0.1 --peak_movement=1 \
 	--c1_lb=-1 --c1_ub=1
 
 #A parameter set for experimentation. Try the good ideas here, run with
 #'make x', and save noteworthy parameter sets under a different name.
-X_ARGS = $(CIRCLE) --num_epochs=40 --generations_per_epoch=20 \
+X_ARGS = $(YXLINE) --bumps=1 \
+	--num_epochs=80 --generations_per_epoch=20 \
 	--num_organisms=80 --num_candidates=6 \
 	--num_nodes=10 --num_edges=20 \
 	--activation_types=1 --output_types=0 --knob_type=0 \
 	--mutation_type_ub=10 --extra_mutation_rate=0.00 --crossover_freq=0.1 \
 	--multi_edges=0 --allow_move_edge=0 --edge_weights=0 --edge_inheritance=5 \
-	--peak_movement=0 --c2=1 --c3=0 \
 	--spreading_rate=0.2 --decay=0.6 #--seed=1043614093
 
 CIRCLE_ARGS = --num_epochs=100 --generations_per_epoch=40 \
 	--ridge_type=1 --bumps=0 --ridge_radius=0.05 \
 	--activation_types=3 --mutation_type_ub=10 --knob_type=0 --multi_edges=0 \
 	--peak_movement=1 --output_types=0 --c2=1 --c3=0 --spreading_rate=0.2 \
-	--edge_weights=1 --c1_lb=-1 --c1_ub=1 --extra_mutation_rate=0.00 \
+	--edge_weights=1 --extra_mutation_rate=0.00 \
 	--decay=0.6 --allow_move_edge=0 --crossover_freq=0.1 --edge_inheritance=3 \
 	--num_organisms=80 --num_nodes=10 --num_edges=20 --seed=138920517
 
@@ -157,18 +166,18 @@ test.pdf: test.dot
 	dot -Tpdf < test.dot > test.pdf
 
 dot: test.pdf
-	evince test.pdf
+	$(VIEW_PDF) test.pdf
 
 phplot:
-	sed -n '/BEGIN PHFUNC/,/END PHFUNC/ {//!p}' out > phfunc
+	sed -n '/BEGIN PHFUNC/,/END PHFUNC/ {//!p;}' out > phfunc
 	./plot_xyz.py phfunc 0 1 2
 
 vfplot:
-	sed -n '/BEGIN VFUNC/,/END VFUNC/ {//!p}' out > vfunc
+	sed -n '/BEGIN VFUNC/,/END VFUNC/ {//!p;}' out > vfunc
 	./plot_xyz.py vfunc 0 1 4
 
 phrangeplot:
-	sed -n '/BEGIN VFUNC/,/END VFUNC/ {//!p}' out > vfunc
+	sed -n '/BEGIN VFUNC/,/END VFUNC/ {//!p;}' out > vfunc
 	./plot_xyz.py vfunc 2 3 4 scatter
 
 plots:

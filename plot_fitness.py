@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 import csv
 import matplotlib.pyplot as plt
 import numpy as np

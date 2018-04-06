@@ -7,6 +7,13 @@
 #
 # Graph must be stored in file named 'out'.
 
+if [ `uname -s` = Darwin ]
+then
+  VIEW_PDF=open
+else
+  VIEW_PDF=evince
+fi
+
 sed -n "/^digraph $1/,/^}/p" out > $1.dot &&
 dot -Tpdf < $1.dot > $1.pdf &&
-evince $1.pdf
+$VIEW_PDF $1.pdf
