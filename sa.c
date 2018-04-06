@@ -2666,7 +2666,7 @@ void run_from_command_line_options(int argc, char **argv) {
    free_world(w);
 }
 
-//#ifdef WITH_SWIG
+#ifndef WITH_SWIG
 _Pragma("GCC diagnostic push")
 _Pragma("GCC diagnostic ignored \"-Wunused-variable\"")
 int main(int argc, char **argv) {
@@ -2689,4 +2689,4 @@ int main(int argc, char **argv) {
   return 0;
 }
 _Pragma("GCC diagnostic pop")
-//#endif
+#endif
