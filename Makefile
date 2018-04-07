@@ -203,11 +203,11 @@ OUT=out
 with_seed:
 	./sa `grep seed $(OUT) | cut -d'=' -f2`
 
-NRUNS = $(shell seq 1 20)
+NRUNS = $(shell seq 2 20)
 many: sa
-	@./sa $(X_ARGS) > /tmp/out
+	@./sa $(X_ARGS) --run=1 > /tmp/out
 	@tail -4 /tmp/out
-	@$(foreach i,$(NRUNS),./sa $(X_ARGS) >> /tmp/out; tail -4 /tmp/out;)
+	@$(foreach i,$(NRUNS),./sa $(X_ARGS) --run=$i >> /tmp/out; tail -4 /tmp/out;)
 
 tom: sa
 	@./sa --seed=520664716 \

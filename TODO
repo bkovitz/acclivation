@@ -1,8 +1,4 @@
-Add a --run parameter, which indicates a run number to prepend: r4e40g20
-
 Add a --param_set parameter, to help out R.
-
-Make --turn_control_increment=0.02 a parameter, to reproduce LOOK_AT_THIS.
 
 Measure "coverage" of gt->ph function: What proportion of the positive
 part of the phenotype fitness landscape is covered by the range of the

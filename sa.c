@@ -646,6 +646,7 @@ typedef struct world_t {
   int num_hill_climbers;
   int num_generations_measured;
   int num_fitness_increases_from_knob_turn;
+  int run;
 } World;
 
 double phenotype_fitness(World *, Genotype *);
@@ -701,6 +702,7 @@ World *create_world() {
   w->dump_fitness_nbhd = false;
   w->dump_fitness_epoch = -1;
   w->dump_fitness_generation = -1;
+  w->run = -1; // No run number provided on command line
 
   w->epoch_fitness_deltas = create_data();
   w->log = create_ancestor_log();
@@ -865,10 +867,13 @@ const char *node_type_string(const Node *node) {
   assert(false);
 }
 
-void print_organism_dot(World *w, Organism *o, FILE *f) {
+void print_dot(World *w, Organism *o, FILE *f) {
   Genotype *g = o->genotype;
 
-  fprintf(f, "digraph e%dg%d {\n", w->epoch, w->generation);
+  if (w->run >= 0)
+    fprintf(f, "digraph r%de%dg%d {\n", w->run, w->epoch, w->generation);
+  else
+    fprintf(f, "digraph e%dg%d {\n", w->epoch, w->generation);
   fprintf(f, "  { rank=source edge [style=\"invis\"] ");
   for (int i = 0; i < g->num_in - 1; i++)
     fprintf(f, "n%d ->", i);
@@ -1103,7 +1108,7 @@ void set_phenotypes_and_fitnesses(World *w) {
     if (debug)
       sanity_check(w);
 //    if (dot)
-//      print_organism_dot(o, stdout);
+//      print_dot(o, stdout);
     o->fitness = w->phenotype_fitness_func(w, o->genotype);
   }
 }
@@ -1191,7 +1196,7 @@ void log_organisms(World *w) {
 //        g->nodes[3].final_activation);
         g->nodes[2].final_output,
         g->nodes[3].final_output);
-      print_organism_dot(w, o, w->log->f);
+      print_dot(w, o, w->log->f);
     }
   }
 }
@@ -1309,7 +1314,7 @@ void print_best_fitness(World *w) {
 //    g->nodes[3].final_activation);
     g->nodes[2].final_output,
     g->nodes[3].final_output);
-  print_organism_dot(w, o, stdout);
+  print_dot(w, o, stdout);
 }
 
 void print_generation_results(World *w) {
@@ -1618,6 +1623,7 @@ void dump_phenotype_fitness_func(World *w) {
 
 void print_world_params(World *w) {
   printf("w->seed=%u;\n", w->seed);
+  printf("w->run=%d;\n", w->run);
   putchar('\n');
   puts("// Phenotype fitness");
   printf("w->ridge_type=");
@@ -1674,6 +1680,7 @@ void print_world_params(World *w) {
       assert(false);
   }
   printf("w->control_update=%s;\n", control_update_string(w->control_update));
+  printf("w->control_increment=%lf;\n", w->control_increment);
   putchar('\n');
   puts("// Mutation and crossover");
   printf("w->mutation_type_ub=%d;\n", w->mutation_type_ub);
@@ -2644,6 +2651,7 @@ void run_from_command_line_options(int argc, char **argv) {
     { "dist_exponent", required_argument, 0, 0 },
     { "input_accs", required_argument, 0, 0 },
     { "control_increment", required_argument, 0, 0 },
+    { "run", required_argument, 0, 0 },
     { NULL, 0, 0, 0 },
   };
   int c;
@@ -2764,6 +2772,9 @@ void run_from_command_line_options(int argc, char **argv) {
         break;
       case 36:
         w->control_increment = atof(optarg);
+        break;
+      case 37:
+        w->run = atoi(optarg);
         break;
       default:
         printf("Internal error\n");
