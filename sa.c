@@ -1037,12 +1037,22 @@ void sa(Organism *o, int timesteps, double decay, double spreading_rate) {
           if (activations[n] == UNWRITTEN) {
             activations[n] = 0.0;
           }
+          double a;
+          switch (node->input_acc) {
+            case SUM_INCOMING:
+              a = activations[n];
+              break;
+            case MULT_INCOMING:
+            case MIN_INCOMING:
+              a = 0.0;
+              break;
+          }
           double x = spreading_rate *
                      incoming_activations[n] *
                      pow(decay, timestep - 1);
           switch (node->activation_type) {
             case CLAMP_ONLY:
-              activations[n] = clamp(activations[n] + x);
+              activations[n] = clamp(a + x);
               break;
             case SIGMOID:
               {
@@ -1053,7 +1063,7 @@ void sa(Organism *o, int timesteps, double decay, double spreading_rate) {
                     x, slope, steep_sigmoid(x, 0.0, slope));
                 }
                 activations[n] = clamp(
-                  activations[n] + steep_sigmoid(x, 0.0, slope));
+                  a + steep_sigmoid(x, 0.0, slope));
                   //activations[n] + steep_sigmoid(x, node->control, slope));
                   //activations[n] + steep_sigmoid(x, node->control, node->control));
               }
@@ -2078,7 +2088,7 @@ void mut_alter_output_type(World *w, Organism *o) {
 void mut_turn_control(World *w, Organism *o) {
   Genotype *g = o->genotype;
   Node *node = &g->nodes[select_in_use_node(g)];
-  node->control += clamp(sample_normal(0.02));
+  node->control += clamp(sample_normal(0.2)); // Was 0.02 for LOOK_AT_THIS
   log_mutation(w, "turn_control");
 }
 

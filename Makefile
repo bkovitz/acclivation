@@ -53,18 +53,21 @@ YXLINE = --ridge_type=0 --ridge_radius=0.01 --c2=1 --c3=0 \
 CIRCLE = --ridge_type=1 --bumps=0 --ridge_radius=0.1 --peak_movement=1 \
 	--c1_lb=-1 --c1_ub=1
 
+#	--c1_lb=0.2 --c1_ub=0.9 \
+
 #A parameter set for experimentation. Try the good ideas here, run with
 #'make x', and save noteworthy parameter sets under a different name.
-X_ARGS = $(YXLINE) --bumps=1 \
+X_ARGS = $(YXLINE) --bumps=0 \
 	--num_epochs=40 --generations_per_epoch=20 \
-	--num_organisms=80 --num_candidates=6 \
+	--num_organisms=200 --num_candidates=6 \
 	--num_nodes=4 --num_edges=4 \
-	--input_accs=1 --activation_types=3 --output_types=0 --knob_type=0 \
-	--mutation_type_ub=10 --extra_mutation_rate=0.00 --crossover_freq=0.05 \
+	--input_accs=3 --activation_types=3 --output_types=0 --knob_type=0 \
+	--mutation_type_ub=16 --extra_mutation_rate=0.00 --crossover_freq=0.05 \
 	--multi_edges=0 --allow_move_edge=0 --edge_weights=0 --edge_inheritance=5 \
 	--spreading_rate=0.2 --decay=0.6 #--seed=1043614093
 
-#QUESTION: What happens to the winner here when you turn a knob?
+#QUESTION: What happens to the winner here when you turn a knob? What happens
+#when you make single graph edits? Why is this graph stuck?
 LOOK_AT_THIS = $(YXLINE) --bumps=1 \
 	--num_epochs=40 --generations_per_epoch=20 \
 	--num_organisms=80 --num_candidates=6 \

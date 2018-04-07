@@ -1,0 +1,10 @@
+When MULT_INCOMING ignores the previous activation, it easily outputs
+zero. And so, when the ph-fitness function gives (0.0, 0.0) a positive
+fitness, the population tends to get stuck there. Almost all mutations
+throw the organism off the ridge.
+
+
+Hyp: When degenerate organisms (those with -1, 0, or +1 in their phenotype)
+can't reproduce, the population will be a lot better for it. IOW, it's better
+to have impassable terrain in the fitness landscape than vast neutral
+mediocrity.
