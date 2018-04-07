@@ -637,6 +637,7 @@ typedef struct world_t {
   int num_candidates;
   double knob_constant;
   enum { KNOB_DISCRETE, KNOB_NORMAL } knob_type;
+  double control_increment;
   bool dump_fitness_nbhd;
   int dump_fitness_epoch;
   int dump_fitness_generation;
@@ -696,6 +697,7 @@ World *create_world() {
   w->num_candidates = 7;
   w->knob_constant = 0.02;
   w->knob_type = KNOB_DISCRETE;
+  w->control_increment = 0.2;
   w->dump_fitness_nbhd = false;
   w->dump_fitness_epoch = -1;
   w->dump_fitness_generation = -1;
@@ -2089,7 +2091,7 @@ void mut_alter_output_type(World *w, Organism *o) {
 void mut_turn_control(World *w, Organism *o) {
   Genotype *g = o->genotype;
   Node *node = &g->nodes[select_in_use_node(g)];
-  node->control += clamp(sample_normal(0.2)); // Was 0.02 for LOOK_AT_THIS
+  node->control += clamp(sample_normal(w->control_increment));
   log_mutation(w, "turn_control");
 }
 
@@ -2641,6 +2643,7 @@ void run_from_command_line_options(int argc, char **argv) {
     { "output_types", required_argument, 0, 0 },
     { "dist_exponent", required_argument, 0, 0 },
     { "input_accs", required_argument, 0, 0 },
+    { "control_increment", required_argument, 0, 0 },
     { NULL, 0, 0, 0 },
   };
   int c;
@@ -2758,6 +2761,9 @@ void run_from_command_line_options(int argc, char **argv) {
         break;
       case 35:
         w->input_accs = atoi(optarg);
+        break;
+      case 36:
+        w->control_increment = atof(optarg);
         break;
       default:
         printf("Internal error\n");

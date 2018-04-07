@@ -75,7 +75,7 @@ LOOK_AT_THIS = $(YXLINE) --bumps=1 \
 	--input_accs=1 --activation_types=3 --output_types=0 --knob_type=0 \
 	--mutation_type_ub=10 --extra_mutation_rate=0.00 --crossover_freq=0.05 \
 	--multi_edges=0 --allow_move_edge=0 --edge_weights=0 --edge_inheritance=5 \
-	--spreading_rate=0.2 --decay=0.6 --seed=1692985943
+	--spreading_rate=0.2 --decay=0.6 --control_increment=0.02 --seed=1692985943
 
 all: sa
 
