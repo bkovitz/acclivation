@@ -61,7 +61,7 @@ X_ARGS = $(YXLINE) --bumps=0 \
 	--num_epochs=40 --generations_per_epoch=20 \
 	--num_organisms=200 --num_candidates=6 \
 	--num_nodes=4 --num_edges=4 \
-	--input_accs=3 --activation_types=3 --output_types=0 --knob_type=0 \
+	--input_accs=1 --activation_types=3 --output_types=0 --knob_type=0 \
 	--mutation_type_ub=16 --extra_mutation_rate=0.00 --crossover_freq=0.05 \
 	--multi_edges=0 --allow_move_edge=0 --edge_weights=0 --edge_inheritance=5 \
 	--spreading_rate=0.2 --decay=0.6 #--seed=1043614093

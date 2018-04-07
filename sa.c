@@ -1410,7 +1410,8 @@ HILL_CLIMBING_RESULT climb_hill(World *w, Organism *o) {
       break;
     }
   }
-  HILL_CLIMBING_RESULT result = { last_fitness - starting_fitness, last_fitness };
+  HILL_CLIMBING_RESULT result =
+      { last_fitness - starting_fitness, last_fitness };
   free_organism(o);
   return result;
 }
