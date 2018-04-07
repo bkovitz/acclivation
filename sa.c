@@ -10,6 +10,7 @@
 #include <strings.h>
 #include <time.h>
 #include <unistd.h>
+#include "sds.h"
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -646,6 +647,7 @@ typedef struct world_t {
   int num_hill_climbers;
   int num_generations_measured;
   int num_fitness_increases_from_knob_turn;
+  int param_set;
   int run;
 } World;
 
@@ -702,6 +704,7 @@ World *create_world() {
   w->dump_fitness_nbhd = false;
   w->dump_fitness_epoch = -1;
   w->dump_fitness_generation = -1;
+  w->param_set = -1; // No param_set number provided on command line
   w->run = -1; // No run number provided on command line
 
   w->epoch_fitness_deltas = create_data();
@@ -870,10 +873,20 @@ const char *node_type_string(const Node *node) {
 void print_dot(World *w, Organism *o, FILE *f) {
   Genotype *g = o->genotype;
 
+  sds digraph_name = sdsnew("digraph ");
+  if (w->param_set >= 0)
+    digraph_name = sdscatprintf(digraph_name, "p%d", w->param_set);
   if (w->run >= 0)
-    fprintf(f, "digraph r%de%dg%d {\n", w->run, w->epoch, w->generation);
-  else
-    fprintf(f, "digraph e%dg%d {\n", w->epoch, w->generation);
+    digraph_name = sdscatprintf(digraph_name, "r%d", w->run);
+  digraph_name = sdscatprintf(digraph_name, "e%dg%d", w->epoch, w->generation);
+  digraph_name = sdscat(digraph_name, " {\n");
+  fputs(digraph_name, f);
+  sdsfree(digraph_name);
+
+//    fprintf(f, "digraph r%de%dg%d {\n", w->run, w->epoch, w->generation);
+//  else
+//    fprintf(f, "digraph e%dg%d {\n", w->epoch, w->generation);
+
   fprintf(f, "  { rank=source edge [style=\"invis\"] ");
   for (int i = 0; i < g->num_in - 1; i++)
     fprintf(f, "n%d ->", i);
@@ -1624,6 +1637,7 @@ void dump_phenotype_fitness_func(World *w) {
 void print_world_params(World *w) {
   printf("w->seed=%u;\n", w->seed);
   printf("w->run=%d;\n", w->run);
+  printf("w->param_set=%d;\n", w->param_set);
   putchar('\n');
   puts("// Phenotype fitness");
   printf("w->ridge_type=");
@@ -2652,6 +2666,7 @@ void run_from_command_line_options(int argc, char **argv) {
     { "input_accs", required_argument, 0, 0 },
     { "control_increment", required_argument, 0, 0 },
     { "run", required_argument, 0, 0 },
+    { "param_set", required_argument, 0, 0 },
     { NULL, 0, 0, 0 },
   };
   int c;
@@ -2775,6 +2790,9 @@ void run_from_command_line_options(int argc, char **argv) {
         break;
       case 37:
         w->run = atoi(optarg);
+        break;
+      case 38:
+        w->param_set = atoi(optarg);
         break;
       default:
         printf("Internal error\n");

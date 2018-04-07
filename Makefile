@@ -1,3 +1,5 @@
+CFLAGS=--std=gnu99 -Werror -Wall
+
 LAT = latex -shell-escape
 #TEX = pdflatex --shell-escape
 TEXINPUTS=.:./sty:
@@ -86,8 +88,11 @@ $(PDFFILES): $(BIBFILES)
 %.pdf: %.dot
 	$(DOT) < $< > $@
 
-sa: sa.c Makefile
-	gcc sa.c --std=gnu99 -Werror -Wall -g -o sa -lm
+sds.o: sds.c sds.h sdsalloc.h
+	gcc $(CFLAGS) -c sds.c -g -o sds.o
+
+sa: sa.c sds.o Makefile
+	gcc sa.c $(CFLAGS) sds.o -g -o sa -lm
 
 data: sa run.py add_param_set.py
 	./run.py > d.csv
