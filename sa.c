@@ -870,6 +870,11 @@ const char *node_type_string(const Node *node) {
   assert(false);
 }
 
+bool is_affected_by_control(Node *node) {
+  return node->activation_type == SIGMOID ||
+         node->output_type == STEEP_SIGMOID;
+}
+
 void print_dot(World *w, Organism *o, FILE *f) {
   Genotype *g = o->genotype;
 
@@ -883,10 +888,6 @@ void print_dot(World *w, Organism *o, FILE *f) {
   fputs(digraph_name, f);
   sdsfree(digraph_name);
 
-//    fprintf(f, "digraph r%de%dg%d {\n", w->run, w->epoch, w->generation);
-//  else
-//    fprintf(f, "digraph e%dg%d {\n", w->epoch, w->generation);
-
   fprintf(f, "  { rank=source edge [style=\"invis\"] ");
   for (int i = 0; i < g->num_in - 1; i++)
     fprintf(f, "n%d ->", i);
@@ -895,36 +896,36 @@ void print_dot(World *w, Organism *o, FILE *f) {
   for (int o = 0; o < g->num_out - 1; o++)
     fprintf(f, "n%d ->", g->num_in + o);
   fprintf(f, " n%d }\n", g->num_in + g->num_out - 1);
+
   for (int n = 0; n < g->num_nodes; n++) {
     Node *node = &g->nodes[n];
     if (node->in_use) {
-      // TODO Output initial activations for appropriate nodes
-      fprintf(f, "  n%d [label=\"n%d (%s) ", n, n, node_type_string(node));
+      fprintf(f, "  n%d [label=\"n%d (%s", n, n, node_type_string(node));
+      fputs(input_acc_string(node->input_acc), f);
+      if (node->output_type == STEEP_SIGMOID)
+        fputc('S', f);
+      fputc(')', f);
+
       if (node->initial_activation != UNWRITTEN) {
-        fprintf(f, "i=%.3lf ", node->initial_activation);
+        fprintf(f, " i=%.3lf", node->initial_activation);
       }
       if (node->final_activation != UNWRITTEN) {
-        fprintf(f, "%.3lf ", node->final_activation);
+        fprintf(f, " %.3lf", node->final_activation);
       }
-      switch (node->output_type) {
-      case PASS_THROUGH:
-        fprintf(f, "%s c=%.3lf", input_acc_string(node->input_acc),
-            node->control);
-        break;
-      case STEEP_SIGMOID:
-        //fprintf(f, "  n%d [label=\"a=%.3lf %s S o=%.3lf c=%.3lf\"]\n", n, g->nodes[n].final_activation,
-        fprintf(f, "%sS o=%.3lf c=%.3lf",
-          input_acc_string(node->input_acc),
-          node->final_output,
-          node->control);
-        break;
-      }
+
+      if (node->output_type == STEEP_SIGMOID)
+        fprintf(f, " o=%.3lf", node->final_output);
+
+      if (is_affected_by_control(node))
+        fprintf(f, " c=%.3lf", node->control);
+
       fprintf(f, "\"]\n");
     }
   }
+
   for (int e = 0; e < g->num_edges; e++) {
-    fprintf(f, "  n%d -> n%d [label=%.3lf];\n", g->edges[e].src, g->edges[e].dst,
-      g->edges[e].weight);
+    fprintf(f, "  n%d -> n%d [label=%.3lf];\n",
+        g->edges[e].src, g->edges[e].dst, g->edges[e].weight);
   }
   fprintf(f, "}\n");
 }
@@ -1170,7 +1171,7 @@ void sanity_check_organism(World *w, Organism *o) {
     assert(g->nodes[i].initial_activation == UNWRITTEN);
   for (int i = 0; i < g->num_nodes; i++) {
     Node *node = &g->nodes[i];
-    if (node->activation_type == SIGMOID)
+    if (is_affected_by_control(node))
       assert(node->control != UNWRITTEN);
   }
   // check edges
