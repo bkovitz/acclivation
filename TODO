@@ -1,0 +1,25 @@
+Measure "coverage" of gt->ph function: What proportion of the positive
+part of the phenotype fitness landscape is covered by the range of the
+gt->ph function?
+
+Make coverage itself the genotype fitness function and see what evolves.
+
+Make a "hill" fitness function and combine it with "columns": like bumps,
+but the fitness landscape is a bunch of columns separated by a "sea" of
+zero that must be jumped. Can we evolve organisms that jump from column
+to column?
+
+Another node param: Ignore previous activation.
+
+Try disallowing zero-fitness organisms from reproducing.
+
+Another big parameter sweep.
+
+TOOL: Watch spreading activation of a given organism. See how it changes
+as you turn knobs or make small changes to the graph.
+
+Command-line option to enable/disable/name the ancestors file.
+
+Log the value of each mutation.
+
+Do SIGMOID nodes tend to have more inputs than CLAMP_ONLY nodes?

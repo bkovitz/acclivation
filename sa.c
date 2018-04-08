@@ -10,6 +10,7 @@
 #include <strings.h>
 #include <time.h>
 #include <unistd.h>
+#include "sds.h"
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -88,6 +89,26 @@ typedef enum {
 // and bit 2 is MIN_INCOMING
 typedef unsigned int INPUT_ACCS;
 
+const char *input_accs_string(INPUT_ACCS ia) {
+  switch (ia) {
+    case 0x01:
+      return "0x01 /* SUM_INCOMING only */ ";
+    case 0x02:
+      return "0x02 /* MULT_INCOMING only */ ";
+    case 0x03:
+      return "0x03 /* SUM_INCOMING and MULT_INCOMING */ ";
+    case 0x04:
+      return "0x04 /* MIN_INCOMING only */ ";
+    case 0x05:
+      return "0x05 /* SUM_INCOMING and MIN_INCOMING */ ";
+    case 0x06:
+      return "0x06 /* MULT_INCOMING and MIN_INCOMING */ ";
+    case 0x07:
+      return "0x07 /* SUM_INCOMING, MULT_INCOMING, MIN_INCOMING */ ";
+  }
+  assert(false);
+}
+
 // How activation is calculated from accumulated inputs
 typedef enum {
   SIGMOID,
@@ -98,11 +119,34 @@ typedef enum {
 // bits enable corresponding ACTIVATION_TYPEs
 typedef unsigned int ACTIVATION_TYPES;
 
+const char *activation_types_string(ACTIVATION_TYPES at) {
+  switch (at) {
+    case 0x01:
+      return "0x01 /* SIGMOID only */ ";
+    case 0x02:
+      return "0x02 /* CLAMP_ONLY only */ ";
+    case 0x03:
+      return "0x03 /* SIGMOID and CLAMP_ONLY */ ";
+  }
+  assert(false);
+}
+
 // How/whether non-gvector nodes have an initial activation
 typedef enum {
   NO_INITIAL_ACTIVATION,
   HAS_INITIAL_ACTIVATION
 } INITIAL_ACTIVATION_TYPE;
+
+const char *initial_activation_type_string(INITIAL_ACTIVATION_TYPE ia) {
+  switch (ia) {
+    case NO_INITIAL_ACTIVATION:
+      return "NO_INITIAL_ACTIVATION";
+    case HAS_INITIAL_ACTIVATION:
+      return "HAS_INITIAL_ACTIVATION";
+    default:
+      assert(false);
+  }
+}
 
 const char *input_acc_string(INPUT_ACC input_acc) {
   switch (input_acc) {
@@ -169,6 +213,17 @@ typedef enum {
   CONSTANT,         // 'control' doesn't change
   NUDGED_BY_INPUT   // 'control' is altered by first input
 } CONTROL_UPDATE;
+
+const char *control_update_string(CONTROL_UPDATE cu) {
+  switch (cu) {
+    case CONSTANT:
+      return "CONSTANT";
+    case NUDGED_BY_INPUT:
+      return "NUDGED_BY_INPUT";
+    default:
+      assert(false);
+  }
+}
 
 // -- accumulating data ------------------------------------------------------
 
@@ -384,8 +439,8 @@ typedef struct {
 // -- genotype ---------------------------------------------------------------
 
 typedef struct {
-  Node *nodes;
-  Edge *edges;
+  Node *nodes;  // array of num_nodes Nodes
+  Edge *edges;  // array of num_edges Edges
   int num_nodes;
   int num_nodes_in_use;
   int num_edges;
@@ -506,7 +561,7 @@ typedef struct {
 
 ANCESTOR_LOG *create_ancestor_log() {
   ANCESTOR_LOG *log = malloc(sizeof(ANCESTOR_LOG));
-  log->enabled = false; //true;
+  log->enabled = true;
   log->path = "ancestors";
   log->f = NULL;
   return log;
@@ -560,6 +615,7 @@ typedef struct world_t {
   Organism **organisms;
   double (*phenotype_fitness_func)(struct world_t *, Genotype *);
   double distance_weight;
+  double dist_exponent;
   bool bumps;
   int epoch;
   int generation;
@@ -582,6 +638,7 @@ typedef struct world_t {
   int num_candidates;
   double knob_constant;
   enum { KNOB_DISCRETE, KNOB_NORMAL } knob_type;
+  double control_increment;
   bool dump_fitness_nbhd;
   int dump_fitness_epoch;
   int dump_fitness_generation;
@@ -590,6 +647,8 @@ typedef struct world_t {
   int num_hill_climbers;
   int num_generations_measured;
   int num_fitness_increases_from_knob_turn;
+  int param_set;
+  int run;
 } World;
 
 double phenotype_fitness(World *, Genotype *);
@@ -619,14 +678,15 @@ World *create_world() {
   w->organisms = NULL; //calloc(num_organisms, sizeof(Organism));
   w->phenotype_fitness_func = phenotype_fitness;
   w->distance_weight = 10.0;
+  w->dist_exponent = 1.0;
   w->bumps = true;
   w->epoch = 0;
   w->generation = 0;
   w->c1 = 0.5;
   w->c2 = 1.0;
   w->c3 = 0.0;
-  w->c1_lb = 0.2;
-  w->c1_ub = 0.8;
+  w->c1_lb = -1.0;
+  w->c1_ub = +1.0;
   w->peak_movement = JUMPY_PEAK_MOVEMENT;
   w->peak_x = 0.0; // dependent variable
   w->peak_y = 0.0; // dependent variable
@@ -640,9 +700,12 @@ World *create_world() {
   w->num_candidates = 7;
   w->knob_constant = 0.02;
   w->knob_type = KNOB_DISCRETE;
+  w->control_increment = 0.2;
   w->dump_fitness_nbhd = false;
   w->dump_fitness_epoch = -1;
   w->dump_fitness_generation = -1;
+  w->param_set = -1; // No param_set number provided on command line
+  w->run = -1; // No run number provided on command line
 
   w->epoch_fitness_deltas = create_data();
   w->log = create_ancestor_log();
@@ -796,10 +859,35 @@ Organism *create_random_organism(World *w) {
   return o;
 }
 
-void print_organism_dot(World *w, Organism *o, FILE *f) {
+// TODO Incorporate input_acc
+const char *node_type_string(const Node *node) {
+  switch (node->activation_type) {
+    case SIGMOID:
+      return "S";
+    case CLAMP_ONLY:
+      return "C";
+  }
+  assert(false);
+}
+
+bool is_affected_by_control(Node *node) {
+  return node->activation_type == SIGMOID ||
+         node->output_type == STEEP_SIGMOID;
+}
+
+void print_dot(World *w, Organism *o, FILE *f) {
   Genotype *g = o->genotype;
 
-  fprintf(f, "digraph e%dg%d {\n", w->epoch, w->generation);
+  sds digraph_name = sdsnew("digraph ");
+  if (w->param_set >= 0)
+    digraph_name = sdscatprintf(digraph_name, "p%d", w->param_set);
+  if (w->run >= 0)
+    digraph_name = sdscatprintf(digraph_name, "r%d", w->run);
+  digraph_name = sdscatprintf(digraph_name, "e%dg%d", w->epoch, w->generation);
+  digraph_name = sdscat(digraph_name, " {\n");
+  fputs(digraph_name, f);
+  sdsfree(digraph_name);
+
   fprintf(f, "  { rank=source edge [style=\"invis\"] ");
   for (int i = 0; i < g->num_in - 1; i++)
     fprintf(f, "n%d ->", i);
@@ -808,36 +896,36 @@ void print_organism_dot(World *w, Organism *o, FILE *f) {
   for (int o = 0; o < g->num_out - 1; o++)
     fprintf(f, "n%d ->", g->num_in + o);
   fprintf(f, " n%d }\n", g->num_in + g->num_out - 1);
+
   for (int n = 0; n < g->num_nodes; n++) {
     Node *node = &g->nodes[n];
     if (node->in_use) {
-      // TODO Output initial activations for appropriate nodes
-      fprintf(f, "  n%d [label=\"n%d ", n, n);
+      fprintf(f, "  n%d [label=\"n%d (%s", n, n, node_type_string(node));
+      fputs(input_acc_string(node->input_acc), f);
+      if (node->output_type == STEEP_SIGMOID)
+        fputc('S', f);
+      fputc(')', f);
+
       if (node->initial_activation != UNWRITTEN) {
-        fprintf(f, "i=%.3lf ", node->initial_activation);
+        fprintf(f, " i=%.3lf", node->initial_activation);
       }
       if (node->final_activation != UNWRITTEN) {
-        fprintf(f, "%.3lf ", node->final_activation);
+        fprintf(f, " %.3lf", node->final_activation);
       }
-      switch (node->output_type) {
-      case PASS_THROUGH:
-        fprintf(f, "%s c=%.3lf", input_acc_string(node->input_acc),
-            node->control);
-        break;
-      case STEEP_SIGMOID:
-        //fprintf(f, "  n%d [label=\"a=%.3lf %s S o=%.3lf c=%.3lf\"]\n", n, g->nodes[n].final_activation,
-        fprintf(f, "%sS o=%.3lf c=%.3lf",
-          input_acc_string(node->input_acc),
-          node->final_output,
-          node->control);
-        break;
-      }
+
+      if (node->output_type == STEEP_SIGMOID)
+        fprintf(f, " o=%.3lf", node->final_output);
+
+      if (is_affected_by_control(node))
+        fprintf(f, " c=%.3lf", node->control);
+
       fprintf(f, "\"]\n");
     }
   }
+
   for (int e = 0; e < g->num_edges; e++) {
-    fprintf(f, "  n%d -> n%d [label=%.3lf];\n", g->edges[e].src, g->edges[e].dst,
-      g->edges[e].weight);
+    fprintf(f, "  n%d -> n%d [label=%.3lf];\n",
+        g->edges[e].src, g->edges[e].dst, g->edges[e].weight);
   }
   fprintf(f, "}\n");
 }
@@ -970,12 +1058,22 @@ void sa(Organism *o, int timesteps, double decay, double spreading_rate) {
           if (activations[n] == UNWRITTEN) {
             activations[n] = 0.0;
           }
+          double a;
+          switch (node->input_acc) {
+            case SUM_INCOMING:
+              a = activations[n];
+              break;
+            case MULT_INCOMING:
+            case MIN_INCOMING:
+              a = 0.0;
+              break;
+          }
           double x = spreading_rate *
                      incoming_activations[n] *
                      pow(decay, timestep - 1);
           switch (node->activation_type) {
             case CLAMP_ONLY:
-              activations[n] = clamp(activations[n] + x);
+              activations[n] = clamp(a + x);
               break;
             case SIGMOID:
               {
@@ -986,8 +1084,8 @@ void sa(Organism *o, int timesteps, double decay, double spreading_rate) {
                     x, slope, steep_sigmoid(x, 0.0, slope));
                 }
                 activations[n] = clamp(
-                  activations[n] + steep_sigmoid(x, 0.0, slope));
-                  //activations[n] + steep_sigmoid(x, node->control, 0.2));
+                  a + steep_sigmoid(x, 0.0, slope));
+                  //activations[n] + steep_sigmoid(x, node->control, slope));
                   //activations[n] + steep_sigmoid(x, node->control, node->control));
               }
           }
@@ -1024,7 +1122,7 @@ void set_phenotypes_and_fitnesses(World *w) {
     if (debug)
       sanity_check(w);
 //    if (dot)
-//      print_organism_dot(o, stdout);
+//      print_dot(o, stdout);
     o->fitness = w->phenotype_fitness_func(w, o->genotype);
   }
 }
@@ -1073,7 +1171,7 @@ void sanity_check_organism(World *w, Organism *o) {
     assert(g->nodes[i].initial_activation == UNWRITTEN);
   for (int i = 0; i < g->num_nodes; i++) {
     Node *node = &g->nodes[i];
-    if (node->activation_type == SIGMOID)
+    if (is_affected_by_control(node))
       assert(node->control != UNWRITTEN);
   }
   // check edges
@@ -1112,7 +1210,7 @@ void log_organisms(World *w) {
 //        g->nodes[3].final_activation);
         g->nodes[2].final_output,
         g->nodes[3].final_output);
-      print_organism_dot(w, o, w->log->f);
+      print_dot(w, o, w->log->f);
     }
   }
 }
@@ -1230,7 +1328,7 @@ void print_best_fitness(World *w) {
 //    g->nodes[3].final_activation);
     g->nodes[2].final_output,
     g->nodes[3].final_output);
-  print_organism_dot(w, o, stdout);
+  print_dot(w, o, stdout);
 }
 
 void print_generation_results(World *w) {
@@ -1320,7 +1418,7 @@ HILL_CLIMBING_RESULT climb_hill(World *w, Organism *o) {
       num_neutral_steps = 0;
     } else if (candidates[best_candidate_index]->fitness == last_fitness) {
       // neutral plateau
-      if (++num_neutral_steps >= 200) {
+      if (++num_neutral_steps >= 100) {
         //printf("crazy plateau\n");
         break;
       }
@@ -1333,7 +1431,8 @@ HILL_CLIMBING_RESULT climb_hill(World *w, Organism *o) {
       break;
     }
   }
-  HILL_CLIMBING_RESULT result = { last_fitness - starting_fitness, last_fitness };
+  HILL_CLIMBING_RESULT result =
+      { last_fitness - starting_fitness, last_fitness };
   free_organism(o);
   return result;
 }
@@ -1537,7 +1636,11 @@ void dump_phenotype_fitness_func(World *w) {
 }
 
 void print_world_params(World *w) {
-  printf("w->seed=%d;\n", w->seed);
+  printf("w->seed=%u;\n", w->seed);
+  printf("w->run=%d;\n", w->run);
+  printf("w->param_set=%d;\n", w->param_set);
+  putchar('\n');
+  puts("// Phenotype fitness");
   printf("w->ridge_type=");
   switch (w->ridge_type) {
     case LINE:
@@ -1550,9 +1653,11 @@ void print_world_params(World *w) {
       assert(false);
       break;
   }
+  printf("w->bumps=%s;\n", w->bumps ? "true" : "false");
   printf("w->ridge_radius=%lf;\n", w->ridge_radius);
   printf("w->c2=%lf; w->c3=%lf;\n", w->c2, w->c3);
   printf("w->c1_lb=%lf; w->c1_ub=%lf;\n", w->c1_lb, w->c1_ub);
+  printf("w->distance_weight=%lf;\n", w->distance_weight);
   printf("w->peak_movement=");
   switch (w->peak_movement) {
   case JUMPY_PEAK_MOVEMENT:
@@ -1564,16 +1669,40 @@ void print_world_params(World *w) {
   default:
     assert(false);
   }
-  printf("w->decay=%lf;\n", w->decay);
-  printf("w->spreading_rate=%lf;\n", w->spreading_rate);
-  printf("w->distance_weight=%lf;\n", w->distance_weight);
-  printf("w->bumps=%s;\n", w->bumps ? "true" : "false");
+  putchar('\n');
+  puts("// gvector");
   printf("w->knob_type=%d;\n", w->knob_type);
   printf("w->knob_constant=%lf;\n", w->knob_constant);
+  putchar('\n');
+  puts("// Spreading activation");
+  printf("w->sa_timesteps=%d;\n", w->sa_timesteps);
+  printf("w->spreading_rate=%lf;\n", w->spreading_rate);
+  printf("w->decay=%lf;\n", w->decay);
+  printf("w->initial_activation_type=%s;\n",
+      initial_activation_type_string(w->initial_activation_type));
+  printf("w->input_accs=%s;\n", input_accs_string(w->input_accs));
+  printf("w->activation_types=%s;\n",
+      activation_types_string(w->activation_types));
+  printf("w->output_types=");
+  switch (w->output_types) {
+    case ONLY_PASS_THROUGH:
+      puts("ONLY_PASS_THROUGH;");
+      break;
+    case PASS_THROUGH_AND_STEEP_SIGMOID:
+      puts("PASS_THROUGH_AND_STEEP_SIGMOID;");
+      break;
+    default:
+      assert(false);
+  }
+  printf("w->control_update=%s;\n", control_update_string(w->control_update));
+  printf("w->control_increment=%lf;\n", w->control_increment);
+  putchar('\n');
+  puts("// Mutation and crossover");
   printf("w->mutation_type_ub=%d;\n", w->mutation_type_ub);
   printf("w->extra_mutation_rate=%lf;\n", w->extra_mutation_rate);
   printf("w->crossover_freq=%lf;\n", w->crossover_freq);
   putchar('\n');
+  puts("// Edge inheritance");
   printf("w->edge_inheritance=");
   switch (w->edge_inheritance) {
     case NO_EDGES_ACROSS_PARENTS:
@@ -1599,27 +1728,16 @@ void print_world_params(World *w) {
   printf("w->edge_weights=%s;\n", edge_weights_string(w->edge_weights));
   printf("w->multi_edges=%s;\n", w->multi_edges ? "true" : "false");
   printf("w->allow_move_edge=%s;\n", w->allow_move_edge ? "true" : "false");
-  printf("w->activation_types=%d;\n", w->activation_types);
   putchar('\n');
-  printf("w->output_types=");
-  switch (w->output_types) {
-    case ONLY_PASS_THROUGH:
-      puts("ONLY_PASS_THROUGH;");
-      break;
-    case PASS_THROUGH_AND_STEEP_SIGMOID:
-      puts("PASS_THROUGH_AND_STEEP_SIGMOID;");
-      break;
-    default:
-      assert(false);
-  }
+  puts("// Overall run parameters");
+  printf("w->num_epochs=%d;\n", w->num_epochs);
+  printf("w->generations_per_epoch=%d;\n", w->generations_per_epoch);
   printf("w->num_organisms=%d;\n", w->num_organisms);
   printf("w->num_candidates=%d;\n", w->num_candidates);
-  printf("w->generations_per_epoch=%d;\n", w->generations_per_epoch);
-  printf("w->num_epochs=%d;\n", w->num_epochs);
-  printf("w->sa_timesteps=%d;\n", w->sa_timesteps);
-  printf("w->num_hill_climbers=%d;\n", w->num_hill_climbers);
   printf("w->num_nodes=%d;\n", w->num_nodes);
   printf("w->num_edges=%d;\n", w->num_edges);
+  putchar('\n');
+  printf("w->num_hill_climbers=%d;\n", w->num_hill_climbers);
 }
 
 void print_acclivity_measures_of_best(World *w) {
@@ -1731,7 +1849,7 @@ double phenotype_fitness(World *w, Genotype *g) {
     double scaled_dist = (w->max_dist - dist) / w->max_dist;
     fitness = require_valid_region(w, phenotype[0], phenotype[1]) *
               along_ridge(w, phenotype[0], phenotype[1]) *
-              (w->distance_weight * scaled_dist * scaled_dist);
+              (w->distance_weight * pow(scaled_dist, w->dist_exponent));
     if (w->bumps) {
       double bump_amt = many_small_hills(phenotype);
 //      if (bump_amt <= 0.0)
@@ -1780,19 +1898,22 @@ void add_edge(World *w, Genotype *g, int src, int dst, double weight) {
 void mut_add_edge(World *w, Organism *o) {
   Genotype *g = o->genotype;
   add_edge(w, g, select_in_use_node(g), select_in_use_node(g), rand_edge_weight(w));
+  log_mutation(w, "add_edge");
 }
 
 void remove_edge(Genotype *g, int e) {
   if (e < g->num_edges - 1)
-    memmove(&g->edges[e], &g->edges[e + 1], sizeof(Edge) * (g->num_edges - e - 1));
+    memmove(&g->edges[e], &g->edges[e + 1],
+        sizeof(Edge) * (g->num_edges - e - 1));
   g->num_edges--;
 }
 
-void mut_remove_edge(Organism *o) {
+void mut_remove_edge(World *w, Organism *o) {
   Genotype *g = o->genotype;
   if (g->num_edges > 0) {
     int selected_edge = rand() % g->num_edges;
     remove_edge(g, selected_edge);
+    log_mutation(w, "remove_edge");
   }
 }
 
@@ -1805,6 +1926,7 @@ void mut_move_edge(World *w, Organism *o) {
     g->edges[selected_edge].src = select_in_use_node(g);
   else
     g->edges[selected_edge].dst = select_in_use_node(g);
+  log_mutation(w, "move_edge");
 }
 
 void mut_add_node(World *w, Organism *o) {
@@ -1819,12 +1941,13 @@ void mut_add_node(World *w, Organism *o) {
   }
   Node *node = &g->nodes[add_index];
   init_random_node(w, node, add_index);
+  log_mutation(w, "add_node");
 
   if (debug)
     sanity_check_organism(w, o);
 }
 
-void mut_remove_node(Organism *o) {
+void mut_remove_node(World *w, Organism *o) {
   Genotype *g = o->genotype;
   int unremovable = g->num_in + g->num_out;
   if (g->num_nodes_in_use <= unremovable)
@@ -1845,6 +1968,7 @@ void mut_remove_node(Organism *o) {
       // can always increment because even when memory doesn't shift, we'll be on last element
       e++;
   }
+  log_mutation(w, "remove_node");
 }
 
 void mut_turn_knob(World *w, Organism *o) {
@@ -1862,6 +1986,7 @@ void mut_turn_knob(World *w, Organism *o) {
   node_to_change->initial_activation =
       clamp(node_to_change->initial_activation + nudge);
   o->from_turned_knob = true;
+  log_mutation(w, "turn_knob");
 }
 
 void mut_alter_activation_type(World *w, Organism *o) {
@@ -1884,6 +2009,7 @@ void mut_alter_activation_type(World *w, Organism *o) {
           default:
             assert(false);
         }
+        log_mutation(w, "alter_act_type");
       }
       break;
     default:
@@ -1912,6 +2038,7 @@ void mut_alter_input_acc(World *w, Organism *o) {
           default:
             assert(false);
         }
+        log_mutation(w, "alter_input_acc");
       }
       break;
     case 0x05: // SUM_INCOMING or MIN_INCOMING
@@ -1928,6 +2055,7 @@ void mut_alter_input_acc(World *w, Organism *o) {
           default:
             assert(false);
         }
+        log_mutation(w, "alter_input_acc");
       }
       break;
     case 0x07: // SUM_INCOMING, MULT_INCOMING, or MIN_INCOMING
@@ -1950,6 +2078,7 @@ void mut_alter_input_acc(World *w, Organism *o) {
           default:
             assert(false);
         }
+        log_mutation(w, "alter_input_acc");
       }
       break;
     default:
@@ -1975,9 +2104,17 @@ void mut_alter_output_type(World *w, Organism *o) {
           default:
             assert(false);
         }
+        log_mutation(w, "alter_out_type");
       }
       break;
   }
+}
+
+void mut_turn_control(World *w, Organism *o) {
+  Genotype *g = o->genotype;
+  Node *node = &g->nodes[select_in_use_node(g)];
+  node->control += clamp(sample_normal(w->control_increment));
+  log_mutation(w, "turn_control");
 }
 
 Organism *mutate(World *w, Organism *old_o) {
@@ -1987,48 +2124,40 @@ Organism *mutate(World *w, Organism *old_o) {
                 rand_float() *
                 (o->genotype->num_nodes + o->genotype->num_edges));
   for (int i = 0; i < num_mutations; i++) {
-    int mutation_type = rand_int(0, w->mutation_type_ub); //rand() % 16;
+    int mutation_type = rand_int(0, w->mutation_type_ub);
     switch (mutation_type) {
     case 0:
       mut_add_node(w, o);
-      // TODO Move all these log_mutation messages into the called functions.
-      // They're not always correct, depending on what the mutation function
-      // actually does.
-      log_mutation(w, "add_node");
       break;
     case 1:
-      mut_remove_node(o);
-      log_mutation(w, "remove_node");
+      mut_remove_node(w, o);
       break;
     case 2:
       mut_add_edge(w, o);
-      log_mutation(w, "add_edge");
       break;
     case 3:
-      mut_remove_edge(o);
-      log_mutation(w, "remove_edge");
+      mut_remove_edge(w, o);
       break;
     case 4:
       mut_alter_activation_type(w, o);
-      log_mutation(w, "alter_act_type");
       break;
     case 5:
-      mut_alter_output_type(w, o);
-      log_mutation(w, "alter_out_type");
+      mut_alter_input_acc(w, o);
       break;
     case 6:
+      mut_alter_output_type(w, o);
+      break;
+    case 7:
+      mut_turn_control(w, o);
+      break;
+    case 8:
       if (w->allow_move_edge) {
         mut_move_edge(w, o);
-        log_mutation(w, "move_edge");
         break;
       }
-    case 7:
-      mut_alter_input_acc(w, o);
-      log_mutation(w, "alter_input_acc");
-      break;
+      // else fall through
     default:
       mut_turn_knob(w, o);
-      log_mutation(w, "turn_knob");
       break;
     }
   }
@@ -2534,6 +2663,11 @@ void run_from_command_line_options(int argc, char **argv) {
     { "ridge_type", required_argument, 0, 0 },
     { "peak_movement", required_argument, 0, 0 },
     { "output_types", required_argument, 0, 0 },
+    { "dist_exponent", required_argument, 0, 0 },
+    { "input_accs", required_argument, 0, 0 },
+    { "control_increment", required_argument, 0, 0 },
+    { "run", required_argument, 0, 0 },
+    { "param_set", required_argument, 0, 0 },
     { NULL, 0, 0, 0 },
   };
   int c;
@@ -2645,6 +2779,21 @@ void run_from_command_line_options(int argc, char **argv) {
         break;
       case 33:
         w->output_types = atoi(optarg);
+        break;
+      case 34:
+        w->dist_exponent = atof(optarg);
+        break;
+      case 35:
+        w->input_accs = atoi(optarg);
+        break;
+      case 36:
+        w->control_increment = atof(optarg);
+        break;
+      case 37:
+        w->run = atoi(optarg);
+        break;
+      case 38:
+        w->param_set = atoi(optarg);
         break;
       default:
         printf("Internal error\n");

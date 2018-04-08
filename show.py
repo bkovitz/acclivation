@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 import re
 import sys
 import subprocess
@@ -134,7 +134,7 @@ def show(births, organisms, epoch, generation, index):
 # ----------------------------------------------------------------------------
 if __name__=='__main__':
   if len(sys.argv) not in (4, 5):
-    print 'usage: show <epoch> <generation> <index> [lineage]'
+    print('usage: show <epoch> <generation> <index> [lineage]')
   else:
     filename = 'ancestors'
     epoch = int(sys.argv[1])

@@ -1,12 +1,33 @@
 #! /bin/bash
 
 # usage:
-#  see-graph name
+#  see-graph name [sa-output-file]
 #
 # Shows graph named 'name' on the screen. For example:  see e200g20
 #
-# Graph must be stored in file named 'out'.
+# The default sa-output-file to search is 'out'.
 
-sed -n "/^digraph $1/,/^}/p" out > $1.dot &&
+if [ `uname -s` = Darwin ]
+then
+  VIEW_PDF=open
+else
+  VIEW_PDF=evince
+fi
+
+if [ -z $2 ]
+then
+  OUT=out   # The default input file is 'out'
+else
+  OUT="$2"
+fi
+
+sed -n "/^digraph $1/{
+  p
+  :loop
+  n
+  p
+  /^}/q
+  b loop
+}" "$OUT" > $1.dot &&
 dot -Tpdf < $1.dot > $1.pdf &&
-evince $1.pdf
+$VIEW_PDF $1.pdf
