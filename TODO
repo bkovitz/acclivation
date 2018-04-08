@@ -18,8 +18,6 @@ Another big parameter sweep.
 TOOL: Watch spreading activation of a given organism. See how it changes
 as you turn knobs or make small changes to the graph.
 
-Command-line option to enable/disable/name the ancestors file.
-
 Log the value of each mutation.
 
 Do SIGMOID nodes tend to have more inputs than CLAMP_ONLY nodes?
