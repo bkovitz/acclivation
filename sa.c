@@ -563,14 +563,18 @@ typedef struct {
 
 ANCESTOR_LOG *create_ancestor_log() {
   ANCESTOR_LOG *log = malloc(sizeof(ANCESTOR_LOG));
-  log->enabled = true;
-  log->path = "ancestors";
+  log->enabled = false;
+  log->path = NULL;
   log->f = NULL;
   return log;
 }
 
 void free_ancestor_log(ANCESTOR_LOG *log) {
-  free(log);
+  if (log) {
+    if (log->enabled && log->path != NULL)
+      free(log->path);
+    free(log);
+  }
 }
 
 void open_ancestor_log(ANCESTOR_LOG *log) {
@@ -2458,8 +2462,6 @@ void long_test_start_small(int seed) {
   w->dump_fitness_nbhd = true;
   w->dump_fitness_epoch = 5;
   w->dump_fitness_generation = 20;
-  w->log->enabled = false;
-  w->log->path = "./ancestors";
   run_world(w);
 }
 
@@ -2638,8 +2640,6 @@ void acclivation_test(int seed) {
   w->dump_fitness_nbhd = true;
   w->dump_fitness_epoch = 5;
   w->dump_fitness_generation = 20;
-  w->log->enabled = false;
-  w->log->path = "./ancestors";
   run_world(w);
   int best_organism_index = find_best_organism(w);
   print_phenotype(w->organisms[best_organism_index]->genotype);
@@ -2692,6 +2692,7 @@ void run_from_command_line_options(int argc, char **argv) {
     { "control_increment", required_argument, 0, 0 },
     { "run", required_argument, 0, 0 },
     { "param_set", required_argument, 0, 0 },
+    { "log", required_argument, 0, 0 },
     { NULL, 0, 0, 0 },
   };
   int c;
@@ -2818,6 +2819,10 @@ void run_from_command_line_options(int argc, char **argv) {
         break;
       case 38:
         w->param_set = atoi(optarg);
+        break;
+      case 39:
+        w->log->path = strdup(optarg);
+        w->log->enabled = true;
         break;
       default:
         printf("Internal error\n");
