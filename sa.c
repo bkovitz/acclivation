@@ -12,6 +12,8 @@
 #include <unistd.h>
 #include "sds.h"
 
+#include "coordset.h"
+
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
 #endif
@@ -1432,7 +1434,8 @@ HILL_CLIMBING_RESULT climb_hill(World *w, Organism *o) {
     }
   }
   HILL_CLIMBING_RESULT result =
-      { last_fitness - starting_fitness, last_fitness };
+      { last_fitness - starting_fitness,
+        last_fitness };
   free_organism(o);
   return result;
 }
@@ -1477,6 +1480,25 @@ HILL_CLIMBING_RESULT phenotype_acclivity(World *w) {
   Organism null_organism = { &genotype, 0.0 };
   
   return measure_acclivity(w, &null_organism);
+}
+
+//NEXT Count coverage correctly
+
+
+double measure_coverage(World *w, Organism *test_o) {
+  srand(0);
+  int num_fitness_above_one = 0;
+  printf("num_hill_climbers = %d\n", w->num_hill_climbers);
+  for (int i = 0; i < w->num_hill_climbers; i++) {
+    Organism *o = copy_organism(test_o);
+    set_random_gvector(o);
+    sa(o, w->sa_timesteps, w->decay, w->spreading_rate);
+    o->fitness = w->phenotype_fitness_func(w, o->genotype);
+    printf("o->fitness = %lf\n", o->fitness);
+    if (o->fitness > 1.0)
+      ++num_fitness_above_one;
+  }
+  return (double)num_fitness_above_one / w->num_hill_climbers;
 }
 
 // ----------------------------------------------------------------------
@@ -1743,12 +1765,14 @@ void print_world_params(World *w) {
 void print_acclivity_measures_of_best(World *w) {
   int best_organism_index = find_best_organism(w);
   //print_phenotype(w->organisms[best_organism_index]->genotype);
+  Organism *o = w->organisms[best_organism_index];
   HILL_CLIMBING_RESULT gvector_result =
-    measure_acclivity(w, w->organisms[best_organism_index]);
-  printf("gvector_fitness_delta = %lf, gvector_absolute_fitness = %lf\n",
-    gvector_result.fitness_delta, gvector_result.ending_fitness);
+    measure_acclivity(w, o);
+  printf("gvector acclivity: fitness_delta = %lf, absolute_fitness = %lf, coverage = %lf\n",
+    gvector_result.fitness_delta, gvector_result.ending_fitness,
+    measure_coverage(w, o));
   HILL_CLIMBING_RESULT phenotype_result = phenotype_acclivity(w);
-  printf("acclivity: ph_fitness_delta = %lf, ph_absolute_fitness = %lf\n",
+  printf("phenotype acclivity: fitness_delta = %lf, absolute_fitness = %lf\n",
     phenotype_result.fitness_delta, phenotype_result.ending_fitness);
 }
 
