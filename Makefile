@@ -28,10 +28,10 @@ CIRCLE = --ridge_type=1 --bumps=0 --ridge_radius=0.1 --peak_movement=1 \
 
 #A parameter set for experimentation. Try the good ideas here, run with
 #'make x', and save noteworthy parameter sets under a different name.
-X_ARGS = $(YXLINE) --bumps=1 \
+X_ARGS = $(YXLINE) --bumps=0 \
 	--reward_coverage=1 \
-	--num_epochs=10 --generations_per_epoch=20 \
-	--num_organisms=20 --num_candidates=5 \
+	--num_epochs=5 --generations_per_epoch=20 \
+	--num_organisms=40 --num_candidates=5 \
 	--num_nodes=10 --num_edges=16 \
 	--input_accs=1 --activation_types=3 --output_types=0 --knob_type=0 \
 	--mutation_type_ub=10 --extra_mutation_rate=0.00 --crossover_freq=0.2 \
