@@ -72,6 +72,34 @@ void clear_coverage(COORD_SET cset) {
   twalk(cset, clear_coverage_action);
 }
 
+// NOT GOOD to have these global, but twalk doesn't take an extra argument
+// to point to a structure containing these.
+int num_coords = 0;
+int num_covered = 0;
+
+static void calculate_coverage_action(
+    const void *nodep, VISIT which, int depth) {
+  COORD *c = *(COORD **)nodep;
+
+  switch (which) {
+    case preorder:
+    case endorder:
+      break;
+    case postorder:
+    case leaf:
+      num_coords++;
+      if (c->is_covered)
+        num_covered++;
+      break;
+  }
+}
+
+double calculate_coverage(COORD_SET cset) {
+  num_coords = num_covered = 0;
+  twalk(cset, calculate_coverage_action);
+  return (double)num_covered / num_coords;
+}
+
 bool has_coord(COORD_SET cset, int x, int y) {
   COORD c = { x, y, false };
   return tfind(&c, &cset, compare_coords);
