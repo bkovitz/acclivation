@@ -1224,7 +1224,7 @@ World *load_preamble(FILE *f) {
   World *w = create_world();
   verify(1 == fread(w, sizeof(World), 1, f));
   w->organisms = NULL;
-  w->phenotype_fitness_func = phenotype_fitness; // can't load from file yet
+  w->genotype_fitness_func = genotype_fitness; // can't load from file yet
   w->epoch_fitness_deltas = NULL;
   w->log = NULL;
   update_dependent_fitness_variables(w);
