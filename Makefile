@@ -238,7 +238,7 @@ swig: _sa.so
 
 _sa.so: sa.i sa.c Makefile
 	swig -python sa.i
-	CFLAGS="-std=gnu99 -g -o -Wall -Werror -Wno-unused-variable" LDFLAGS="-lm" python setup_sa.py build_ext --inplace
+	CFLAGS="-std=gnu99 -Og -g -Wno-strict-prototypes -Wno-return-type -Wno-maybe-uninitialized -Wno-unused-variable" LDFLAGS="-lm" python setup_sa.py build_ext --inplace
 
 swig_clean:
 	rm -rf *.pyc *.so a.out* build sa_wrap.c* sa.py

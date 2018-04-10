@@ -551,50 +551,12 @@ Organism *copy_organism(Organism *o) {
   return new_o;
 }
 
-// -- ancestor logging -------------------------------------------------------
-
-typedef struct {
-  bool enabled;
-  char *path;
-  FILE *f;
-} ANCESTOR_LOG;
-
-ANCESTOR_LOG *create_ancestor_log() {
-  ANCESTOR_LOG *log = malloc(sizeof(ANCESTOR_LOG));
-  log->enabled = false;
-  log->path = NULL;
-  log->f = NULL;
-  return log;
-}
-
-void free_ancestor_log(ANCESTOR_LOG *log) {
-  if (log) {
-    if (log->enabled && log->path != NULL)
-      free(log->path);
-    free(log);
-  }
-}
-
-void open_ancestor_log(ANCESTOR_LOG *log) {
-  if (log->enabled) {
-    assert(log->path);
-    log->f = fopen(log->path, "w");
-  }
-}
-
-void close_ancestor_log(ANCESTOR_LOG *log) {
-  if (log->enabled) {
-    assert(log->f);
-    fclose(log->f);
-  }
-}
+// -- world ------------------------------------------------------------------
 
 typedef enum {
   LINE,
   CIRCLE
 } RIDGE_TYPE;
-
-// -- world ------------------------------------------------------------------
 
 typedef struct world_t {
   unsigned int seed;
@@ -647,7 +609,7 @@ typedef struct world_t {
   int dump_fitness_epoch;
   int dump_fitness_generation;
   DATA *epoch_fitness_deltas;
-  ANCESTOR_LOG *log;
+  FILE *log;
   int num_hill_climbers;
   int num_generations_measured;
   int num_fitness_increases_from_knob_turn;
@@ -712,7 +674,7 @@ World *create_world() {
   w->run = -1; // No run number provided on command line
 
   w->epoch_fitness_deltas = create_data();
-  w->log = create_ancestor_log();
+  w->log = NULL;
   w->num_hill_climbers = 30;
 
   w->num_generations_measured = 0;
@@ -1196,26 +1158,181 @@ void sanity_check(World *w) {
   }
 }
 
-void log_organisms(World *w) {
-  if (w->log->enabled) {
+// -- ancestor logging -------------------------------------------------------
+
+void verify(bool cond) {
+  if (!cond) {
+    fprintf(stderr, "verify failed!\n");
+    exit(-1);
+  }
+}
+
+void verify_msg(bool cond, char *msg) {
+  if (!cond) {
+    fprintf(stderr, "%s\n", msg);
+    exit(-1);
+  }
+}
+
+typedef struct {
+  size_t world_size;
+  size_t genotype_size;
+  size_t organism_size;
+  size_t node_size;
+  size_t edge_size;
+} STRUCT_SIZES;
+
+void log_preamble(World *w) {
+  if (w->log) {
+    STRUCT_SIZES sizes = {
+      sizeof(World),
+      sizeof(Genotype),
+      sizeof(Organism),
+      sizeof(Node),
+      sizeof(Edge),
+    };
+    verify(1 == fwrite(&sizes, sizeof(sizes), 1, w->log));
+    verify(1 == fwrite(w, sizeof(World), 1, w->log));
+  }
+}
+
+void update_dependent_fitness_variables(World *);
+
+World *load_preamble(FILE *f) {
+  STRUCT_SIZES sizes;
+  verify(1 == fread(&sizes, sizeof(sizes), 1, f));
+  verify_msg(sizeof(World) == sizes.world_size, "log created with incompatible world!");
+  verify_msg(sizeof(Genotype) == sizes.genotype_size, "log created with incompatible genotype!");
+  verify_msg(sizeof(Organism) == sizes.organism_size, "log created with incompatible organism!");
+  verify_msg(sizeof(Node) == sizes.node_size, "log created with incompatible node!");
+  verify_msg(sizeof(Edge) == sizes.edge_size, "log created with incompatible edge!");
+  World *w = create_world();
+  verify(1 == fread(w, sizeof(World), 1, f));
+  w->organisms = NULL;
+  w->phenotype_fitness_func = phenotype_fitness; // can't load from file yet
+  w->epoch_fitness_deltas = NULL;
+  w->log = NULL;
+  update_dependent_fitness_variables(w);
+  return w;
+}
+
+void log_generation(World *w) {
+  if (w->log) {
+    verify(1 == fwrite(&w->epoch, sizeof(w->epoch), 1, w->log));
+    verify(1 == fwrite(&w->generation, sizeof(w->epoch), 1, w->log));
+    // log organsims
     for (int i = 0; i < w->num_organisms; i++) {
       Organism *o = w->organisms[i];
-      Genotype *g = o->genotype;
-      fprintf(w->log->f, "organism [%d,%d,%d] fitness=%20.16lf  nodes=%2d  edges=%2d  g-vector=[% lf % lf] phenotype=[% .16lf % .16lf]\n",
-        w->epoch,
-        w->generation,
-        i,
-        o->fitness,
-        g->num_nodes_in_use,
-        g->num_edges,
-        g->nodes[0].initial_activation,
-        g->nodes[1].initial_activation,
-//        g->nodes[2].final_activation,
-//        g->nodes[3].final_activation);
-        g->nodes[2].final_output,
-        g->nodes[3].final_output);
-      print_dot(w, o, w->log->f);
+      verify(1 == fwrite(o, sizeof(Organism), 1, w->log));
     }
+    // log genotypes
+    for (int i = 0; i < w->num_organisms; i++) {
+      Genotype *g = (w->organisms[i])->genotype;
+      verify(1 == fwrite(g, sizeof(Genotype), 1, w->log));
+    }
+    // log nodes/edges
+    for (int i = 0; i < w->num_organisms; i++) {
+      Genotype *g = (w->organisms[i])->genotype;
+      verify(g->num_nodes == fwrite(g->nodes, sizeof(Node), g->num_nodes, w->log));
+      verify(g->num_edges == fwrite(g->edges, sizeof(Edge), g->num_edges, w->log));
+    }
+  }
+}
+
+typedef struct {
+  int num_organisms;
+  Organism **organisms;
+} GENERATION;
+
+GENERATION *create_generation(World *w) {
+  GENERATION *gen = calloc(1, sizeof(GENERATION));
+  gen->num_organisms = w->num_organisms;
+  gen->organisms = calloc(gen->num_organisms, sizeof(Organism *));
+  return gen;
+}
+
+GENERATION *load_generation(World *w, int epoch, int generation, FILE *f) {
+  GENERATION *gen = create_generation(w);
+  int loaded_epoch;
+  verify(1 == fread(&loaded_epoch, sizeof(loaded_epoch), 1, f));
+  verify_msg(epoch == loaded_epoch, "bad epoch number in ancestor file");
+  int loaded_generation;
+  verify(1 == fread(&loaded_generation, sizeof(loaded_generation), 1, f));
+  verify_msg(generation == loaded_generation, "bad generation number in ancestor file");
+  // load organisms
+  Organism *loaded_o = calloc(gen->num_organisms, sizeof(Organism));
+  verify(gen->num_organisms == fread(loaded_o, sizeof(Organism), gen->num_organisms, f));
+  // load genotypes
+  Genotype *loaded_g = calloc(gen->num_organisms, sizeof(Genotype));
+  verify(gen->num_organisms == fread(loaded_g, sizeof(Genotype), gen->num_organisms, f));
+  // load nodes/edges
+  for (int i = 0; i < gen->num_organisms; i++) {
+    gen->organisms[i] = &loaded_o[i];
+    Organism *o = gen->organisms[i];
+    o->genotype = &loaded_g[i];
+    Genotype *g = o->genotype;
+    g->nodes = calloc(g->num_nodes, sizeof(Node));
+    verify(g->num_nodes == fread(g->nodes, sizeof(Node), g->num_nodes, f));
+    g->edges = calloc(g->num_edges, sizeof(Edge));
+    verify(g->num_edges == fread(g->edges, sizeof(Edge), g->num_edges, f));
+  }
+  return gen;
+}
+
+typedef struct {
+  int num_generations;
+  GENERATION **generations;
+} EPOCH;
+
+
+EPOCH *create_epoch(World *w) {
+  EPOCH *epoch = calloc(1, sizeof(EPOCH));
+  epoch->num_generations = w->generations_per_epoch;
+  epoch->generations = calloc(epoch->num_generations, sizeof(GENERATION *));
+  return epoch;
+}
+
+typedef struct {
+  World *w;
+  int num_epochs;
+  EPOCH **epochs;
+} RUN;
+
+RUN *create_run(World *w) {
+  RUN *run = calloc(1, sizeof(RUN));
+  run->w = w;
+  run->num_epochs = w->num_epochs;
+  run->epochs = calloc(run->num_epochs, sizeof(EPOCH *));
+  return run;
+}
+
+#define SENTINEL_LOG_VALUE 0xdeadbeef
+
+RUN *load_ancestor_file(char *path) {
+  verify(path);
+  FILE *f = fopen(path, "rb");
+  verify_msg(f, "can't open ancestor file");
+  World *w = load_preamble(f);
+  RUN *run = create_run(w);
+  for (int e = 1; e <= run->w->num_epochs; e++) {
+    run->epochs[e-1] = create_epoch(w);
+    EPOCH *epoch = run->epochs[e-1];
+    for (int g = 1; g <= epoch->num_generations; g++) {
+      epoch->generations[g-1] = load_generation(w, e, g, f);
+    }
+  }
+  unsigned sentinel = 0;
+  verify(1 == fread(&sentinel, sizeof(unsigned), 1, f));
+  verify_msg(SENTINEL_LOG_VALUE == sentinel, "bad sentinel value at end of ancestor file");
+  fclose(f);
+  return run;
+}
+
+void close_ancestor_log(World *w) {
+  if (w->log) {
+    unsigned sentinel = SENTINEL_LOG_VALUE;
+    verify(1 == fwrite(&sentinel, sizeof(unsigned), 1, w->log));
+    fclose(w->log);
   }
 }
 
@@ -1228,8 +1345,9 @@ int maybe_prev_epoch(World *w) {
 }
 
 void log_mutation_start(World *w, int parent, int child) {
-  if (w->log->enabled) {
-    fprintf(w->log->f, "mutation %d,%d,%d %d,%d,%d [ ",
+  //if (w->log) {
+  if (false) {
+    fprintf(w->log, "mutation %d,%d,%d %d,%d,%d [ ",
       maybe_prev_epoch(w),
       prev_generation(w),
       parent,
@@ -1240,20 +1358,23 @@ void log_mutation_start(World *w, int parent, int child) {
 }
 
 void log_mutation(World *w, char *type) {
-  if (w->log->enabled) {
-    fprintf(w->log->f, "%s ", type);
+  //if (w->log) {
+  if (false) {
+    fprintf(w->log, "%s ", type);
   }
 }
 
 void log_mutation_end(World *w) {
-  if (w->log->enabled) {
-    fprintf(w->log->f, "]\n");
+  //if (w->log) {
+  if (false) {
+    fprintf(w->log, "]\n");
   }
 }
 
 void log_crossover(World *w, int mommy, int daddy, int child) {
-  if (w->log->enabled) {
-    fprintf(w->log->f, "crossover %d,%d,%d %d,%d,%d %d,%d,%d\n",
+  //if (w->log) {
+  if (false) {
+    fprintf(w->log, "crossover %d,%d,%d %d,%d,%d %d,%d,%d\n",
       maybe_prev_epoch(w),
       prev_generation(w),
       mommy,
@@ -1292,7 +1413,7 @@ void run_generation(World *w) {
   if (debug)
     sanity_check(w);
   if (!quiet)
-    log_organisms(w);
+    log_generation(w);
 }
 
 int find_best_organism_in(Organism **organisms, int num_organisms) {
@@ -1342,10 +1463,8 @@ void print_generation_results(World *w) {
   }
 }
 
-void dump_fitness_nbhd(World *w) {
-  int best_organism_index = find_best_organism(w);
+void dump_organism_fitness_nbhd(World *w, Organism *original) {
   double m = 2;
-  Organism *original = w->organisms[best_organism_index];
   Organism *o = copy_organism(original);
   Genotype *g = o->genotype;
   printf("neighborhood:\n");
@@ -1358,13 +1477,18 @@ void dump_fitness_nbhd(World *w) {
       printf("  % lf % lf % .16lf % .16lf % lf\n",
         dx,
         dy,
-//        g->nodes[2].final_activation,
-//        g->nodes[3].final_activation,
         g->nodes[2].final_output,
         g->nodes[3].final_output,
         o->fitness);
     }
   }
+  free_organism(o);
+}
+
+void dump_fitness_nbhd(World *w) {
+  int best_organism_index = find_best_organism(w);
+  Organism *original = w->organisms[best_organism_index];
+  dump_organism_fitness_nbhd(w, original);
 }
 
 // -- measuring acclivity ----------------------------------------------------
@@ -1488,11 +1612,38 @@ HILL_CLIMBING_RESULT phenotype_acclivity(World *w) {
 void free_world(World *w) {
   free_organisms(w->organisms, w->num_organisms);
   free_data(w->epoch_fitness_deltas);
-  free_ancestor_log(w->log);
   free(w);
 }
 
 double distance(double x1, double y1, double x2, double y2);
+
+void update_dependent_fitness_variables(World *w) {
+  switch (w->ridge_type) {
+  case LINE:
+    // dependent variables
+    w->peak_x = w->c1;
+    w->peak_y = clamp2(w->c2 * w->c1 + w->c3, w->c1_lb, w->c1_ub);
+    w->max_dist = distance(w->peak_x, w->peak_y, -1.0, -1.0);
+    double d = distance(w->peak_x, w->peak_y, -1.0, +1.0);
+    if (d > w->max_dist)
+      w->max_dist = d;
+    d = distance(w->peak_x, w->peak_y, +1.0, -1.0);
+    if (d > w->max_dist)
+      w->max_dist = d;
+    d = distance(w->peak_x, w->peak_y, +1.0, +1.0);
+    if (d > w->max_dist)
+      w->max_dist = d;
+    if (verbose)
+      printf("peak=(%lf,%lf) max_dist=%lf\n", w->peak_x, w->peak_y, w->max_dist);
+    break;
+  case CIRCLE:
+    // dependent variables
+    w->peak_x = 0.5 * cos(w->c1);
+    w->peak_y = 0.5 * sin(w->c1);
+    w->max_dist = 1.0;  // Furthest place on circle gets 0.0 fitness
+    break;
+  }
+}
 
 void change_fitness_constants(World *w) {
   //const double sqrt2 = sqrt(2.0);
@@ -1510,20 +1661,6 @@ void change_fitness_constants(World *w) {
     default:
       assert(false);
     }
-    // dependent variables
-    w->peak_x = w->c1;
-    w->peak_y = clamp2(w->c2 * w->c1 + w->c3, w->c1_lb, w->c1_ub);
-    w->max_dist = distance(w->peak_x, w->peak_y, -1.0, -1.0);
-    double d = distance(w->peak_x, w->peak_y, -1.0, +1.0);
-    if (d > w->max_dist)
-      w->max_dist = d;
-    d = distance(w->peak_x, w->peak_y, +1.0, -1.0);
-    if (d > w->max_dist)
-      w->max_dist = d;
-    d = distance(w->peak_x, w->peak_y, +1.0, +1.0);
-    if (d > w->max_dist)
-      w->max_dist = d;
-    printf("peak=(%lf,%lf) max_dist=%lf\n", w->peak_x, w->peak_y, w->max_dist);
     break;
   case CIRCLE:
     switch (w->peak_movement) {
@@ -1541,12 +1678,9 @@ void change_fitness_constants(World *w) {
     default:
       assert(false);
     }
-    // dependent variables
-    w->peak_x = 0.5 * cos(w->c1);
-    w->peak_y = 0.5 * sin(w->c1);
-    w->max_dist = 1.0;  // Furthest place on circle gets 0.0 fitness
     break;
   }
+  update_dependent_fitness_variables(w);
 }
 
 void check_knob_turn(World *w, double last_fitness) {
@@ -1765,7 +1899,7 @@ void run_world(World *w) {
   printf("--------------------------------------------------------------------------------\n");
   print_world_params(w);
 
-  open_ancestor_log(w->log);
+  log_preamble(w);
 
   srand(w->seed);
   init_random_population(w);
@@ -1782,7 +1916,7 @@ void run_world(World *w) {
   print_acclivity_measures_of_best(w);
   print_knob_fitness_numbers(w);
 
-  close_ancestor_log(w->log);
+  close_ancestor_log(w);
 }
 
 // -- fitness ----------------------------------------------------------------
@@ -2797,8 +2931,7 @@ void run_from_command_line_options(int argc, char **argv) {
         w->param_set = atoi(optarg);
         break;
       case 39:
-        w->log->path = strdup(optarg);
-        w->log->enabled = true;
+        w->log = fopen(optarg, "wb");
         break;
       default:
         printf("Internal error\n");
