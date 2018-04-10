@@ -202,12 +202,14 @@ const char *edge_weights_string(EDGE_WEIGHTS edge_weights) {
 
 typedef enum {
   PASS_THROUGH,  // output = activation
-  STEEP_SIGMOID
+  STEEP_SIGMOID,
+  TWO_STEP
 } OUTPUT_TYPE;
 
 typedef enum {
   ONLY_PASS_THROUGH,
-  PASS_THROUGH_AND_STEEP_SIGMOID
+  PASS_THROUGH_AND_STEEP_SIGMOID,
+  PASS_THROUGH_AND_TWO_STEP
 } OUTPUT_TYPES;
 
 // How a Node's 'control' is updated each timestep
@@ -348,14 +350,14 @@ double step(double x) {
   return x > 0.0 ? 1.0 : -1.0;
 }
 
-double two_step(double x) {
-  if (x >= 0.2)
-    return 1.0;
-  else if (x <= -0.2)
-    return -1.0;
-  else
-    return x;
-}
+//double two_step(double x) {
+//  if (x >= 0.2)
+//    return 1.0;
+//  else if (x <= -0.2)
+//    return -1.0;
+//  else
+//    return x;
+//}
 
 double clamp(double x) {
   return x <= -1.0 ? -1.0 : (x >= 1.0 ? 1.0 : x);
@@ -796,6 +798,9 @@ void init_random_node(World *w, Node *n, int index) {
     case PASS_THROUGH_AND_STEEP_SIGMOID:
       n->output_type = coin_flip() ? PASS_THROUGH : STEEP_SIGMOID;
       break;
+    case PASS_THROUGH_AND_TWO_STEP:
+      n->output_type = coin_flip() ? PASS_THROUGH : TWO_STEP;
+      break;
   }
   n->final_activation = UNWRITTEN;
   n->final_output = UNWRITTEN;
@@ -853,7 +858,8 @@ const char *node_type_string(const Node *node) {
 
 bool is_affected_by_control(Node *node) {
   return node->activation_type == SIGMOID ||
-         node->output_type == STEEP_SIGMOID;
+         node->output_type == STEEP_SIGMOID ||
+         node->output_type == TWO_STEP;
 }
 
 void print_dot(World *w, Organism *o, FILE *f) {
@@ -883,8 +889,17 @@ void print_dot(World *w, Organism *o, FILE *f) {
     if (node->in_use) {
       fprintf(f, "  n%d [label=\"n%d (%s", n, n, node_type_string(node));
       fputs(input_acc_string(node->input_acc), f);
-      if (node->output_type == STEEP_SIGMOID)
-        fputc('S', f);
+      switch (node->output_type) {
+        case STEEP_SIGMOID:
+          fputc('S', f);
+          break;
+        case TWO_STEP:
+          fputc('T', f);
+          break;
+        default:
+          // nothing
+          break;
+      }
       fputc(')', f);
 
       if (node->initial_activation != UNWRITTEN) {
@@ -894,8 +909,15 @@ void print_dot(World *w, Organism *o, FILE *f) {
         fprintf(f, " %.3lf", node->final_activation);
       }
 
-      if (node->output_type == STEEP_SIGMOID)
-        fprintf(f, " o=%.3lf", node->final_output);
+      switch (node->output_type) {
+        case STEEP_SIGMOID:
+        case TWO_STEP:
+          fprintf(f, " o=%.3lf", node->final_output);
+          break;
+        default:
+          // nothing
+          break;
+      }
 
       if (is_affected_by_control(node))
         fprintf(f, " c=%.3lf", node->control);
@@ -937,6 +959,22 @@ double node_output(Node *node, double activation) {
       case STEEP_SIGMOID:
         //return steep_sigmoid(activation, 0.0, node->control);
         return steep_sigmoid(activation, node->control / 4.0, node->control);
+      case TWO_STEP:
+        if (node->control > 0.0) {
+          if (activation > node->control)
+            return 1.0;
+          else if (activation > 0.0)
+            return 0.0;
+          else
+            return -1.0;
+        } else {
+          if (activation < node->control)
+            return -1.0;
+          else if (activation < 0.0)
+            return  0.0;
+          else
+            return 1.0;
+        }
       default:
         assert(false);
     }
@@ -2009,6 +2047,9 @@ void print_world_params(World *w) {
     case PASS_THROUGH_AND_STEEP_SIGMOID:
       puts("PASS_THROUGH_AND_STEEP_SIGMOID;");
       break;
+    case PASS_THROUGH_AND_TWO_STEP:
+      puts("PASS_THROUGH_AND_TWO_STEP;");
+      break;
     default:
       assert(false);
   }
@@ -2442,6 +2483,22 @@ void mut_alter_output_type(World *w, Organism *o) {
         log_mutation(w, "alter_out_type");
       }
       break;
+    case PASS_THROUGH_AND_TWO_STEP:
+      {
+        int n = select_in_use_node(o->genotype);
+        Node *node_to_change = &o->genotype->nodes[n];
+        switch (node_to_change->output_type) {
+          case PASS_THROUGH:
+            node_to_change->output_type = TWO_STEP;
+            break;
+          case TWO_STEP:
+            node_to_change->output_type = PASS_THROUGH;
+            break;
+          default:
+            assert(false);
+        }
+        log_mutation(w, "alter_out_type");
+      }
   }
 }
 
