@@ -12,6 +12,8 @@
 #include <unistd.h>
 #include "sds.h"
 
+#include "coordset.h"
+
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
 #endif
@@ -448,6 +450,11 @@ typedef struct {
   int num_out;
 } Genotype;
 
+void set_gvector(Genotype *g, double x, double y) {
+  g->nodes[0].initial_activation = x;
+  g->nodes[1].initial_activation = y;
+}
+
 // MAYBE: shuffle and take without replace for deterministic select
 int select_in_use_node(Genotype *g) {
   for ( ; ; ) {
@@ -579,7 +586,7 @@ typedef struct world_t {
   bool multi_edges;
   bool allow_move_edge;
   Organism **organisms;
-  double (*phenotype_fitness_func)(struct world_t *, Genotype *);
+  double (*genotype_fitness_func)(struct world_t *, Genotype *);
   double distance_weight;
   double dist_exponent;
   bool bumps;
@@ -592,6 +599,7 @@ typedef struct world_t {
   double max_dist;
   RIDGE_TYPE ridge_type;
   double ridge_radius;
+  bool reward_coverage;
   int mutation_type_ub;
   double extra_mutation_rate;
   double crossover_freq;
@@ -615,9 +623,12 @@ typedef struct world_t {
   int num_fitness_increases_from_knob_turn;
   int param_set;
   int run;
+  COORD_SET ridge_coords;
 } World;
 
-double phenotype_fitness(World *, Genotype *);
+double phenotype_fitness(World *, const double *phenotype);
+double genotype_fitness(World *, Genotype *);
+double coverage_reward(World *w, Genotype *g);
 
 // Returns an empty world with all default parameters.
 World *create_world() {
@@ -642,7 +653,7 @@ World *create_world() {
   w->output_types = ONLY_PASS_THROUGH;
   w->control_update = CONSTANT;
   w->organisms = NULL; //calloc(num_organisms, sizeof(Organism));
-  w->phenotype_fitness_func = phenotype_fitness;
+  w->genotype_fitness_func = genotype_fitness;
   w->distance_weight = 10.0;
   w->dist_exponent = 1.0;
   w->bumps = true;
@@ -659,6 +670,7 @@ World *create_world() {
   w->max_dist = 0.0; // dependent variable
   w->ridge_type = LINE;
   w->ridge_radius = 0.2;
+  w->reward_coverage = false;
   w->mutation_type_ub = 10;
   w->extra_mutation_rate = 0.0; //0.1;
   w->crossover_freq = 0.02;
@@ -679,6 +691,9 @@ World *create_world() {
 
   w->num_generations_measured = 0;
   w->num_fitness_increases_from_knob_turn = 0;
+
+  w->ridge_coords = NULL;
+
   return w;
 }
 
@@ -936,8 +951,8 @@ double control_value(double input) {
   return exp(2.0 * input);
 }
 
-void sa(Organism *o, int timesteps, double decay, double spreading_rate) {
-  Genotype *g = o->genotype;
+void sa(Genotype *g, int timesteps, double decay, double spreading_rate) {
+  //Genotype *g = o->genotype;
 
   // TODO refactor/simplify
   double activations[g->num_nodes];
@@ -1084,12 +1099,12 @@ void sanity_check(World *w);
 void set_phenotypes_and_fitnesses(World *w) {
   for (int n = 0; n < w->num_organisms; n++) {
     Organism *o = w->organisms[n];
-    sa(o, w->sa_timesteps, w->decay, w->spreading_rate);
+    sa(o->genotype, w->sa_timesteps, w->decay, w->spreading_rate);
     if (debug)
       sanity_check(w);
 //    if (dot)
 //      print_dot(o, stdout);
-    o->fitness = w->phenotype_fitness_func(w, o->genotype);
+    o->fitness = w->genotype_fitness_func(w, o->genotype);
   }
 }
 
@@ -1236,6 +1251,7 @@ void log_generation(World *w) {
       verify(g->num_nodes == fwrite(g->nodes, sizeof(Node), g->num_nodes, w->log));
       verify(g->num_edges == fwrite(g->edges, sizeof(Edge), g->num_edges, w->log));
     }
+    fflush(stdout);
   }
 }
 
@@ -1438,12 +1454,14 @@ double find_best_fitness(World *w) {
   return w->organisms[best_organism_index]->fitness;
 }
 
+double measure_coverage(World *w, Genotype *test_g);
+
 void print_best_fitness(World *w) {
   int best_organism_index = find_best_organism(w);
   Organism *o = w->organisms[best_organism_index];
   double max_fitness = o->fitness;
   Genotype *g = o->genotype;
-  printf("    best fitness=%20.16lf  index=%2d  nodes=%2d  edges=%2d  g-vector=[% lf % lf] phenotype=[% .16lf % .16lf]\n",
+  printf("    best fitness=%20.16lf  index=%2d  nodes=%2d  edges=%2d  g-vector=[% lf % lf] phenotype=[% .16lf % .16lf] cov=%.2lf\n",
     max_fitness, best_organism_index,
     g->num_nodes_in_use,
     g->num_edges,
@@ -1452,7 +1470,8 @@ void print_best_fitness(World *w) {
 //    g->nodes[2].final_activation,
 //    g->nodes[3].final_activation);
     g->nodes[2].final_output,
-    g->nodes[3].final_output);
+    g->nodes[3].final_output,
+    measure_coverage(w, o->genotype));
   print_dot(w, o, stdout);
 }
 
@@ -1472,8 +1491,8 @@ void dump_organism_fitness_nbhd(World *w, Organism *original) {
     for (double dy = -m * w->knob_constant; dy <= m * w->knob_constant; dy += w->knob_constant) {
       g->nodes[0].initial_activation = original->genotype->nodes[0].initial_activation + dx;
       g->nodes[1].initial_activation = original->genotype->nodes[1].initial_activation + dy;
-      sa(o, w->sa_timesteps, w->decay, w->spreading_rate);
-      o->fitness = w->phenotype_fitness_func(w, o->genotype);
+      sa(o->genotype, w->sa_timesteps, w->decay, w->spreading_rate);
+      o->fitness = w->genotype_fitness_func(w, o->genotype);
       printf("  % lf % lf % .16lf % .16lf % lf\n",
         dx,
         dy,
@@ -1509,102 +1528,249 @@ typedef struct {
   double ending_fitness;
 } HILL_CLIMBING_RESULT;
 
-HILL_CLIMBING_RESULT climb_hill(World *w, Organism *o) {
-  sa(o, w->sa_timesteps, w->decay, w->spreading_rate);
-  o->fitness = w->phenotype_fitness_func(w, o->genotype);
+//HILL_CLIMBING_RESULT climb_hill(World *w, Organism *o) {
+//  sa(o->genotype, w->sa_timesteps, w->decay, w->spreading_rate);
+//  o->fitness = w->genotype_fitness_func(w, o->genotype);
+//
+//  const double starting_fitness = o->fitness;
+//  double last_fitness = starting_fitness;
+//  double nudge_amount = w->knob_constant;
+//
+//  int num_candidates = w->num_in << 1;
+//  Organism *candidates[num_candidates];
+//
+//  int num_neutral_steps = 0;
+//
+//  //printf("starting_fitness = %lf\n", starting_fitness);
+//  for ( ; ; ) {
+//    // create organisms that take a step in each possible direction
+//    for (int i = 0; i < num_candidates; i++) {
+//      candidates[i] = copy_organism(o);
+//      Organism *candidate = candidates[i];
+//      nudge_candidate(candidate, i >> 1, (i & 1) ? nudge_amount : -nudge_amount);
+//      sa(candidate->genotype, w->sa_timesteps, w->decay, w->spreading_rate);
+//      candidate->fitness = w->genotype_fitness_func(w, candidate->genotype);
+//      //printf("candidate %d fitness = %lf\n", i, candidate->fitness);
+//      //print_phenotype(candidate->genotype);
+//    }
+//    // take the best positive step, or bail out
+//    int best_candidate_index = find_best_organism_in(candidates, num_candidates);
+//    if (candidates[best_candidate_index]->fitness > last_fitness) {
+//      free_organism(o);
+//      o = copy_organism(candidates[best_candidate_index]);
+//      last_fitness = o->fitness;
+//      //printf("fitness, last fitness-> %lf, %lf\n", o->fitness, last_fitness);
+//      for (int i = 0; i < num_candidates; i++)
+//        free_organism(candidates[i]);
+//      num_neutral_steps = 0;
+//    } else if (candidates[best_candidate_index]->fitness == last_fitness) {
+//      // neutral plateau
+//      if (++num_neutral_steps >= 100) {
+//        //printf("crazy plateau\n");
+//        break;
+//      }
+//      free_organism(o);
+//      o = copy_organism(candidates[rand_int(0, num_candidates - 1)]);
+//      for (int i = 0; i < num_candidates; i++)
+//        free_organism(candidates[i]);
+//    } else {
+//      // reached a peak
+//      break;
+//    }
+//  }
+//  HILL_CLIMBING_RESULT result =
+//      { last_fitness - starting_fitness,
+//        last_fitness };
+//  free_organism(o);
+//  return result;
+//}
 
-  const double starting_fitness = o->fitness;
+// Function that takes array of two doubles and returns fitness
+typedef double (*FITNESS_FUNC)(World *, const double *);
+
+HILL_CLIMBING_RESULT climb_hill2(
+    World *w, FITNESS_FUNC ffunc, const double *startxy)
+{
+  double xy[2];
+  xy[0] = startxy[0];
+  xy[1] = startxy[1];
+
+  struct Candidate {
+    const double deltas[2];
+    double xy[2];
+    double fitness;
+  } candidates[4] = {
+    { {-w->knob_constant, 0.0}, {0.0, 0.0}, 0.0},
+    { {+w->knob_constant, 0.0}, {0.0, 0.0}, 0.0},
+    { {0.0, -w->knob_constant}, {0.0, 0.0}, 0.0},
+    { {0.0, +w->knob_constant}, {0.0, 0.0}, 0.0}
+  };
+
+  const double starting_fitness = (*ffunc)(w, startxy);
   double last_fitness = starting_fitness;
-  double nudge_amount = w->knob_constant;
-
-  int num_candidates = w->num_in << 1;
-  Organism *candidates[num_candidates];
 
   int num_neutral_steps = 0;
-
-  //printf("starting_fitness = %lf\n", starting_fitness);
+  struct Candidate *best_candidate;
   for ( ; ; ) {
-    // create organisms that take a step in each possible direction
-    for (int i = 0; i < num_candidates; i++) {
-      candidates[i] = copy_organism(o);
-      Organism *candidate = candidates[i];
-      nudge_candidate(candidate, i >> 1, (i & 1) ? nudge_amount : -nudge_amount);
-      sa(candidate, w->sa_timesteps, w->decay, w->spreading_rate);
-      candidate->fitness = w->phenotype_fitness_func(w, candidate->genotype);
-      //printf("candidate %d fitness = %lf\n", i, candidate->fitness);
-      //print_phenotype(candidate->genotype);
-    }
-    // take the best positive step, or bail out
-    int best_candidate_index = find_best_organism_in(candidates, num_candidates);
-    if (candidates[best_candidate_index]->fitness > last_fitness) {
-      free_organism(o);
-      o = copy_organism(candidates[best_candidate_index]);
-      last_fitness = o->fitness;
-      //printf("fitness, last fitness-> %lf, %lf\n", o->fitness, last_fitness);
-      for (int i = 0; i < num_candidates; i++)
-        free_organism(candidates[i]);
-      num_neutral_steps = 0;
-    } else if (candidates[best_candidate_index]->fitness == last_fitness) {
-      // neutral plateau
-      if (++num_neutral_steps >= 100) {
-        //printf("crazy plateau\n");
-        break;
+    for (int i = 0; i < array_len(candidates); i++) {
+      struct Candidate *c = &candidates[i];
+      c->xy[0] = clamp(xy[0] + c->deltas[0]);
+      c->xy[1] = clamp(xy[1] + c->deltas[1]);
+      c->fitness = (*ffunc)(w, c->xy);
+
+      if (i == 0)
+        best_candidate = c;
+      else {
+        if (c->fitness > best_candidate->fitness)
+          best_candidate = c;
+        else if (c->fitness == best_candidate->fitness)
+          best_candidate = coin_flip() ? best_candidate : c;
       }
-      free_organism(o);
-      o = copy_organism(candidates[rand_int(0, num_candidates - 1)]);
-      for (int i = 0; i < num_candidates; i++)
-        free_organism(candidates[i]);
+    }
+
+    if (best_candidate->fitness > last_fitness) {
+      memmove(xy, best_candidate->xy, sizeof(xy));
+      last_fitness = best_candidate->fitness;
+      num_neutral_steps = 0;
+    } else if (best_candidate->fitness == last_fitness) {
+      if (num_neutral_steps >= 100) {
+        break;
+      } else {
+        memmove(xy, best_candidate->xy, sizeof(xy));
+        num_neutral_steps++;
+      }
     } else {
-      // reached a peak
+      // xy is a peak
       break;
     }
   }
+
+  //printf("last_fitness - starting_fitness = %lf\n", last_fitness - starting_fitness); //DEBUG
   HILL_CLIMBING_RESULT result =
-      { last_fitness - starting_fitness, last_fitness };
-  free_organism(o);
+      { last_fitness - starting_fitness,
+        last_fitness };
   return result;
 }
 
-HILL_CLIMBING_RESULT measure_acclivity(World *w, Organism *test_o) {
-  Organism *o;
+HILL_CLIMBING_RESULT measure_acclivity2(World *w, FITNESS_FUNC ffunc) {
+  bool save_reward_coverage = w->reward_coverage;
+  w->reward_coverage = false;
+
   HILL_CLIMBING_RESULT total = { 0.0, 0.0 };
 
-  srand(0);
+  srand(0); //SHOULD push rng state
+
   for (int i = 0; i < w->num_hill_climbers; i++) {
-    o = copy_organism(test_o);
-    set_random_gvector(o);
-    //printf("gvector-> %lf, %lf\n", o->genotype->nodes[0].initial_activation, o->genotype->nodes[1].initial_activation);
-    HILL_CLIMBING_RESULT result = climb_hill(w, o);
+    double xy[2] = { rand_initial_activation(w), rand_initial_activation(w) };
+    HILL_CLIMBING_RESULT result = climb_hill2(w, ffunc, xy);
     total.fitness_delta += result.fitness_delta;
     total.ending_fitness += result.ending_fitness;
-    //printf("->delta %lf, abs %lf\n", result.fitness_delta, result.ending_fitness);
-    //free_organism(o);
   }
-
+  
   total.fitness_delta /= w->num_hill_climbers;
   total.ending_fitness /= w->num_hill_climbers;
+
+  w->reward_coverage = save_reward_coverage;
   return total;
 }
 
+//HILL_CLIMBING_RESULT measure_acclivity(World *w, Organism *test_o) {
+//  Organism *o;
+//  HILL_CLIMBING_RESULT total = { 0.0, 0.0 };
+//
+//  srand(0);
+//  for (int i = 0; i < w->num_hill_climbers; i++) {
+//    o = copy_organism(test_o);
+//    set_random_gvector(o);
+//    //printf("gvector-> %lf, %lf\n", o->genotype->nodes[0].initial_activation, o->genotype->nodes[1].initial_activation);
+//    HILL_CLIMBING_RESULT result = climb_hill(w, o);
+//    total.fitness_delta += result.fitness_delta;
+//    total.ending_fitness += result.ending_fitness;
+//    //printf("->delta %lf, abs %lf\n", result.fitness_delta, result.ending_fitness);
+//    //free_organism(o);
+//  }
+//
+//  total.fitness_delta /= w->num_hill_climbers;
+//  total.ending_fitness /= w->num_hill_climbers;
+//  return total;
+//}
+
+//HILL_CLIMBING_RESULT phenotype_acclivity(World *w) {
+//  Node nodes[] = {
+//    { true, 0.0, 0.0, 0.0, 0.0, MULT_INCOMING, CLAMP_ONLY,
+//      PASS_THROUGH, CONSTANT, HAS_INITIAL_ACTIVATION },
+//    { true, 0.0, 0.0, 0.0, 0.0, MULT_INCOMING, CLAMP_ONLY,
+//      PASS_THROUGH, CONSTANT, HAS_INITIAL_ACTIVATION },
+//    { true, 0.0, 0.0, 0.0, 0.0, MULT_INCOMING, CLAMP_ONLY,
+//      PASS_THROUGH, CONSTANT, HAS_INITIAL_ACTIVATION },
+//    { true, 0.0, 0.0, 0.0, 0.0, MULT_INCOMING, CLAMP_ONLY,
+//      PASS_THROUGH, CONSTANT, HAS_INITIAL_ACTIVATION }
+//  };
+//  Edge edges[] = {
+//    { 0, 2, 1.0 },
+//    { 1, 3, 1.0 }
+//  };
+//  Genotype genotype = { nodes, edges, 4, 4, 2, 2, 2 };
+//  Organism null_organism = { &genotype, 0.0 };
+//  
+//  return measure_acclivity(w, &null_organism);
+//}
+
 HILL_CLIMBING_RESULT phenotype_acclivity(World *w) {
-  Node nodes[] = {
-    { true, 0.0, 0.0, 0.0, 0.0, MULT_INCOMING, CLAMP_ONLY,
-      PASS_THROUGH, CONSTANT, HAS_INITIAL_ACTIVATION },
-    { true, 0.0, 0.0, 0.0, 0.0, MULT_INCOMING, CLAMP_ONLY,
-      PASS_THROUGH, CONSTANT, HAS_INITIAL_ACTIVATION },
-    { true, 0.0, 0.0, 0.0, 0.0, MULT_INCOMING, CLAMP_ONLY,
-      PASS_THROUGH, CONSTANT, HAS_INITIAL_ACTIVATION },
-    { true, 0.0, 0.0, 0.0, 0.0, MULT_INCOMING, CLAMP_ONLY,
-      PASS_THROUGH, CONSTANT, HAS_INITIAL_ACTIVATION }
-  };
-  Edge edges[] = {
-    { 0, 2, 1.0 },
-    { 1, 3, 1.0 }
-  };
-  Genotype genotype = { nodes, edges, 4, 4, 2, 2, 2 };
-  Organism null_organism = { &genotype, 0.0 };
-  
-  return measure_acclivity(w, &null_organism);
+  return measure_acclivity2(w, phenotype_fitness);
+}
+
+HILL_CLIMBING_RESULT genotype_acclivity(World *w, Genotype *g) {
+  double gfitness(World *w, const double *gvector) {
+    Genotype *gg = copy_genotype(g);
+    set_gvector(gg, gvector[0], gvector[1]);
+    double fitness = genotype_fitness(w, g);
+    //printf("gvector=(%lf, %lf) fitness=%lf\n", gvector[0], gvector[1], fitness);
+    free(gg);
+    return fitness;
+  }
+  return measure_acclivity2(w, gfitness);
+}
+
+int x2i(World *w, double x) {
+  return (x - -1.0) / (2 * w->knob_constant);
+}
+
+void set_ridge_coords(World *w) {
+  double phenotype[2];
+  //TODO How to properly free old w->ridge_coords?
+  w->ridge_coords = NULL;
+
+  for (double x = -1.0; x <= 1.0; x += 2 * w->knob_constant) {
+    phenotype[0] = x;
+    for (double y = -1.0; y <= 1.0; y += 2 * w->knob_constant) {
+      phenotype[1] = y;
+      double fitness = phenotype_fitness(w, phenotype);
+      if (fitness > 1.0) {
+        int ix = x2i(w, x);
+        int iy = x2i(w, y);
+        //printf("x=%lf ix=%d  y=%lf iy=%d  fitness=%lf\n",
+        //    x, ix, y, iy, fitness);
+        add_coord(&w->ridge_coords, ix, iy);
+      }
+    }
+  }
+}
+
+double measure_coverage(World *w, Genotype *test_g) {
+  Genotype *g = copy_genotype(test_g);
+  clear_coverage(w->ridge_coords);
+  for (double x = -1.0; x <= 1.0; x += 2 * w->knob_constant) {
+    for (double y = -1.0; y <= 1.0; y += 2 * w->knob_constant) {
+      set_gvector(g, x, y);
+      sa(g, w->sa_timesteps, w->decay, w->spreading_rate);
+      int ix = x2i(w, g->nodes[w->num_in].final_output);
+      int iy = x2i(w, g->nodes[w->num_in + 1].final_output);
+      cover_coord(w->ridge_coords, ix, iy);
+    }
+  }
+  free_genotype(g);
+  return calculate_coverage(w->ridge_coords);
 }
 
 // ----------------------------------------------------------------------
@@ -1733,14 +1899,19 @@ void run_epoch(World *w, int e) {
 void dump_virtual_fitness_func(World *w) {
   int best_organism_index = find_best_organism(w);
   Organism *o = copy_organism(w->organisms[best_organism_index]);
+  Genotype *g = o->genotype;
+  double cov_reward = coverage_reward(w, g);
+  bool save_reward_coverage = w->reward_coverage;
+  w->reward_coverage = false;
   double delta = 0.02;
   puts("BEGIN VFUNC");
   for (double g1 = -1.0; g1 <= 1.0; g1 += delta) {
     for (double g2 = -1.0; g2 <= 1.0; g2 += delta) {
-      o->genotype->nodes[0].initial_activation = g1;
-      o->genotype->nodes[1].initial_activation = g2;
-      sa(o, w->sa_timesteps, w->decay, w->spreading_rate);
-      o->fitness = w->phenotype_fitness_func(w, o->genotype);
+      set_gvector(g, g1, g2);
+//      o->genotype->nodes[0].initial_activation = g1;
+//      o->genotype->nodes[1].initial_activation = g2;
+      sa(o->genotype, w->sa_timesteps, w->decay, w->spreading_rate);
+      o->fitness = w->genotype_fitness_func(w, o->genotype) + cov_reward;
       printf("%lf %lf %lf %lf %lf\n",
         g1,
         g2,
@@ -1752,25 +1923,33 @@ void dump_virtual_fitness_func(World *w) {
     }
   }
   puts("END VFUNC");
+  w->reward_coverage = save_reward_coverage;
+  free_organism(o);
+  fflush(stdout);
 }
 
 void dump_phenotype_fitness_func(World *w) {
   double delta = 0.02;
   //Genotype g;
   //init_random_genotype(w, &g, 0, 4, 2, 2);
-  Genotype *g = create_random_genotype(w);
+  //Genotype *g = create_random_genotype(w);
+  double phenotype[w->num_out];
   puts("BEGIN PHFUNC");
   for (double p1 = -1.0; p1 <= 1.0; p1 += delta) {
+    phenotype[0] = p1;
     for (double p2 = -1.0; p2 <= 1.0; p2 += delta) {
 //      g->nodes[2].final_activation = p1;
 //      g->nodes[3].final_activation = p2;
-      g->nodes[2].final_output = p1;
-      g->nodes[3].final_output = p2;
-      double fitness = w->phenotype_fitness_func(w, g);
+//      g->nodes[2].final_output = p1;
+//      g->nodes[3].final_output = p2;
+      phenotype[1] = p2;
+      //double fitness = w->genotype_fitness_func(w, g);
+      double fitness = phenotype_fitness(w, phenotype);
       printf("%lf %lf %lf\n", p1, p2, fitness);
     }
   }
   puts("END PHFUNC");
+  fflush(stdout);
 }
 
 void print_world_params(World *w) {
@@ -1778,7 +1957,7 @@ void print_world_params(World *w) {
   printf("w->run=%d;\n", w->run);
   printf("w->param_set=%d;\n", w->param_set);
   putchar('\n');
-  puts("// Phenotype fitness");
+  puts("// Fitness");
   printf("w->ridge_type=");
   switch (w->ridge_type) {
     case LINE:
@@ -1807,6 +1986,7 @@ void print_world_params(World *w) {
   default:
     assert(false);
   }
+  printf("w->reward_coverage=%s;\n", w->reward_coverage ? "true" : "false");
   putchar('\n');
   puts("// gvector");
   printf("w->knob_type=%d;\n", w->knob_type);
@@ -1876,17 +2056,20 @@ void print_world_params(World *w) {
   printf("w->num_edges=%d;\n", w->num_edges);
   putchar('\n');
   printf("w->num_hill_climbers=%d;\n", w->num_hill_climbers);
+  fflush(stdout);
 }
 
 void print_acclivity_measures_of_best(World *w) {
   int best_organism_index = find_best_organism(w);
   //print_phenotype(w->organisms[best_organism_index]->genotype);
+  Organism *o = w->organisms[best_organism_index];
   HILL_CLIMBING_RESULT gvector_result =
-    measure_acclivity(w, w->organisms[best_organism_index]);
-  printf("gvector_fitness_delta = %lf, gvector_absolute_fitness = %lf\n",
-    gvector_result.fitness_delta, gvector_result.ending_fitness);
+    genotype_acclivity(w, o->genotype); //measure_acclivity(w, o);
+  printf("gvector acclivity: fitness_delta = %lf, absolute_fitness = %lf, coverage = %lf\n",
+    gvector_result.fitness_delta, gvector_result.ending_fitness,
+    measure_coverage(w, o->genotype));
   HILL_CLIMBING_RESULT phenotype_result = phenotype_acclivity(w);
-  printf("acclivity: ph_fitness_delta = %lf, ph_absolute_fitness = %lf\n",
+  printf("phenotype acclivity: fitness_delta = %lf, absolute_fitness = %lf\n",
     phenotype_result.fitness_delta, phenotype_result.ending_fitness);
 }
 
@@ -1897,6 +2080,9 @@ void print_knob_fitness_numbers(World *w) {
 
 void run_world(World *w) {
   printf("--------------------------------------------------------------------------------\n");
+  w->c1 = 0.5;
+  change_fitness_constants(w);
+  set_ridge_coords(w);
   print_world_params(w);
 
   log_preamble(w);
@@ -1921,7 +2107,7 @@ void run_world(World *w) {
 
 // -- fitness ----------------------------------------------------------------
 
-double many_small_hills(double *phenotype) { // length is 2
+double many_small_hills(const double *phenotype) { // length is 2
   return cos(phenotype[0] * 30.0) * sin(phenotype[1] * 30.0);
 }
 
@@ -1966,15 +2152,15 @@ double require_valid_region(World *w, double x, double y) {
   }
 }
 
-double phenotype_fitness(World *w, Genotype *g) {
-  //const double sqrt8 = sqrt(8.0);
-  //const double sqrt2 = sqrt(2.0);
-  double phenotype[2] = {
-    //g->nodes[g->num_in].final_activation,
-    //g->nodes[g->num_in + 1].final_activation
-    g->nodes[g->num_in].final_output,
-    g->nodes[g->num_in + 1].final_output
-  };
+
+// phenotype -> array of g->num_out doubles
+void fill_phenotype_from_genotype(Genotype *g, double *phenotype) {
+  for (int i = 0; i < g->num_out; i++)
+    phenotype[i] = g->nodes[g->num_in + i].final_output;
+}
+
+// phenotype -> array of 2 doubles
+double phenotype_fitness(World *w, const double *phenotype) {
   if (verbose >= 2) {
     printf("require_valid_region(w, %lf, %lf) = %lf\n", phenotype[0], phenotype[1], require_valid_region(w, phenotype[0], phenotype[1]));
     printf("along_ridge(%lf, %lf) = %lf\n", phenotype[0], phenotype[1], along_ridge(w, phenotype[0], phenotype[1]));
@@ -1982,8 +2168,6 @@ double phenotype_fitness(World *w, Genotype *g) {
   double fitness = 0.0;
   if (phenotype[0] != UNWRITTEN && phenotype[1] != UNWRITTEN) {
     double dist = distance(w->peak_x, w->peak_y, phenotype[0], phenotype[1]);
-    //double scaled_dist = (sqrt8 - dist) / sqrt8;  // 0.0 to 1.0; 1.0 is right on it
-    //double scaled_dist = (sqrt2 - dist) / sqrt2;  // 0.0 to 1.0; 1.0 is right on it
     double scaled_dist = (w->max_dist - dist) / w->max_dist;
     fitness = require_valid_region(w, phenotype[0], phenotype[1]) *
               along_ridge(w, phenotype[0], phenotype[1]) *
@@ -2001,6 +2185,19 @@ double phenotype_fitness(World *w, Genotype *g) {
   } else {
     return fitness;
   }
+}
+
+double coverage_reward(World *w, Genotype *g) {
+  if (w->reward_coverage)
+    return 2.0 * measure_coverage(w, g);
+  else
+    return 0.0;
+}
+
+double genotype_fitness(World *w, Genotype *g) {
+  double phenotype[g->num_out];
+  fill_phenotype_from_genotype(g, phenotype);
+  return phenotype_fitness(w, phenotype) + coverage_reward(w, g);
 }
 
 // -- next generation via crossover and mutation -----------------------------
@@ -2466,10 +2663,10 @@ void sa_test() {
     { 5, 3, -1.0 }
   };
   Genotype genotype = { nodes, edges, 6, 6, 6, 2, 2 };
-  Organism o = { &genotype, 0.0 };
+  //Organism o = { &genotype, 0.0 };
   
   verbose = 9;
-  sa(&o, 13, 1.0, 1.0);
+  sa(&genotype, 13, 1.0, 1.0);
 }
 
 void sa_test2() {
@@ -2490,10 +2687,10 @@ void sa_test2() {
     { 3, 2, 1 }
   };
   Genotype genotype = { nodes, edges, 5, 5, 7, 2, 2 };
-  Organism o = { &genotype, 0.0 };
+  //Organism o = { &genotype, 0.0 };
   
   verbose = 9;
-  sa(&o, 20, 1.0, 0.01);
+  sa(&genotype, 20, 1.0, 0.01);
 }
 
 void dump_phenotype_fitness() {
@@ -2753,7 +2950,7 @@ void acclivation_test(int seed) {
   run_world(w);
   int best_organism_index = find_best_organism(w);
   print_phenotype(w->organisms[best_organism_index]->genotype);
-  HILL_CLIMBING_RESULT gvector_result = measure_acclivity(w, w->organisms[best_organism_index]);
+  HILL_CLIMBING_RESULT gvector_result = genotype_acclivity(w, w->organisms[best_organism_index]->genotype); //measure_acclivity(w, w->organisms[best_organism_index]);
   printf("gvector: average delta = %lf, average fitness = %lf\n", gvector_result.fitness_delta, gvector_result.ending_fitness);
   HILL_CLIMBING_RESULT phenotype_result = phenotype_acclivity(w);
   printf("phenotype: average delta = %lf, average fitness = %lf\n", phenotype_result.fitness_delta, phenotype_result.ending_fitness);
@@ -2803,6 +3000,7 @@ void run_from_command_line_options(int argc, char **argv) {
     { "run", required_argument, 0, 0 },
     { "param_set", required_argument, 0, 0 },
     { "log", required_argument, 0, 0 },
+    { "reward_coverage", required_argument, 0, 0 },
     { NULL, 0, 0, 0 },
   };
   int c;
@@ -2933,6 +3131,9 @@ void run_from_command_line_options(int argc, char **argv) {
       case 39:
         w->log = fopen(optarg, "wb");
         break;
+      case 40:
+        w->reward_coverage = atoi(optarg);
+        break;
       default:
         printf("Internal error\n");
         exit(3);
@@ -2953,12 +3154,17 @@ void run_from_command_line_options(int argc, char **argv) {
    free_world(w);
 }
 
+void mtest() {
+  measure_coverage(create_world(), NULL);
+}
+
 #ifndef WITH_SWIG
 _Pragma("GCC diagnostic push")
 _Pragma("GCC diagnostic ignored \"-Wunused-variable\"")
 int main(int argc, char **argv) {
   int seed = get_seed(argv, argc);
   run_from_command_line_options(argc, argv);
+  //mtest();
   //sa_test();
   //sa_test2();
   //quick_test(seed);

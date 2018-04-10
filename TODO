@@ -13,7 +13,7 @@ Another node param: Ignore previous activation.
 
 Try disallowing zero-fitness organisms from reproducing.
 
-Another big parameter sweep.
+Run another big parameter sweep.
 
 TOOL: Watch spreading activation of a given organism. See how it changes
 as you turn knobs or make small changes to the graph.

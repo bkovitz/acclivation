@@ -1,4 +1,6 @@
-CFLAGS=--std=gnu99 -Werror -Wall
+CC=gcc
+CFLAGS=--std=gnu99 -Werror -Wall -g
+LDFLAGS=--std=gnu99 -g
 
 LAT = latex -shell-escape
 #TEX = pdflatex --shell-escape
@@ -14,6 +16,38 @@ VIEW_PDF = open
 else
 VIEW_PDF = evince
 endif
+
+#Thin ridge along y=x
+YXLINE = --ridge_type=0 --ridge_radius=0.1 --c2=1 --c3=0 \
+	--c1_lb=-1 --c1_ub=1 
+
+CIRCLE = --ridge_type=1 --bumps=0 --ridge_radius=0.1 --peak_movement=1 \
+	--c1_lb=-1 --c1_ub=1
+
+#	--c1_lb=0.2 --c1_ub=0.9 \
+
+#A parameter set for experimentation. Try the good ideas here, run with
+#'make x', and save noteworthy parameter sets under a different name.
+X_ARGS = $(YXLINE) --bumps=0 \
+	--reward_coverage=1 \
+	--num_epochs=5 --generations_per_epoch=20 \
+	--num_organisms=40 --num_candidates=5 \
+	--num_nodes=10 --num_edges=16 \
+	--input_accs=1 --activation_types=3 --output_types=0 --knob_type=0 \
+	--mutation_type_ub=10 --extra_mutation_rate=0.00 --crossover_freq=0.2 \
+	--multi_edges=0 --allow_move_edge=0 --edge_weights=0 --edge_inheritance=1 \
+	--spreading_rate=0.2 --decay=0.6 #--seed=1043614093
+
+#QUESTION: What happens to the winner here when you turn a knob? What happens
+#when you make single graph edits? Why is this graph stuck?
+LOOK_AT_THIS = $(YXLINE) --bumps=1 \
+	--num_epochs=40 --generations_per_epoch=20 \
+	--num_organisms=80 --num_candidates=6 \
+	--num_nodes=4 --num_edges=4 \
+	--input_accs=1 --activation_types=3 --output_types=0 --knob_type=0 \
+	--mutation_type_ub=10 --extra_mutation_rate=0.00 --crossover_freq=0.05 \
+	--multi_edges=0 --allow_move_edge=0 --edge_weights=0 --edge_inheritance=5 \
+	--spreading_rate=0.2 --decay=0.6 --control_increment=0.02 --seed=1692985943
 
 OK_LINE_ARGS = --ridge_type=0 --bumps=1 --ridge_radius=0.2 \
 	--activation_types=1 --mutation_type_ub=10 --knob_type=0 --multi_edges=0 \
@@ -48,37 +82,6 @@ GOOD_YXLINE_RUN = --num_epochs=120 --ridge_type=0 --bumps=0 --ridge_radius=0.2 \
 #This produces a respectable line down the middle on y=x with bumps
 OK_YXLINE_BUMPS = #Oops, wrong params
 
-#Thin ridge along y=x
-YXLINE = --ridge_type=0 --ridge_radius=0.01 --c2=1 --c3=0 \
-	--c1_lb=-1 --c1_ub=1 
-
-CIRCLE = --ridge_type=1 --bumps=0 --ridge_radius=0.1 --peak_movement=1 \
-	--c1_lb=-1 --c1_ub=1
-
-#	--c1_lb=0.2 --c1_ub=0.9 \
-
-#A parameter set for experimentation. Try the good ideas here, run with
-#'make x', and save noteworthy parameter sets under a different name.
-X_ARGS = $(YXLINE) --bumps=0 \
-	--num_epochs=40 --generations_per_epoch=20 \
-	--num_organisms=200 --num_candidates=6 \
-	--num_nodes=4 --num_edges=4 \
-	--input_accs=1 --activation_types=3 --output_types=0 --knob_type=0 \
-	--mutation_type_ub=16 --extra_mutation_rate=0.00 --crossover_freq=0.05 \
-	--multi_edges=0 --allow_move_edge=0 --edge_weights=0 --edge_inheritance=5 \
-	--spreading_rate=0.2 --decay=0.6 #--seed=1043614093
-
-#QUESTION: What happens to the winner here when you turn a knob? What happens
-#when you make single graph edits? Why is this graph stuck?
-LOOK_AT_THIS = $(YXLINE) --bumps=1 \
-	--num_epochs=40 --generations_per_epoch=20 \
-	--num_organisms=80 --num_candidates=6 \
-	--num_nodes=4 --num_edges=4 \
-	--input_accs=1 --activation_types=3 --output_types=0 --knob_type=0 \
-	--mutation_type_ub=10 --extra_mutation_rate=0.00 --crossover_freq=0.05 \
-	--multi_edges=0 --allow_move_edge=0 --edge_weights=0 --edge_inheritance=5 \
-	--spreading_rate=0.2 --decay=0.6 --control_increment=0.02 --seed=1692985943
-
 all: sa
 
 $(PDFFILES): $(BIBFILES)
@@ -88,11 +91,18 @@ $(PDFFILES): $(BIBFILES)
 %.pdf: %.dot
 	$(DOT) < $< > $@
 
-sds.o: sds.c sds.h sdsalloc.h
-	gcc $(CFLAGS) -c sds.c -g -o sds.o
+#sds.o: sds.c sds.h sdsalloc.h
+#	gcc $(CFLAGS) -c sds.c -o sds.o
+#
+#sa.o: sa.c sds.o coordset.h sds.h
+#	gcc $(CFLAGS) -c sa.c -o sa.o
+#
+#coordset.o: coordset.c coordset.h
+#	gcc $(CFLAGS) -c coordset.c -o coordset.o
 
-sa: sa.c sds.o Makefile
-	gcc sa.c $(CFLAGS) sds.o -g -o sa -lm
+sa: sa.o sds.o coordset.o
+
+#	gcc $(CFLAGS) $^ -o sa -lm
 
 data: sa run.py add_param_set.py
 	./run.py > d.csv
@@ -247,7 +257,7 @@ swig_test:
 	python -c "import sa; sa.tom()"
 
 clean: swig_clean
-	rm sa test.pdf test.dot
+	rm -f sa *.o test.pdf test.dot
 
 tags:
 	ctags *.[ch]
