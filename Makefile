@@ -1,6 +1,7 @@
 CC=gcc
 CFLAGS=--std=gnu99 -Werror -Wall -g
 LDFLAGS=--std=gnu99 -g
+LDLIBS=-lm
 
 LAT = latex -shell-escape
 #TEX = pdflatex --shell-escape

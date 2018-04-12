@@ -15,8 +15,8 @@ for key, value in cfg_vars.items():
         cfg_vars[key] = value.replace("-Wstrict-prototypes", "")
 
 sa_module = Extension('_sa',
-                      sources=['sa_wrap.c', 'sds.c'],
-                      depends=['sa.i', 'sa.c', 'sds.c', 'Makefile'],
+                      sources=['sa_wrap.c', 'sds.c', 'coordset.c'],
+                      depends=['sa.i', 'sa.c', 'sds.c', 'coordset.c', 'coordset.h', 'Makefile'],
                       include_dirs=['.'],
                       )
 setup(name='sa',

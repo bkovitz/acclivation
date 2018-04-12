@@ -65,3 +65,53 @@
     return NULL;
   }
 };
+
+%{
+//#define _GNU_SOURCE - not needed, Python already does that!
+#include <stdio.h>
+
+static ssize_t py_write(void *cookie, const char *buf, size_t size) {
+  // Note we might need to acquire the GIL here, depending on what you target exactly
+  PyObject *result = PyObject_CallMethodObjArgs(cookie, PyString_FromString("write"),
+                                                PyString_FromStringAndSize(buf, size), NULL);
+
+  (void)result; // Should we DECREF?
+  return size; // assume OK, should really catch instead though
+}
+
+static int py_close(void *cookie) {
+  Py_DECREF(cookie);
+  return 0;
+}
+
+static FILE *fopen_python(PyObject *output) {
+  if (PyFile_Check(output)) {
+    // See notes at: https://docs.python.org/2/c-api/file.html about GIL
+    return PyFile_AsFile(output);
+  }
+
+  cookie_io_functions_t funcs = {
+    .write = py_write,
+    .close = py_close,
+  };
+  Py_INCREF(output);
+  return fopencookie(output, "w", funcs);
+}
+%}
+
+%typemap(in) FILE * {
+  $1 = fopen_python($input);
+}
+
+%typemap(freearg) FILE * {
+  // Note GIL comment above here also
+  // fileno for fopencookie always returns -1
+  if (-1 == fileno($1)) fclose($1);
+}
+
+%inline %{
+  void hello(FILE *out)
+  {
+    fprintf(out, "Hello How are you\n");
+  }
+%}
