@@ -25,16 +25,16 @@ YXLINE = --ridge_type=0 --ridge_radius=0.1 --c2=1 --c3=0 \
 CIRCLE = --ridge_type=1 --bumps=0 --ridge_radius=0.1 --peak_movement=1 \
 	--c1_lb=-1 --c1_ub=1
 
-#	--c1_lb=0.2 --c1_ub=0.9 \
+RESTRICTED = --c1_lb=0.2 --c1_ub=0.9
 
 #A parameter set for experimentation. Try the good ideas here, run with
 #'make x', and save noteworthy parameter sets under a different name.
-X_ARGS = $(YXLINE) --bumps=0 \
-	--reward_coverage=1 \
-	--num_epochs=5 --generations_per_epoch=20 \
-	--num_organisms=40 --num_candidates=5 \
+X_ARGS = $(YXLINE) $(RESTRICTED) --bumps=1 \
+	--reward_coverage=0 \
+	--num_epochs=80 --generations_per_epoch=20 \
+	--num_organisms=80 --num_candidates=6 \
 	--num_nodes=10 --num_edges=16 \
-	--input_accs=1 --activation_types=3 --output_types=0 --knob_type=0 \
+	--input_accs=1 --activation_types=3 --output_types=2 --knob_type=0 \
 	--mutation_type_ub=10 --extra_mutation_rate=0.00 --crossover_freq=0.2 \
 	--multi_edges=0 --allow_move_edge=0 --edge_weights=0 --edge_inheritance=1 \
 	--spreading_rate=0.2 --decay=0.6 #--seed=1043614093
