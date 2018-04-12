@@ -1141,7 +1141,7 @@ void set_phenotypes_and_fitnesses(World *w) {
     if (debug)
       sanity_check(w);
 //    if (dot)
-//      print_dot(o, stdout);
+//      print_dot(w, o, stdout);
     o->fitness = w->genotype_fitness_func(w, o->genotype);
   }
 }
