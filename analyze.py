@@ -13,28 +13,30 @@ from Tkinter import Tk, Canvas, mainloop, LAST
 # ----------------------------------------------------------------------------
 
 class SASim(object):
-    # - figure out why nodes are not the correct size/position
-    # - draw text inside node (save tag for update)
-    # - parse sa results
-    # - update nodes text with ith result
-    # - keys to move back and forth
     # - scrollbars and correct sizing (+/- keys for zoom?)
-    # - why don't arrows touch 'to' node?
+    # - any (easy) way to make arrows reach 'to' node?
     tk = None
-    def __init__(self, graphData, simResults):
-        self.parseSimResults(simResults)
+    def __init__(self, graphData, numSteps, simResults):
         self.parseGraphData(graphData)
         self.buildGraph()
+        self.parseSimResults(numSteps, simResults)
+        self.update()
         mainloop()
 
-    def parseSimResults(self, simResults):
-        print simResults
+    def parseSimResults(self, numSteps, simResults):
+        steps = []
+        for line in simResults.split('\n'):
+            if line.startswith('initial') or line.startswith('final'):
+                activations = [float(a) for a in re.findall('(?P<activation>[0-9.-]+)', line)]
+                assert(len(activations) == len(self.nodes))
+                steps.append(activations)
+        assert(len(steps) == 1 + numSteps) # +1 for initial activation
+        self.steps = steps
 
     def invertY(self, y):
         return self.graphHeight - y
 
     def parseGraphData(self, graphData):
-        print graphData
         self.scale = 100.
         nodes = []
         edges = []
@@ -47,7 +49,7 @@ class SASim(object):
                 name, x, y, width, height, label = m.groups()
                 x, y, width, height = [float(x) for x in (x, y, width, height)]
                 y = self.invertY(y)
-                nodes.append([name, x, y, width, height, label])
+                nodes.append([name, x, y, width, height, label.strip('"')])
             elif line.startswith('edge'):
                 m = re.match('^edge ([a-zA-Z0-9]+) ([a-zA-Z0-9]+) ([0-9]+) ([0-9. ]+)', line)
                 src, dst, n, coordsStr = m.groups()
@@ -58,16 +60,52 @@ class SASim(object):
         self.nodes = nodes
         self.edges = edges
 
+    def update(self):
+        print self.curStep
+        for n,_id in enumerate(self.nodeIds):
+            fullText = self.nodes[n][-1]
+            act = self.steps[self.curStep][n]
+            actStr = ('%5.4f' % act) if act != -1000.0 else '-'
+            m = re.search('^([a-zA-Z0-9]+) (\([^\)]+\)) (i=[0-9.-]+)?\s?([0-9.-]+)?\s?(c=[0-9.-]+)?', fullText)
+            if m:
+                nm, typ, i, initialAct, c = m.groups()
+                s = [nm]
+                if typ: s.append(typ)
+                if i: s.append(i)
+                s.append(actStr)
+                if c: s.append(c)
+                self.canvas.itemconfigure(_id, text=' '.join(s))
+            else:
+                # just use activation as entire label
+                self.canvas.itemconfigure(_id, text=actStr)
+
+    def left(self, event):
+        if self.curStep > 0:
+            self.curStep -= 1
+        self.update()
+
+    def right(self, event):
+        if self.curStep < len(self.steps)-1:
+            self.curStep += 1
+        self.update()
+
     def buildGraph(self):
         if self.tk is None:
             self.tk = Tk()
         c = Canvas(self.tk, width=self.graphWidth * self.scale, height=self.graphHeight * self.scale)
         c.pack()
+        nodeIds = []
         for name, x, y, w, h, label in self.nodes:
-            c.create_oval((x-w/2.)*self.scale, (y-h/2.)*self.scale, (x+w)*self.scale, (y+h)*self.scale, width=3)
+            c.create_oval((x-w/2.)*self.scale, (y-h/2.)*self.scale, (x+w/2.)*self.scale, (y+h/2.)*self.scale, width=3)
+            nodeIds.append(c.create_text(x*self.scale, y*self.scale, text=label))
+        self.nodeIds = nodeIds
         for src, dst, n, coords in self.edges:
             scaledCoords = [x*self.scale for x in coords]
             c.create_line(*scaledCoords, smooth=1, width=2, arrow=LAST, arrowshape=(15,20,10))
+        c.bind_all('<Left>', self.left)
+        c.bind_all('<Right>', self.right)
+        self.canvas = c
+        self.curStep = 0
 
 # ----------------------------------------------------------------------------
 
@@ -258,7 +296,7 @@ class Runner(object):
         buf = StringIO()
         sa.sa(self.world, org.genotype, buf)
         simResults = buf.getvalue()
-        SASim(graphData, simResults)
+        SASim(graphData, self.world.sa_timesteps, simResults)
 
     def cmdPrint(self):
         o = self.selectedOrg
