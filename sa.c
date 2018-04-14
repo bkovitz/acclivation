@@ -941,12 +941,12 @@ void init_activations(Genotype *g, double *activations) {
   }
 }
 
-void print_all_activations(Genotype *g, double *activations) {
+void print_all_activations(FILE *f, Genotype *g, double *activations) {
   for (int n = 0; n < g->num_nodes; n++) {
     if (g->nodes[n].in_use)
-      printf("%.16f ", activations[n]);
+      fprintf(f, "%.16f ", activations[n]);
   }
-  printf("\n");
+  fprintf(f, "\n");
 }
 
 double node_output(Node *node, double activation) {
@@ -989,7 +989,11 @@ double control_value(double input) {
   return exp(2.0 * input);
 }
 
-void sa(Genotype *g, int timesteps, double decay, double spreading_rate) {
+//void sa(Genotype *g, int timesteps, double decay, double spreading_rate) {
+void sa(World *w, Genotype *g, FILE *outf) {
+  int timesteps = w->sa_timesteps;
+  double decay = w->decay;
+  double spreading_rate = w->spreading_rate;
   //Genotype *g = o->genotype;
 
   // TODO refactor/simplify
@@ -1000,8 +1004,10 @@ void sa(Genotype *g, int timesteps, double decay, double spreading_rate) {
   double incoming_activations[g->num_nodes];
   double next_controls[g->num_nodes];
 
-  if (verbose)
-    print_all_activations(g, activations);
+  if (outf) {
+    fputs("initial: ", outf);
+    print_all_activations(outf, g, activations);
+  }
 
   for (int timestep = 1; timestep <= timesteps; timestep++) {
     // Initialize incoming_activations and next_controls for this timestep
@@ -1064,9 +1070,9 @@ void sa(Genotype *g, int timesteps, double decay, double spreading_rate) {
       }
     }
 
-    if (verbose) {
-      puts("incoming:");
-      print_all_activations(g, incoming_activations);
+    if (outf) {
+      fputs("incoming: ", outf);
+      print_all_activations(outf, g, incoming_activations);
     }
 
     // Load activations[] from incoming_activations[]
@@ -1097,11 +1103,11 @@ void sa(Genotype *g, int timesteps, double decay, double spreading_rate) {
             case SIGMOID:
               {
                 double slope = 6.0 * node->control;
-                if (verbose > 2) {
-                  printf("activations[%d] = %.16lf\n", n, activations[n]);
-                  printf("steep_sigmoid(%.16lf, 0.0, %.16lf) = %.16lf\n",
-                    x, slope, steep_sigmoid(x, 0.0, slope));
-                }
+                //if (verbose > 2) {
+                  //printf("activations[%d] = %.16lf\n", n, activations[n]);
+                  //printf("steep_sigmoid(%.16lf, 0.0, %.16lf) = %.16lf\n",
+                    //x, slope, steep_sigmoid(x, 0.0, slope));
+                //}
                 activations[n] = clamp(
                   a + steep_sigmoid(x, 0.0, slope));
                   //activations[n] + steep_sigmoid(x, node->control, slope));
@@ -1111,9 +1117,11 @@ void sa(Genotype *g, int timesteps, double decay, double spreading_rate) {
         }
       }
     }
-    if (verbose >= 9) {
-      printf("timestep: %d\n", timestep);
-      print_all_activations(g, activations);
+    //if (verbose >= 9) {
+    if (outf) {
+      fprintf(outf, "timestep: %d\n", timestep);
+      fputs("final: ", outf);
+      print_all_activations(outf, g, activations);
     }
   }
 
@@ -1137,7 +1145,8 @@ void sanity_check(World *w);
 void set_phenotypes_and_fitnesses(World *w) {
   for (int n = 0; n < w->num_organisms; n++) {
     Organism *o = w->organisms[n];
-    sa(o->genotype, w->sa_timesteps, w->decay, w->spreading_rate);
+    //sa(o->genotype, w->sa_timesteps, w->decay, w->spreading_rate);
+    sa(w, o->genotype, verbose ? stdout : NULL);
     if (debug)
       sanity_check(w);
 //    if (dot)
@@ -1529,7 +1538,8 @@ void dump_organism_fitness_nbhd(World *w, Organism *original) {
     for (double dy = -m * w->knob_constant; dy <= m * w->knob_constant; dy += w->knob_constant) {
       g->nodes[0].initial_activation = original->genotype->nodes[0].initial_activation + dx;
       g->nodes[1].initial_activation = original->genotype->nodes[1].initial_activation + dy;
-      sa(o->genotype, w->sa_timesteps, w->decay, w->spreading_rate);
+      //sa(o->genotype, w->sa_timesteps, w->decay, w->spreading_rate);
+      sa(w, o->genotype, verbose ? stdout : NULL);
       o->fitness = w->genotype_fitness_func(w, o->genotype);
       printf("  % lf % lf % .16lf % .16lf % lf\n",
         dx,
@@ -1567,7 +1577,7 @@ typedef struct {
 } HILL_CLIMBING_RESULT;
 
 //HILL_CLIMBING_RESULT climb_hill(World *w, Organism *o) {
-//  sa(o->genotype, w->sa_timesteps, w->decay, w->spreading_rate);
+//  sa(w, o->genotype, verbose ? stdout : NULL);
 //  o->fitness = w->genotype_fitness_func(w, o->genotype);
 //
 //  const double starting_fitness = o->fitness;
@@ -1586,7 +1596,7 @@ typedef struct {
 //      candidates[i] = copy_organism(o);
 //      Organism *candidate = candidates[i];
 //      nudge_candidate(candidate, i >> 1, (i & 1) ? nudge_amount : -nudge_amount);
-//      sa(candidate->genotype, w->sa_timesteps, w->decay, w->spreading_rate);
+//      sa(w, candidate->genotype, verbose ? stdout : NULL);
 //      candidate->fitness = w->genotype_fitness_func(w, candidate->genotype);
 //      //printf("candidate %d fitness = %lf\n", i, candidate->fitness);
 //      //print_phenotype(candidate->genotype);
@@ -1801,7 +1811,8 @@ double measure_coverage(World *w, Genotype *test_g) {
   for (double x = -1.0; x <= 1.0; x += 2 * w->knob_constant) {
     for (double y = -1.0; y <= 1.0; y += 2 * w->knob_constant) {
       set_gvector(g, x, y);
-      sa(g, w->sa_timesteps, w->decay, w->spreading_rate);
+      //sa(g, w->sa_timesteps, w->decay, w->spreading_rate);
+      sa(w, g, verbose ? stdout : NULL);
       int ix = x2i(w, g->nodes[w->num_in].final_output);
       int iy = x2i(w, g->nodes[w->num_in + 1].final_output);
       cover_coord(w->ridge_coords, ix, iy);
@@ -1948,7 +1959,8 @@ void dump_virtual_fitness_func(World *w) {
       set_gvector(g, g1, g2);
 //      o->genotype->nodes[0].initial_activation = g1;
 //      o->genotype->nodes[1].initial_activation = g2;
-      sa(o->genotype, w->sa_timesteps, w->decay, w->spreading_rate);
+      //sa(o->genotype, w->sa_timesteps, w->decay, w->spreading_rate);
+      sa(w, o->genotype, verbose ? stdout : NULL);
       o->fitness = w->genotype_fitness_func(w, o->genotype) + cov_reward;
       printf("%lf %lf %lf %lf %lf\n",
         g1,
@@ -2723,7 +2735,12 @@ void sa_test() {
   //Organism o = { &genotype, 0.0 };
   
   verbose = 9;
-  sa(&genotype, 13, 1.0, 1.0);
+  World *w = create_world();
+  w->sa_timesteps = 13;
+  w->decay = 1.0;
+  w->spreading_rate = 1.0;
+  //sa(&genotype, 13, 1.0, 1.0);
+  sa(w, &genotype, stdout);
 }
 
 void sa_test2() {
@@ -2747,7 +2764,12 @@ void sa_test2() {
   //Organism o = { &genotype, 0.0 };
   
   verbose = 9;
-  sa(&genotype, 20, 1.0, 0.01);
+  World *w = create_world();
+  w->sa_timesteps = 20;
+  w->decay = 1.0;
+  w->spreading_rate = 0.01;
+  //sa(&genotype, 20, 1.0, 0.01);
+  sa(w, &genotype, stdout);
 }
 
 void dump_phenotype_fitness() {
