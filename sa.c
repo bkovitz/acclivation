@@ -2002,114 +2002,114 @@ void dump_phenotype_fitness_func(World *w) {
   fflush(stdout);
 }
 
-void print_world_params(World *w) {
-  printf("w->seed=%u;\n", w->seed);
-  printf("w->run=%d;\n", w->run);
-  printf("w->param_set=%d;\n", w->param_set);
-  putchar('\n');
-  puts("// Fitness");
-  printf("w->ridge_type=");
+void print_world_params(World *w, FILE *outf) {
+  fprintf(outf, "w->seed=%u;\n", w->seed);
+  fprintf(outf, "w->run=%d;\n", w->run);
+  fprintf(outf, "w->param_set=%d;\n", w->param_set);
+  fputc('\n', outf);
+  fputs("// Fitness", outf);
+  fprintf(outf, "w->ridge_type=");
   switch (w->ridge_type) {
     case LINE:
-      printf("LINE;\n");
+      fprintf(outf, "LINE;\n");
       break;
     case CIRCLE:
-      printf("CIRCLE;\n");
+      fprintf(outf, "CIRCLE;\n");
       break;
     default:
       assert(false);
       break;
   }
-  printf("w->bumps=%s;\n", w->bumps ? "true" : "false");
-  printf("w->ridge_radius=%lf;\n", w->ridge_radius);
-  printf("w->c2=%lf; w->c3=%lf;\n", w->c2, w->c3);
-  printf("w->c1_lb=%lf; w->c1_ub=%lf;\n", w->c1_lb, w->c1_ub);
-  printf("w->distance_weight=%lf;\n", w->distance_weight);
-  printf("w->peak_movement=");
+  fprintf(outf, "w->bumps=%s;\n", w->bumps ? "true" : "false");
+  fprintf(outf, "w->ridge_radius=%lf;\n", w->ridge_radius);
+  fprintf(outf, "w->c2=%lf; w->c3=%lf;\n", w->c2, w->c3);
+  fprintf(outf, "w->c1_lb=%lf; w->c1_ub=%lf;\n", w->c1_lb, w->c1_ub);
+  fprintf(outf, "w->distance_weight=%lf;\n", w->distance_weight);
+  fprintf(outf, "w->peak_movement=");
   switch (w->peak_movement) {
   case JUMPY_PEAK_MOVEMENT:
-    printf("JUMPY_PEAK_MOVEMENT;\n");
+    fprintf(outf, "JUMPY_PEAK_MOVEMENT;\n");
     break;
   case GRADUAL_PEAK_MOVEMENT:
-    printf("GRADUAL_PEAK_MOVEMENT;\n");
+    fprintf(outf, "GRADUAL_PEAK_MOVEMENT;\n");
     break;
   default:
     assert(false);
   }
-  printf("w->reward_coverage=%s;\n", w->reward_coverage ? "true" : "false");
-  putchar('\n');
-  puts("// gvector");
-  printf("w->knob_type=%d;\n", w->knob_type);
-  printf("w->knob_constant=%lf;\n", w->knob_constant);
-  putchar('\n');
-  puts("// Spreading activation");
-  printf("w->sa_timesteps=%d;\n", w->sa_timesteps);
-  printf("w->spreading_rate=%lf;\n", w->spreading_rate);
-  printf("w->decay=%lf;\n", w->decay);
-  printf("w->initial_activation_type=%s;\n",
+  fprintf(outf, "w->reward_coverage=%s;\n", w->reward_coverage ? "true" : "false");
+  fputc('\n', outf);
+  fputs("// gvector", outf);
+  fprintf(outf, "w->knob_type=%d;\n", w->knob_type);
+  fprintf(outf, "w->knob_constant=%lf;\n", w->knob_constant);
+  fputc('\n', outf);
+  fputs("// Spreading activation", outf);
+  fprintf(outf, "w->sa_timesteps=%d;\n", w->sa_timesteps);
+  fprintf(outf, "w->spreading_rate=%lf;\n", w->spreading_rate);
+  fprintf(outf, "w->decay=%lf;\n", w->decay);
+  fprintf(outf, "w->initial_activation_type=%s;\n",
       initial_activation_type_string(w->initial_activation_type));
-  printf("w->input_accs=%s;\n", input_accs_string(w->input_accs));
-  printf("w->activation_types=%s;\n",
+  fprintf(outf, "w->input_accs=%s;\n", input_accs_string(w->input_accs));
+  fprintf(outf, "w->activation_types=%s;\n",
       activation_types_string(w->activation_types));
-  printf("w->output_types=");
+  fprintf(outf, "w->output_types=");
   switch (w->output_types) {
     case ONLY_PASS_THROUGH:
-      puts("ONLY_PASS_THROUGH;");
+      fputs("ONLY_PASS_THROUGH;", outf);
       break;
     case PASS_THROUGH_AND_STEEP_SIGMOID:
-      puts("PASS_THROUGH_AND_STEEP_SIGMOID;");
+      fputs("PASS_THROUGH_AND_STEEP_SIGMOID;", outf);
       break;
     case PASS_THROUGH_AND_TWO_STEP:
-      puts("PASS_THROUGH_AND_TWO_STEP;");
+      fputs("PASS_THROUGH_AND_TWO_STEP;", outf);
       break;
     default:
       assert(false);
   }
-  printf("w->control_update=%s;\n", control_update_string(w->control_update));
-  printf("w->control_increment=%lf;\n", w->control_increment);
-  putchar('\n');
-  puts("// Mutation and crossover");
-  printf("w->mutation_type_ub=%d;\n", w->mutation_type_ub);
-  printf("w->extra_mutation_rate=%lf;\n", w->extra_mutation_rate);
-  printf("w->crossover_freq=%lf;\n", w->crossover_freq);
-  putchar('\n');
-  puts("// Edge inheritance");
-  printf("w->edge_inheritance=");
+  fprintf(outf, "w->control_update=%s;\n", control_update_string(w->control_update));
+  fprintf(outf, "w->control_increment=%lf;\n", w->control_increment);
+  fputc('\n', outf);
+  fputs("// Mutation and crossover", outf);
+  fprintf(outf, "w->mutation_type_ub=%d;\n", w->mutation_type_ub);
+  fprintf(outf, "w->extra_mutation_rate=%lf;\n", w->extra_mutation_rate);
+  fprintf(outf, "w->crossover_freq=%lf;\n", w->crossover_freq);
+  fputc('\n', outf);
+  fputs("// Edge inheritance", outf);
+  fprintf(outf, "w->edge_inheritance=");
   switch (w->edge_inheritance) {
     case NO_EDGES_ACROSS_PARENTS:
-      printf("NO_EDGES_ACROSS_PARENTS");
+      fprintf(outf, "NO_EDGES_ACROSS_PARENTS");
       break;
     case INHERIT_SRC_EDGES_FROM_MOMMY:
-      printf("INHERIT_SRC_EDGES_FROM_MOMMY");
+      fprintf(outf, "INHERIT_SRC_EDGES_FROM_MOMMY");
       break;
     case INHERIT_SRC_EDGES_FROM_BOTH_PARENTS:
-      printf("INHERIT_SRC_EDGES_FROM_BOTH_PARENTS");
+      fprintf(outf, "INHERIT_SRC_EDGES_FROM_BOTH_PARENTS");
       break;
     case INHERIT_HALF_OF_CROSSOVER_EDGES:
-      printf("INHERIT_HALF_OF_CROSSOVER_EDGES");
+      fprintf(outf, "INHERIT_HALF_OF_CROSSOVER_EDGES");
       break;
     case INHERIT_HALF_OF_ALL_EDGES:
-      printf("INHERIT_HALF_OF_ALL_EDGES");
+      fprintf(outf, "INHERIT_HALF_OF_ALL_EDGES");
       break;
     case INHERIT_ALL_EDGES:
-      printf("INHERIT_ALL_EDGES");
+      fprintf(outf, "INHERIT_ALL_EDGES");
       break;
   }
-  puts(";");
-  printf("w->edge_weights=%s;\n", edge_weights_string(w->edge_weights));
-  printf("w->multi_edges=%s;\n", w->multi_edges ? "true" : "false");
-  printf("w->allow_move_edge=%s;\n", w->allow_move_edge ? "true" : "false");
-  putchar('\n');
-  puts("// Overall run parameters");
-  printf("w->num_epochs=%d;\n", w->num_epochs);
-  printf("w->generations_per_epoch=%d;\n", w->generations_per_epoch);
-  printf("w->num_organisms=%d;\n", w->num_organisms);
-  printf("w->num_candidates=%d;\n", w->num_candidates);
-  printf("w->num_nodes=%d;\n", w->num_nodes);
-  printf("w->num_edges=%d;\n", w->num_edges);
-  putchar('\n');
-  printf("w->num_hill_climbers=%d;\n", w->num_hill_climbers);
-  fflush(stdout);
+  fputs(";", outf);
+  fprintf(outf, "w->edge_weights=%s;\n", edge_weights_string(w->edge_weights));
+  fprintf(outf, "w->multi_edges=%s;\n", w->multi_edges ? "true" : "false");
+  fprintf(outf, "w->allow_move_edge=%s;\n", w->allow_move_edge ? "true" : "false");
+  fputc('\n', outf);
+  fputs("// Overall run parameters", outf);
+  fprintf(outf, "w->num_epochs=%d;\n", w->num_epochs);
+  fprintf(outf, "w->generations_per_epoch=%d;\n", w->generations_per_epoch);
+  fprintf(outf, "w->num_organisms=%d;\n", w->num_organisms);
+  fprintf(outf, "w->num_candidates=%d;\n", w->num_candidates);
+  fprintf(outf, "w->num_nodes=%d;\n", w->num_nodes);
+  fprintf(outf, "w->num_edges=%d;\n", w->num_edges);
+  fputc('\n', outf);
+  fprintf(outf, "w->num_hill_climbers=%d;\n", w->num_hill_climbers);
+  fflush(outf);
 }
 
 void print_acclivity_measures_of_best(World *w) {
@@ -2136,7 +2136,7 @@ void run_world(World *w) {
   w->c1 = 0.5;
   change_fitness_constants(w);
   set_ridge_coords(w);
-  print_world_params(w);
+  print_world_params(w, stdout);
 
   log_preamble(w);
 
@@ -2777,7 +2777,7 @@ void dump_phenotype_fitness() {
   w->num_organisms = 40;
   w->ridge_radius=0.200000;
   w->c2=1.000000; w->c3=0.000000;
-  print_world_params(w);
+  print_world_params(w, stdout);
   dump_phenotype_fitness_func(w);
 }
 

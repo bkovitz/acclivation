@@ -249,7 +249,8 @@ class Runner(object):
         }
         readline.parse_and_bind('tab: complete')
         self.loadHistory()
-        readline.set_completer(self.makeCompleter(self.commands))
+        readline.set_completer(self.makeCompleter(self.commands,
+            self.getWorldParams()))
 
     @staticmethod
     def loadHistory():
@@ -262,7 +263,7 @@ class Runner(object):
         atexit.register(readline.write_history_file, histfile)
 
     @staticmethod
-    def makeCompleter(commands):
+    def makeCompleter(commands, worldParams):
         def customCompleter(text, state):
             linebuf = readline.get_line_buffer()
             parts = linebuf.split()
@@ -271,7 +272,10 @@ class Runner(object):
                 parts.append('')
             if len(parts) < 2:
                 matches = [w + ' ' for w in commands.keys()
-                           if w.startswith(text)] + [None]
+                           if w.startswith(text)] \
+                        + [p for p in worldParams
+                           if p.startswith(text)] \
+                        + [None]
             else:
                 command = parts[0]
                 matches = []
@@ -291,6 +295,17 @@ class Runner(object):
                 for o, organism in enumerate(generation):
                     orgMap[(e+1, g+1, o)] = organism
         self.orgMap = orgMap
+
+    def getWorldParams(self):
+        buf = StringIO()
+        sa.print_world_params(self.world, buf)
+        worldParamsStr = buf.getvalue()
+        worldParams = set()
+        for line in worldParamsStr.split('\n'):
+            if line.startswith('w->'):
+                param = line[len('w->'):].split('=')[0]
+                worldParams.add('w.' + param + '=')
+        return worldParams
 
     def cmdQuit(self):
         sys.exit(0)
@@ -354,11 +369,19 @@ class Runner(object):
         pass
 
     def cmdWorld(self):
-        sa.print_world_params(self.world)
+        sa.print_world_params(self.world, sys.stdout)
+
+    def cmdSetWorld(self, cmd):
+        try:
+            w = self.world
+            exec(cmd)
+        except Exception, e:
+            print e
 
     def cmdHelp(self):
         for name, command in self.commands.items():
             self.printHelp(name, command.help)
+        self.printHelp('w.<param name>=<value>', 'change world parameter')
 
     def printHelp(self, command, help):
         print '%s\t- %s' % (command, help)
@@ -400,6 +423,8 @@ class Runner(object):
                             if not gotit:
                                 self.printHelp(
                                     command, self.commands[command].help)
+                elif command.startswith('w.'):
+                    self.cmdSetWorld(command)
                 else:
                     print '?'
         except (EOFError, KeyboardInterrupt) as e:
