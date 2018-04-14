@@ -8,20 +8,25 @@ import os
 
 from cStringIO import StringIO
 from graphviz import Source
-from Tkinter import Tk, Canvas, mainloop, LAST
+from Tkinter import Tk, Frame, Scrollbar, Canvas, mainloop, LAST, ALL, \
+    HORIZONTAL, VERTICAL, BOTTOM, TOP, X, Y, BOTH, LEFT, RIGHT, YES
 
 # ----------------------------------------------------------------------------
 
 class SASim(object):
-    # - scrollbars and correct sizing (+/- keys for zoom?)
+    # - maybe add some text tag to edges?
+    # - maybe click to see history of a node's activations? outputs?
     # - any (easy) way to make arrows reach 'to' node?
-    tk = None
+    root = None
     def __init__(self, graphData, numSteps, simResults):
+        self.scale = 90.
+        self.margin = 40
+        self.halfMargin = self.margin / 2.
         self.parseGraphData(graphData)
-        self.buildGraph()
+        self.buildDisplay()
         self.parseSimResults(numSteps, simResults)
         self.update()
-        mainloop()
+        self.root.mainloop()
 
     def parseSimResults(self, numSteps, simResults):
         steps = []
@@ -37,7 +42,6 @@ class SASim(object):
         return self.graphHeight - y
 
     def parseGraphData(self, graphData):
-        self.scale = 100.
         nodes = []
         edges = []
         for line in graphData.split('\n'):
@@ -61,7 +65,6 @@ class SASim(object):
         self.edges = edges
 
     def update(self):
-        print self.curStep
         for n,_id in enumerate(self.nodeIds):
             fullText = self.nodes[n][-1]
             act = self.steps[self.curStep][n]
@@ -76,34 +79,55 @@ class SASim(object):
                 if c: s.append(c)
                 self.canvas.itemconfigure(_id, text=' '.join(s))
             else:
-                # just use activation as entire label
+                # unrecognized format: just use activation as entire label
                 self.canvas.itemconfigure(_id, text=actStr)
 
     def left(self, event):
         if self.curStep > 0:
             self.curStep -= 1
+            print self.curStep
         self.update()
 
     def right(self, event):
         if self.curStep < len(self.steps)-1:
             self.curStep += 1
+            print self.curStep
         self.update()
 
-    def buildGraph(self):
-        if self.tk is None:
-            self.tk = Tk()
-        c = Canvas(self.tk, width=self.graphWidth * self.scale, height=self.graphHeight * self.scale)
-        c.pack()
+    def buildDisplay(self):
+        if self.root is None:
+            self.root = Tk()
+        winWidth = 1000
+        winHeight = 400
+        frame = Frame(self.root, width=winWidth, height=winHeight)
+        frame.pack(expand=YES, fill=BOTH)
+
+        canvasWidth = int(self.graphWidth * self.scale + self.margin)
+        canvasHeight = int(self.graphHeight * self.scale + self.margin)
+        c = Canvas(frame, width=winWidth, height=winHeight, scrollregion=(0, 0, canvasWidth, canvasHeight))
+
+        hbar = Scrollbar(frame, orient=HORIZONTAL)
+        hbar.pack(side=BOTTOM, fill=X)
+        hbar.config(command=c.xview)
+        vbar = Scrollbar(frame, orient=VERTICAL)
+        vbar.pack(side=RIGHT, fill=Y)
+        vbar.config(command=c.yview)
+
+        c.config(xscrollcommand=hbar.set, yscrollcommand=vbar.set)
+        c.pack(side=LEFT, expand=YES, fill=BOTH)
+
         nodeIds = []
+        m = self.halfMargin
         for name, x, y, w, h, label in self.nodes:
-            c.create_oval((x-w/2.)*self.scale, (y-h/2.)*self.scale, (x+w/2.)*self.scale, (y+h/2.)*self.scale, width=3)
-            nodeIds.append(c.create_text(x*self.scale, y*self.scale, text=label))
+            c.create_oval(m + (x-w/2.)*self.scale, m + (y-h/2.)*self.scale, m + (x+w/2.)*self.scale, m + (y+h/2.)*self.scale, width=3)
+            nodeIds.append(c.create_text(m + x*self.scale, m + y*self.scale, text=label))
         self.nodeIds = nodeIds
         for src, dst, n, coords in self.edges:
-            scaledCoords = [x*self.scale for x in coords]
+            scaledCoords = [m + x*self.scale for x in coords]
             c.create_line(*scaledCoords, smooth=1, width=2, arrow=LAST, arrowshape=(15,20,10))
         c.bind_all('<Left>', self.left)
         c.bind_all('<Right>', self.right)
+        #c.config(scrollregion=c.bbox(ALL))
         self.canvas = c
         self.curStep = 0
 
