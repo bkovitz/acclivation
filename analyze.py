@@ -352,7 +352,19 @@ class Runner(object):
         pass
 
     def cmdPlot(self, typ):
-        print 'plot', typ
+        # delay import because it takes several seconds
+        from plot_xyz import plot, parse
+        if typ == 'pfitness':
+            buf = StringIO()
+            sa.dump_phenotype_fitness_func(self.world, False, buf)
+            csv = buf.getvalue()
+            X, Y, Z = parse(csv, 0, 1, 2)
+        elif typ == 'vfitness':
+            buf = StringIO()
+            sa.dump_organism_virtual_fitness_func(self.world, self.selectedOrg, False, buf)
+            csv = buf.getvalue()
+            X, Y, Z = parse(csv, 0, 1, 4)
+        plot(X, Y, Z, False)
 
     def cmdDot(self):
         buf = StringIO()

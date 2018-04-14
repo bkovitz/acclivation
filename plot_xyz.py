@@ -8,17 +8,20 @@ from math import sqrt
 from matplotlib import cm
 from mpl_toolkits.mplot3d import Axes3D
 
-def read(filename, x_col, y_col, z_col):
+def parse(lines, x_col, y_col, z_col):
   X = []
   Y = []
   Z = []
-  with open(filename, 'r') as csvfile:
-    virt_func = csv.reader(csvfile, delimiter=' ')
-    for row in virt_func:
-      X.append(float(row[x_col]))
-      Y.append(float(row[y_col]))
-      Z.append(float(row[z_col]))
+  virt_func = csv.reader(lines.splitlines(), delimiter=' ')
+  for row in virt_func:
+    X.append(float(row[x_col]))
+    Y.append(float(row[y_col]))
+    Z.append(float(row[z_col]))
   return np.array(X), np.array(Y), np.array(Z)
+
+def read(filename, x_col, y_col, z_col):
+  with open(filename, 'r') as csvfile:
+    return parse(csvfile.read())
 
 def plot(X, Y, Z, scatter):
   fig = plt.figure()
