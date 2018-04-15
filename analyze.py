@@ -319,8 +319,9 @@ class Runner(object):
     def cmdSa(self):
         w = self.world
         o = self.selectedOrg
-        sa.sa(o, w.sa_timesteps, w.decay, w.spreading_rate)
-        print sa.phenotype_fitness(w, o.genotype) # can't use phenotype_fitness_func yet
+        buf = StringIO()
+        sa.sa(w, o.genotype, buf)
+        print sa.organism_phenotype_fitness(w, o.genotype) # can't use phenotype_fitness_func yet
 
     def cmdSim(self):
         # graph data

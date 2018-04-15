@@ -2253,6 +2253,12 @@ void fill_phenotype_from_genotype(Genotype *g, double *phenotype) {
     phenotype[i] = g->nodes[g->num_in + i].final_output;
 }
 
+double organism_phenotype_fitness(World *w, Genotype *g) {
+  double ph[g->num_out];
+  fill_phenotype_from_genotype(g, ph);
+  return phenotype_fitness(w, ph);
+}
+
 // phenotype -> array of 2 doubles
 double phenotype_fitness(World *w, const double *phenotype) {
   if (verbose >= 2) {
