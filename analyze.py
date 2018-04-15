@@ -234,6 +234,7 @@ class Runner(object):
             'sa': Command('run sa on current organism with current world params', {}),
             'saplot': Command('plot node activations by timestep', {}),
             'print': Command('print current organism info', {}),
+            'printc': Command('print c code for current organism', {}),
             'parent': Command('select parent of current organism', {}),
             'child': Command('select child of current organism', {}),
             'dot': Command('print current organism dot', {}),
@@ -325,7 +326,7 @@ class Runner(object):
         o = self.selectedOrg
         buf = StringIO()
         sa.sa(w, o.genotype, buf)
-        print sa.organism_phenotype_fitness(w, o.genotype) # can't use phenotype_fitness_func yet
+        print sa.genotype_fitness(w, o.genotype) # can't use phenotype_fitness_func yet
 
     def cmdSim(self):
         # graph data
@@ -363,8 +364,13 @@ class Runner(object):
         print self.selectedStr()
         print 'fitness =', o.fitness
         print 'from_turned_knob =', o.from_turned_knob
-        print 'num_nodes =', o.genotype.num_nodes
+        print 'num_nodes_in_use =', o.genotype.num_nodes_in_use
         print 'num_edges =', o.genotype.num_edges
+
+    def cmdPrintc(self):
+        buf = StringIO()
+        sa.print_genotype_c(self.selectedOrg.genotype, buf)
+        print buf.getvalue()
 
     def cmdParent(self):
         pass

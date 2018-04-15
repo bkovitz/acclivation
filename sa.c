@@ -1568,6 +1568,26 @@ void print_generation_results(World *w) {
   }
 }
 
+void print_genotype_c(Genotype *g, FILE *outf) {
+  fprintf(outf, "Node nodes[%d] = {\n", g->num_nodes);
+  for (int i = 0; i < g->num_nodes; i++) {
+    Node *n = &g->nodes[i];
+    fprintf(outf, "  { %s, %.16lf, %.16lf, %.16lf, %.16lf, %d, %d, %d, %d, %d },\n",
+        boolstr(n->in_use),
+        n->initial_activation, n->final_output, n->final_activation, n->control,
+        n->input_acc, n->activation_type, n->output_type, n->control_update,
+        n->initial_activation_type);
+  }
+  fprintf(outf, "};\nEdges edges[%d] = {\n", g->num_edges);
+  for (int i = 0; i < g->num_edges; i++) {
+    Edge *e = &g->edges[i];
+    fprintf(outf, "  { %d, %d, %.16lf },\n",
+        e->src, e->dst, e->weight);
+  }
+  fprintf(outf, "};\nGenotype g = { nodes, edges, %d, %d, %d, %d, %d };\n",
+      g->num_nodes, g->num_nodes_in_use, g->num_edges, g->num_in, g->num_out);
+}
+
 void dump_organism_fitness_nbhd(World *w, Organism *original) {
   double m = 2;
   Organism *o = copy_organism(original);
@@ -2292,12 +2312,6 @@ void fill_phenotype_from_genotype(Genotype *g, double *phenotype) {
     phenotype[i] = g->nodes[g->num_in + i].final_output;
 }
 
-double organism_phenotype_fitness(World *w, Genotype *g) {
-  double ph[g->num_out];
-  fill_phenotype_from_genotype(g, ph);
-  return phenotype_fitness(w, ph);
-}
-
 // phenotype -> array of 2 doubles
 double phenotype_fitness(World *w, const double *phenotype) {
   if (verbose >= 2) {
@@ -2603,7 +2617,8 @@ void mut_alter_output_type(World *w, Organism *o) {
 void mut_turn_control(World *w, Organism *o) {
   Genotype *g = o->genotype;
   Node *node = &g->nodes[select_in_use_node(g)];
-  node->control += clamp(sample_normal(w->control_increment));
+  //node->control += clamp(sample_normal(w->control_increment));
+  node->control = clamp(node->control + sample_normal(w->control_increment));
   log_mutation(w, "turn_control");
 }
 

@@ -18,4 +18,6 @@ double calculate_coverage(COORD_SET cset);
 bool has_coord(COORD_SET cset, int x, int y);
 bool is_covered(COORD_SET cset, int x, int y);
 
+const char *boolstr(bool b);
+
 #endif // COORDSET_INCLUDED
