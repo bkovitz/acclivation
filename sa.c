@@ -526,10 +526,40 @@ void print_phenotype(Genotype *g) {
 
 // -- organism ---------------------------------------------------------------
 
+typedef enum {
+  CROSSOVER,
+  MUTATION
+} BIRTH_TYPE;
+
+typedef struct {
+  int epoch;
+  int generation;
+  int org_index;
+} ORGANISM_ID;
+
+typedef struct {
+  ORGANISM_ID mom;
+  ORGANISM_ID dad;
+  double crossover_frac;
+} CROSSOVER_INFO;
+
+typedef struct {
+  ORGANISM_ID parent;
+} MUTATION_INFO;
+
+typedef struct {
+  BIRTH_TYPE type;
+  union {
+    CROSSOVER_INFO crossover_info;
+    MUTATION_INFO mutation_info;
+  };
+} BIRTH_INFO;
+
 typedef struct {
   Genotype *genotype;
   double fitness;
   bool from_turned_knob;
+  BIRTH_INFO birth_info;
 } Organism;
 
 /*void init_organism(Organism *o, Genotype *g) {
@@ -1434,7 +1464,16 @@ void log_mutation_end(World *w) {
   }
 }
 
-void log_crossover(World *w, int mommy, int daddy, int child) {
+void set_crossover_info(World *w, Organism *baby, int mom_index, int dad_index, double crossover_frac) {
+  baby->birth_info.type = CROSSOVER;
+  baby->birth_info.crossover_info.crossover_frac = crossover_frac;
+  ORGANISM_ID id = { maybe_prev_epoch(w), prev_generation(w), mom_index };
+  baby->birth_info.crossover_info.mom = id;
+  id.org_index = dad_index;
+  baby->birth_info.crossover_info.dad = id;
+}
+
+/*void log_crossover(World *w, int mommy, int daddy, int child) {
   //if (w->log) {
   if (false) {
     fprintf(w->log, "crossover %d,%d,%d %d,%d,%d %d,%d,%d\n",
@@ -1448,7 +1487,7 @@ void log_crossover(World *w, int mommy, int daddy, int child) {
       w->generation,
       child);
   }
-}
+}*/
 
 void dump_fitness_nbhd(World *w);
 
@@ -1460,7 +1499,7 @@ void run_generation(World *w) {
       int mommy = tournament_select(w);
       int daddy = tournament_select(w);
       new_population[p] = crossover(w, old_population[mommy], old_population[daddy]);
-      log_crossover(w, mommy, daddy, p);
+      //log_crossover(w, mommy, daddy, p);
     } else {
       int selected_organism = tournament_select(w);
       log_mutation_start(w, selected_organism, p);
@@ -2646,6 +2685,9 @@ Organism *crossover(World *w, Organism *m, Organism *d) {
   double crossover_frac = rand_float();
   int mommy_crossover_point = mommy->num_nodes * crossover_frac;
   int daddy_crossover_point = daddy->num_nodes * crossover_frac;
+
+  set_crossover_info(w, baby_o, m - *w->organisms, d - *w->organisms,
+      crossover_frac);
 
   int num_from_mommy = mommy_crossover_point;
   int num_from_daddy = daddy->num_nodes - daddy_crossover_point;
