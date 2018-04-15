@@ -13,6 +13,17 @@ from Tkinter import Tk, Frame, Scrollbar, Canvas, mainloop, LAST, ALL, \
 
 # ----------------------------------------------------------------------------
 
+def parseSimResults(simResults, numSteps, numNodes):
+    steps = []
+    for line in simResults.split('\n'):
+        if line.startswith('initial') or line.startswith('final'):
+            activations = [float(a) for a in re.findall('(?P<activation>[0-9.-]+)', line)]
+            assert(len(activations) == numNodes)
+            steps.append(activations)
+    assert(len(steps) == 1 + numSteps) # +1 for initial activation
+    return steps
+
+
 class SASim(object):
     # - maybe add some text tag to edges?
     # - maybe click to see history of a node's activations? outputs?
@@ -24,19 +35,9 @@ class SASim(object):
         self.halfMargin = self.margin / 2.
         self.parseGraphData(graphData)
         self.buildDisplay()
-        self.parseSimResults(numSteps, simResults)
+        self.steps = parseSimResults(simResults, numSteps, len(self.nodes))
         self.update()
         self.root.mainloop()
-
-    def parseSimResults(self, numSteps, simResults):
-        steps = []
-        for line in simResults.split('\n'):
-            if line.startswith('initial') or line.startswith('final'):
-                activations = [float(a) for a in re.findall('(?P<activation>[0-9.-]+)', line)]
-                assert(len(activations) == len(self.nodes))
-                steps.append(activations)
-        assert(len(steps) == 1 + numSteps) # +1 for initial activation
-        self.steps = steps
 
     def invertY(self, y):
         return self.graphHeight - y
@@ -231,6 +232,7 @@ class Runner(object):
                     SelectByOrganismArg(self),
                 }),
             'sa': Command('run sa on current organism with current world params', {}),
+            'saplot': Command('plot node activations by timestep', {}),
             'print': Command('print current organism info', {}),
             'parent': Command('select parent of current organism', {}),
             'child': Command('select child of current organism', {}),
@@ -338,6 +340,23 @@ class Runner(object):
         sa.sa(self.world, org.genotype, buf)
         simResults = buf.getvalue()
         SASim(graphData, self.world.sa_timesteps, simResults)
+
+    def cmdSaplot(self):
+        import numpy as np
+        import matplotlib.pyplot as plt
+        buf = StringIO()
+        w = self.world
+        org = self.selectedOrg
+        sa.sa(w, org.genotype, buf)
+        simResults = buf.getvalue()
+        steps = parseSimResults(simResults, w.sa_timesteps, org.genotype.num_nodes_in_use)
+        activationsByStep = np.array([np.array(step) for step in steps])
+        plt.figure(1, figsize=(10,2))
+        l = np.array(['n%d' % n for n in range(org.genotype.num_nodes_in_use)])
+        plt.plot(activationsByStep)
+        plt.ylim((-1.2,1.2))
+        plt.legend(l)
+        plt.show()
 
     def cmdPrint(self):
         o = self.selectedOrg
