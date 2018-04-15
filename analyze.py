@@ -314,7 +314,9 @@ class Runner(object):
             self.selectedOrg = self.orgMap[selection]
             self.selected = selection
         else:
-            print 'org?'
+            w = self.world
+            print 'org? <1-%d>.<1-%d>.<0-%d>' % \
+                    (w.num_epochs, w.generations_per_epoch, w.num_organisms-1)
 
     def cmdSa(self):
         w = self.world
