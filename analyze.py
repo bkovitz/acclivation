@@ -301,10 +301,9 @@ class Runner(object):
         sa.print_world_params(self.world, buf)
         worldParamsStr = buf.getvalue()
         worldParams = set()
-        for line in worldParamsStr.split('\n'):
-            if line.startswith('w->'):
-                param = line[len('w->'):].split('=')[0]
-                worldParams.add('w.' + param + '=')
+        parseNameVal = r'(?P<name>\w+) *= *(?P<value>[-+]?[a-zA-Z0-9_.]+)'
+        for (name, val) in re.findall(parseNameVal, worldParamsStr):
+            worldParams.add('w.' + name + '=')
         return worldParams
 
     def cmdQuit(self):
