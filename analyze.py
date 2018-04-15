@@ -371,7 +371,6 @@ class Runner(object):
         sa.print_dot(self.world, self.selectedOrg, buf)
         dot = buf.getvalue()
         g = Source(dot)
-        print g.pipe('plain')
         g.render(view=True)
 
     def cmdNeighborhood(self):

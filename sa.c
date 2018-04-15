@@ -2048,7 +2048,7 @@ void print_world_params(World *w, FILE *outf) {
   fprintf(outf, "w->run=%d;\n", w->run);
   fprintf(outf, "w->param_set=%d;\n", w->param_set);
   fputc('\n', outf);
-  fputs("// Fitness", outf);
+  fputs("// Fitness\n", outf);
   fprintf(outf, "w->ridge_type=");
   switch (w->ridge_type) {
     case LINE:
@@ -2079,11 +2079,11 @@ void print_world_params(World *w, FILE *outf) {
   }
   fprintf(outf, "w->reward_coverage=%s;\n", w->reward_coverage ? "true" : "false");
   fputc('\n', outf);
-  fputs("// gvector", outf);
+  fputs("// gvector\n", outf);
   fprintf(outf, "w->knob_type=%d;\n", w->knob_type);
   fprintf(outf, "w->knob_constant=%lf;\n", w->knob_constant);
   fputc('\n', outf);
-  fputs("// Spreading activation", outf);
+  fputs("// Spreading activation\n", outf);
   fprintf(outf, "w->sa_timesteps=%d;\n", w->sa_timesteps);
   fprintf(outf, "w->spreading_rate=%lf;\n", w->spreading_rate);
   fprintf(outf, "w->decay=%lf;\n", w->decay);
@@ -2109,12 +2109,12 @@ void print_world_params(World *w, FILE *outf) {
   fprintf(outf, "w->control_update=%s;\n", control_update_string(w->control_update));
   fprintf(outf, "w->control_increment=%lf;\n", w->control_increment);
   fputc('\n', outf);
-  fputs("// Mutation and crossover", outf);
+  fputs("// Mutation and crossover\n", outf);
   fprintf(outf, "w->mutation_type_ub=%d;\n", w->mutation_type_ub);
   fprintf(outf, "w->extra_mutation_rate=%lf;\n", w->extra_mutation_rate);
   fprintf(outf, "w->crossover_freq=%lf;\n", w->crossover_freq);
   fputc('\n', outf);
-  fputs("// Edge inheritance", outf);
+  fputs("// Edge inheritance\n", outf);
   fprintf(outf, "w->edge_inheritance=");
   switch (w->edge_inheritance) {
     case NO_EDGES_ACROSS_PARENTS:
@@ -2136,12 +2136,12 @@ void print_world_params(World *w, FILE *outf) {
       fprintf(outf, "INHERIT_ALL_EDGES");
       break;
   }
-  fputs(";", outf);
+  fputs(";\n", outf);
   fprintf(outf, "w->edge_weights=%s;\n", edge_weights_string(w->edge_weights));
   fprintf(outf, "w->multi_edges=%s;\n", w->multi_edges ? "true" : "false");
   fprintf(outf, "w->allow_move_edge=%s;\n", w->allow_move_edge ? "true" : "false");
   fputc('\n', outf);
-  fputs("// Overall run parameters", outf);
+  fputs("// Overall run parameters\n", outf);
   fprintf(outf, "w->num_epochs=%d;\n", w->num_epochs);
   fprintf(outf, "w->generations_per_epoch=%d;\n", w->generations_per_epoch);
   fprintf(outf, "w->num_organisms=%d;\n", w->num_organisms);

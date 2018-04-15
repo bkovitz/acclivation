@@ -83,7 +83,7 @@ GOOD_YXLINE_RUN = --num_epochs=120 --ridge_type=0 --bumps=0 --ridge_radius=0.2 \
 #This produces a respectable line down the middle on y=x with bumps
 OK_YXLINE_BUMPS = #Oops, wrong params
 
-all: sa
+all: sa swig
 
 $(PDFFILES): $(BIBFILES)
 %.pdf: %.tex
@@ -247,9 +247,16 @@ tom: sa
 
 swig: _sa.so
 
+MACH := $(shell uname)
+ifeq ($(MACH),Darwin)
+  EXTRA_WARN=""
+else
+  EXTRA_WARN="-Wno-maybe-uninitialized"
+endif
+
 _sa.so: sa.i sa.c Makefile
 	swig -python sa.i
-	CFLAGS="-std=gnu99 -Og -g -Wno-strict-prototypes -Wno-return-type -Wno-maybe-uninitialized -Wno-unused-variable" LDFLAGS="-lm" python setup_sa.py build_ext --inplace
+	CFLAGS="-std=gnu99 -Og -g -Wno-strict-prototypes -Wno-return-type $(EXTRA_WARN) -Wno-unused-variable" LDFLAGS="-lm" python setup_sa.py build_ext --inplace
 
 swig_clean:
 	rm -rf *.pyc *.so a.out* build sa_wrap.c* sa.py
