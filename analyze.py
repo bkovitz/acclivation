@@ -217,9 +217,13 @@ class SelectByOrganismArg(RegexArg):
 
 class Runner(object):
     def __init__(self, filename='ancestors'):
+        sys.stderr.write('loading..')
         self.runData = sa.load_ancestor_file(filename)
+        sys.stderr.write('done\n')
         self.world = self.runData.w
+        sys.stderr.write('mapping..')
         self.buildOrgMap()
+        sys.stderr.write('done\n')
         self.selected = (1, 1, 0)
         self.selectedOrg = self.orgMap[self.selected]
         self.commands = {
@@ -360,12 +364,8 @@ class Runner(object):
         plt.show()
 
     def cmdPrint(self):
-        o = self.selectedOrg
         print self.selectedStr()
-        print 'fitness =', o.fitness
-        print 'from_turned_knob =', o.from_turned_knob
-        print 'num_nodes_in_use =', o.genotype.num_nodes_in_use
-        print 'num_edges =', o.genotype.num_edges
+        sa.print_organism(self.selectedOrg)
 
     def cmdPrintc(self):
         buf = StringIO()

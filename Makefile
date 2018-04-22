@@ -38,7 +38,7 @@ X_ARGS = $(YXLINE) $(RESTRICTED) --bumps=1 \
 	--mutation_type_ub=10 --extra_mutation_rate=0.00 --crossover_freq=0.05 \
 	--multi_edges=0 --allow_move_edge=0 --edge_weights=0 --edge_inheritance=1 \
 	--log=ancestors \
-	--spreading_rate=0.05 --decay=0.9 #--seed=1043614093
+	--spreading_rate=0.05 --decay=0.9 --log=ancestors #--seed=1043614093
 
 #QUESTION: What happens to the winner here when you turn a knob? What happens
 #when you make single graph edits? Why is this graph stuck?
