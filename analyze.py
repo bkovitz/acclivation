@@ -27,6 +27,11 @@ def parseSimResults(simResults, numSteps, numNodes):
 class SASim(object):
     # - maybe add some text tag to edges?
     # - maybe click to see history of a node's activations? outputs?
+    # - simple way of editing graph
+    #   - add/rem node
+    #   - add/rem/move edge
+    #   - turn knob/control
+    #   - alter activation type, input acc, output type
     # - any (easy) way to make arrows reach 'to' node?
     root = None
     def __init__(self, graphData, numSteps, simResults):
@@ -212,6 +217,31 @@ class SelectByOrganismArg(RegexArg):
         return (epoch, generation, organism)
 
 
+class LineageArg(object):
+    def __init__(self, runner, relMap):
+        self.runner = runner
+        self.relMap = relMap
+
+    def toStr(self, rel):
+        return '%d.%d.%d' % rel
+
+    def tabMatch(self, s):
+        cur = self.runner.selected
+        if cur is None:
+            return []
+        if not cur in self.relMap:
+            return []
+        relStrs = [self.toStr(rel) for rel in self.relMap[cur]]
+        return [relStr + ' ' for relStr in relStrs if relStr.startswith(s)]
+
+    def match(self, s):
+        return self.tabMatch(s) != []
+
+    def get(self, s):
+        s = self.tabMatch(s)[0].strip()
+        return tuple(int(x) for x in re.match('^([0-9]+)\.([0-9]+)\.([0-9]+)$', s).groups())
+
+
 # ----------------------------------------------------------------------------
 
 
@@ -239,8 +269,10 @@ class Runner(object):
             'saplot': Command('plot node activations by timestep', {}),
             'print': Command('print current organism info', {}),
             'printc': Command('print c code for current organism', {}),
-            'parent': Command('select parent of current organism', {}),
-            'child': Command('select child of current organism', {}),
+            'parent': Command('select parent of current organism', {
+                LineageArg(self, self.parentMap) }),
+            'child': Command('select child of current organism', {
+                LineageArg(self, self.childMap) }),
             'dot': Command('print current organism dot', {}),
             'sim': Command('simulate current organism', {}),
             'plot':
@@ -297,11 +329,40 @@ class Runner(object):
 
     def buildOrgMap(self):
         orgMap = {}
+        parentMap = {}
+        childMap = {}
         for e, epoch in enumerate(self.runData):
             for g, generation in enumerate(epoch):
                 for o, organism in enumerate(generation):
-                    orgMap[(e+1, g+1, o)] = organism
+                    # organism map
+                    orgId = (e+1, g+1, o)
+                    orgMap[orgId] = organism
+                    # parent/child maps
+                    parents = parentMap.setdefault(orgId, [])
+                    if organism.birth_info.type == sa.CROSSOVER:
+                        m = organism.birth_info.crossover_info.mom
+                        d = organism.birth_info.crossover_info.dad
+                        momId = (m.epoch, m.generation, m.org_index)
+                        dadId = (d.epoch, d.generation, d.org_index)
+                        parents.append(momId)
+                        parents.append(dadId)
+                        children = childMap.setdefault(momId, [])
+                        children.append(orgId)
+                        childMap[momId] = children
+                        children = childMap.setdefault(dadId, [])
+                        children.append(orgId)
+                        childMap[dadId] = children
+                    elif organism.birth_info.type == sa.MUTATION:
+                        p = organism.birth_info.mutation_info.parent
+                        parentId = (p.epoch, p.generation, p.org_index)
+                        parents.append(parentId)
+                        children = childMap.setdefault(parentId, [])
+                        children.append(orgId)
+                        childMap[parentId] = children
+                    parentMap[orgId] = parents
         self.orgMap = orgMap
+        self.parentMap = parentMap
+        self.childMap = childMap
 
     def getWorldParams(self):
         buf = StringIO()
@@ -320,6 +381,7 @@ class Runner(object):
         if selection in self.orgMap:
             self.selectedOrg = self.orgMap[selection]
             self.selected = selection
+            self.cmdPrint()
         else:
             w = self.world
             print 'org? <1-%d>.<1-%d>.<0-%d>' % \
@@ -372,11 +434,21 @@ class Runner(object):
         sa.print_genotype_c(self.selectedOrg.genotype, buf)
         print buf.getvalue()
 
-    def cmdParent(self):
-        pass
+    def cmdParent(self, parent):
+        if parent in self.orgMap:
+            self.selectedOrg = self.orgMap[parent]
+            self.selected = parent
+            self.cmdPrint()
+        else:
+            print parent, 'not in organism map'
 
-    def cmdChild(self):
-        pass
+    def cmdChild(self, child):
+        if child in self.orgMap:
+            self.selectedOrg = self.orgMap[child]
+            self.selected = child
+            self.cmdPrint()
+        else:
+            print child, 'not in organism map'
 
     def cmdPlot(self, typ):
         # delay import because it takes several seconds
