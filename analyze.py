@@ -1,15 +1,17 @@
 #!/usr/bin/env python2
 import atexit
+import os
 import re
 import readline
 import sa
 import sys
-import os
 
 from cStringIO import StringIO
 from graphviz import Source
+from Queue import Queue
+from threading import Thread
 from Tkinter import Tk, Frame, Scrollbar, Canvas, mainloop, LAST, ALL, \
-    HORIZONTAL, VERTICAL, BOTTOM, TOP, X, Y, BOTH, LEFT, RIGHT, YES
+    HORIZONTAL, VERTICAL, BOTTOM, TOP, X, Y, BOTH, LEFT, RIGHT, YES, NW
 
 # ----------------------------------------------------------------------------
 
@@ -24,7 +26,7 @@ def parseSimResults(simResults, numSteps, numNodes):
     return steps
 
 
-class SASim(object):
+class SASim(Thread):
     # - maybe add some text tag to edges?
     # - maybe click to see history of a node's activations? outputs?
     # - simple way of editing graph
@@ -33,16 +35,55 @@ class SASim(object):
     #   - turn knob/control
     #   - alter activation type, input acc, output type
     # - any (easy) way to make arrows reach 'to' node?
-    root = None
     def __init__(self, graphData, numSteps, simResults):
+        Thread.__init__(self)
+        self.q = Queue()
         self.scale = 90.
         self.margin = 40
+        self.canvas = None
         self.halfMargin = self.margin / 2.
-        self.parseGraphData(graphData)
-        self.buildDisplay()
-        self.steps = parseSimResults(simResults, numSteps, len(self.nodes))
-        self.update()
+        self.graphData = graphData
+        self.numSteps = numSteps
+        self.simResults = simResults
+        self.start()
+
+    def onUi(self, func):
+        self.q.put(func)
+
+    def quit(self):
+        self.root.destroy()
+
+    def pollLoop(self):
+        while True:
+            try:
+                func = self.q.get(block=False)
+            except:
+                break
+            else:
+                self.root.after_idle(func)
+        self.root.after(100, self.pollLoop)
+
+    def run(self):
+        self.root = Tk()
+        self.root.protocol('WM_DELETE_WINDOW', self.quit)
+        self.setup(self.graphData, self.numSteps, self.simResults)
+        self.root.after(100, self.pollLoop)
         self.root.mainloop()
+
+    def update(self, graphData, numSteps, simResults):
+        def do_update():
+            self.setup(graphData, numSteps, simResults)
+        self.onUi(do_update)
+
+    def setup(self, graphData, numSteps, simResults):
+        self.parseGraphData(graphData)
+        if self.canvas is None:
+            self.buildDisplay()
+        else:
+            self.canvas.configure(scrollregion=(0, 0, self.canvasWidth, self.canvasHeight))
+        self.populateCanvas()
+        self.steps = parseSimResults(simResults, numSteps, len(self.nodes))
+        self.updateActivations()
 
     def invertY(self, y):
         return self.graphHeight - y
@@ -61,6 +102,8 @@ class SASim(object):
                 y = self.invertY(y)
                 nodes.append([name, x, y, width, height, label.strip('"')])
             elif line.startswith('edge'):
+                if 'invis' in line:
+                    continue
                 m = re.match('^edge ([a-zA-Z0-9]+) ([a-zA-Z0-9]+) ([0-9]+) ([0-9. ]+)', line)
                 src, dst, n, coordsStr = m.groups()
                 n = int(n)
@@ -69,8 +112,10 @@ class SASim(object):
                 edges.append([src, dst, n, coords])
         self.nodes = nodes
         self.edges = edges
+        self.canvasWidth = int(self.graphWidth * self.scale + self.margin)
+        self.canvasHeight = int(self.graphHeight * self.scale + self.margin)
 
-    def update(self):
+    def updateActivations(self):
         for n,_id in enumerate(self.nodeIds):
             fullText = self.nodes[n][-1]
             act = self.steps[self.curStep][n]
@@ -88,29 +133,28 @@ class SASim(object):
                 # unrecognized format: just use activation as entire label
                 self.canvas.itemconfigure(_id, text=actStr)
 
+    def updateStepText(self):
+        self.canvas.itemconfigure(self.stepId, text='[%d]' % self.curStep)
+
     def left(self, event):
         if self.curStep > 0:
             self.curStep -= 1
-            print self.curStep
-        self.update()
+            self.updateStepText()
+        self.updateActivations()
 
     def right(self, event):
         if self.curStep < len(self.steps)-1:
             self.curStep += 1
-            print self.curStep
-        self.update()
+            self.updateStepText()
+        self.updateActivations()
 
     def buildDisplay(self):
-        if self.root is None:
-            self.root = Tk()
         winWidth = 1000
         winHeight = 400
         frame = Frame(self.root, width=winWidth, height=winHeight)
         frame.pack(expand=YES, fill=BOTH)
 
-        canvasWidth = int(self.graphWidth * self.scale + self.margin)
-        canvasHeight = int(self.graphHeight * self.scale + self.margin)
-        c = Canvas(frame, width=winWidth, height=winHeight, scrollregion=(0, 0, canvasWidth, canvasHeight))
+        c = Canvas(frame, width=winWidth, height=winHeight, scrollregion=(0, 0, self.canvasWidth, self.canvasHeight))
 
         hbar = Scrollbar(frame, orient=HORIZONTAL)
         hbar.pack(side=BOTTOM, fill=X)
@@ -121,21 +165,25 @@ class SASim(object):
 
         c.config(xscrollcommand=hbar.set, yscrollcommand=vbar.set)
         c.pack(side=LEFT, expand=YES, fill=BOTH)
+        self.canvas = c
 
+    def populateCanvas(self):
+        self.canvas.delete('all')
         nodeIds = []
         m = self.halfMargin
         for name, x, y, w, h, label in self.nodes:
-            c.create_oval(m + (x-w/2.)*self.scale, m + (y-h/2.)*self.scale, m + (x+w/2.)*self.scale, m + (y+h/2.)*self.scale, width=3)
-            nodeIds.append(c.create_text(m + x*self.scale, m + y*self.scale, text=label))
+            self.canvas.create_oval(m + (x-w/2.)*self.scale, m + (y-h/2.)*self.scale, m + (x+w/2.)*self.scale, m + (y+h/2.)*self.scale, width=3)
+            nodeIds.append(self.canvas.create_text(m + x*self.scale, m + y*self.scale, text=label))
         self.nodeIds = nodeIds
+
         for src, dst, n, coords in self.edges:
             scaledCoords = [m + x*self.scale for x in coords]
-            c.create_line(*scaledCoords, smooth=1, width=2, arrow=LAST, arrowshape=(15,20,10))
-        c.bind_all('<Left>', self.left)
-        c.bind_all('<Right>', self.right)
-        #c.config(scrollregion=c.bbox(ALL))
-        self.canvas = c
+            self.canvas.create_line(*scaledCoords, smooth=1, width=2, arrow=LAST, arrowshape=(15,20,10))
+
+        self.canvas.bind_all('<Left>', self.left)
+        self.canvas.bind_all('<Right>', self.right)
         self.curStep = 0
+        self.stepId = self.canvas.create_text(3, 3, text='[%d]' % self.curStep, anchor=NW)
 
 # ----------------------------------------------------------------------------
 
@@ -254,6 +302,7 @@ class Runner(object):
         sys.stderr.write('mapping..')
         self.buildOrgMap()
         sys.stderr.write('done\n')
+        self.sasim = None
         self.selected = (1, 1, 0)
         self.selectedOrg = self.orgMap[self.selected]
         self.commands = {
@@ -273,7 +322,7 @@ class Runner(object):
                 LineageArg(self, self.parentMap) }),
             'child': Command('select child of current organism', {
                 LineageArg(self, self.childMap) }),
-            'dot': Command('print current organism dot', {}),
+            'dot': Command('show graph of current organism dot', {}),
             'sim': Command('simulate current organism', {}),
             'plot':
                 Command('plot current phenotype fitness or virtual fitness', {
@@ -375,6 +424,9 @@ class Runner(object):
         return worldParams
 
     def cmdQuit(self):
+        if self.sasim is not None:
+            self.sasim.onUi(lambda: self.sasim.quit())
+            self.sasim.join()
         sys.exit(0)
 
     def cmdSelect(self, selection):
@@ -406,7 +458,10 @@ class Runner(object):
         buf = StringIO()
         sa.sa(self.world, org.genotype, buf)
         simResults = buf.getvalue()
-        SASim(graphData, self.world.sa_timesteps, simResults)
+        if self.sasim is None or not self.sasim.is_alive():
+            self.sasim = SASim(graphData, self.world.sa_timesteps, simResults)
+        else:
+            self.sasim.update(graphData, self.world.sa_timesteps, simResults)
 
     def cmdSaplot(self):
         import numpy as np
