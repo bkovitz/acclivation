@@ -29,10 +29,7 @@ def parseSimResults(simResults, numSteps, numNodes):
 class SASim(Thread):
     # - maybe add some text tag to edges?
     # - maybe click to see history of a node's activations? outputs?
-    # - simple way of editing graph
-    #   - add/rem node
-    #   - add/rem/move edge
-    #   - turn knob/control
+    # - finish simple way of editing graph
     #   - alter activation type, input acc, output type
     # - any (easy) way to make arrows reach 'to' node?
     def __init__(self, graphData, numSteps, simResults):
@@ -265,6 +262,35 @@ class SelectByOrganismArg(RegexArg):
         return (epoch, generation, organism)
 
 
+class IndexArg(RegexArg):
+    def __init__(self):
+        super(IndexArg, self).__init__(
+            '^([0-9]+)$', 'i')
+
+    def get(self, s):
+        return int(re.match(self.regex, s).group(1))
+
+
+class AddEdgeArg(RegexArg):
+    def __init__(self):
+        super(AddEdgeArg, self).__init__(
+            '^([0-9]+)/([0-9]+)/([0-9.-]+)$', 'i/i/f')
+
+    def get(self, s):
+        m = re.match(self.regex, s)
+        return tuple([int(m.group(1)), int(m.group(2)), float(m.group(3))])
+
+
+class SetArg(RegexArg):
+    def __init__(self):
+        super(SetArg, self).__init__(
+            '^([0-9]+)/([0-9.-]+)$', 'i/f')
+
+    def get(self, s):
+        m = re.match(self.regex, s)
+        return tuple([int(m.group(1)), float(m.group(2))])
+
+
 class LineageArg(object):
     def __init__(self, runner, relMap):
         self.runner = runner
@@ -318,10 +344,14 @@ class Runner(object):
             'saplot': Command('plot node activations by timestep', {}),
             'print': Command('print current organism info', {}),
             'printc': Command('print c code for current organism', {}),
-            'parent': Command('select parent of current organism', {
-                LineageArg(self, self.parentMap) }),
-            'child': Command('select child of current organism', {
-                LineageArg(self, self.childMap) }),
+            'parent':
+                Command('select parent of current organism', {
+                     LineageArg(self, self.parentMap)
+                }),
+            'child':
+                Command('select child of current organism', {
+                    LineageArg(self, self.childMap)
+                }),
             'dot': Command('show graph of current organism dot', {}),
             'sim': Command('simulate current organism', {}),
             'plot':
@@ -329,9 +359,31 @@ class Runner(object):
                     StringArg('pfitness'), StringArg('vfitness')
                 }),
             'neighborhood': Command('show current organism\'s fitness neighborhood', {}),
-            'list': Command('list parent(s) or child(ren) of current organism', {
-                StringArg('parents'), StringArg('children')
-            }),
+            'list':
+                Command('list parent(s) or child(ren) of current organism', {
+                     StringArg('parents'), StringArg('children')
+                }),
+            'addnode': Command('add a node to current organism', {}),
+            'remnode':
+                Command('remove a node from current organism', {
+                    IndexArg()
+                }),
+            'addedge':
+                Command('add an edge to current organism', {
+                    AddEdgeArg()
+                }),
+            'remedge':
+                Command('remove an edge from current organism', {
+                    IndexArg()
+                }),
+            'setknob':
+                Command('set a g-vector knob value', {
+                    SetArg()
+                }),
+            'setcontrol':
+                Command('set a node control value', {
+                    SetArg()
+                }),
             'world': Command('show current world parameters', {}),
             'help': Command('show help', {}),
         }
@@ -542,6 +594,39 @@ class Runner(object):
             exec(cmd)
         except Exception, e:
             print e
+
+    def cmdAddnode(self):
+        if self.selectedOrg is not None:
+            sa.add_node(self.world, self.selectedOrg)
+            self.cmdPrint()
+
+    def cmdRemnode(self, n):
+        if self.selectedOrg is not None:
+            sa.remove_node(self.world, self.selectedOrg, n)
+            self.cmdPrint()
+
+    def cmdAddedge(self, arg):
+        src, dst, weight = arg
+        if self.selectedOrg is not None:
+            sa.add_edge(self.world, self.selectedOrg.genotype, src, dst, weight)
+            self.cmdPrint()
+
+    def cmdRemedge(self, e):
+        if self.selectedOrg is not None:
+            sa.remove_edge(self.selectedOrg.genotype, e)
+            self.cmdPrint()
+
+    def cmdSetknob(self, arg):
+        i, value = arg
+        if self.selectedOrg is not None:
+            sa.set_knob(self.world, self.selectedOrg, i, value)
+            self.cmdPrint()
+
+    def cmdSetcontrol(self, arg):
+        i, value = arg
+        if self.selectedOrg is not None:
+            sa.set_control(self.world, self.selectedOrg, i, value)
+            self.cmdPrint()
 
     def cmdHelp(self):
         for name, command in self.commands.items():

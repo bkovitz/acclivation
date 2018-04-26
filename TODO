@@ -20,6 +20,3 @@ Do SIGMOID nodes tend to have more inputs than CLAMP_ONLY nodes?
 Generate large number of mutations from one organism. See how many are
 improvements. See how the proportion of improvements changes. See what
 factors affect that proportion.
-
-- add simple means of graph editing so we can make changes and watch what
-  happens

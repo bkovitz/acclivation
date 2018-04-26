@@ -1648,17 +1648,6 @@ GENERATION *load_generation(World *w, int epoch, int generation, FILE *f) {
       verify(n == fread(o->birth_info.mutation_info.mutations, sizeof(MUTATION_RECORD), n, f));
     }
   }
-  /*for (int i = 0; i < gen->num_organisms; i++) {
-    Organism *o = gen->organisms[i];
-    if (o->birth_info.type == MUTATION) {
-      printf(".");
-    } else if (o->birth_info.type == CROSSOVER) {
-      printf("+");
-    } else {
-      printf("-");
-    }
-  }
-  printf("\n");*/
   return gen;
 }
 
@@ -1739,39 +1728,10 @@ void set_mutation_start(World *w, Organism *baby, int parent_index, int num_muta
   log_mut_index = 0;
 }
 
-/*void log_mutation_start(World *w, int parent, int child) {
-  //if (w->log) {
-  if (false) {
-    fprintf(w->log, "mutation %d,%d,%d %d,%d,%d [ ",
-      maybe_prev_epoch(w),
-      prev_generation(w),
-      parent,
-      w->epoch,
-      w->generation,
-      child);
-  }
-}*/
-
-//void set_mutation(World *w, Organism *baby, MUTATION_TYPE type, double value) {
 void set_mutation(World *w, Organism *baby, MUTATION_RECORD *record) {
-  //MUTATION_RECORD m = { type, value };
   assert(log_mut_index < baby->birth_info.mutation_info.num_mutations);
   baby->birth_info.mutation_info.mutations[log_mut_index++] = *record;
 }
-
-/*void log_mutation(World *w, char *type) {
-  //if (w->log) {
-  if (false) {
-    fprintf(w->log, "%s ", type);
-  }
-}*/
-
-/*void log_mutation_end(World *w) {
-  //if (w->log) {
-  if (false) {
-    fprintf(w->log, "]\n");
-  }
-}*/
 
 void set_crossover_info(World *w, Organism *baby, int mom_index, int dad_index, double crossover_frac) {
   baby->birth_info.type = CROSSOVER;
@@ -1781,22 +1741,6 @@ void set_crossover_info(World *w, Organism *baby, int mom_index, int dad_index, 
   id.org_index = dad_index;
   baby->birth_info.crossover_info.dad = id;
 }
-
-/*void log_crossover(World *w, int mommy, int daddy, int child) {
-  //if (w->log) {
-  if (false) {
-    fprintf(w->log, "crossover %d,%d,%d %d,%d,%d %d,%d,%d\n",
-      maybe_prev_epoch(w),
-      prev_generation(w),
-      mommy,
-      maybe_prev_epoch(w),
-      prev_generation(w),
-      daddy,
-      w->epoch,
-      w->generation,
-      child);
-  }
-}*/
 
 void dump_fitness_nbhd(World *w);
 
@@ -1808,12 +1752,9 @@ void run_generation(World *w) {
       int mommy = tournament_select(w);
       int daddy = tournament_select(w);
       new_population[p] = crossover(w, mommy, old_population[mommy], daddy, old_population[daddy]);
-      //log_crossover(w, mommy, daddy, p);
     } else {
       int selected_organism = tournament_select(w);
-      //log_mutation_start(w, selected_organism, p);
       new_population[p] = mutate(w, selected_organism, old_population[selected_organism]);
-      //log_mutation_end(w);
     }
   }
   free_organisms(w->organisms, w->num_organisms);
@@ -2679,10 +2620,8 @@ bool has_edge(Genotype *g, int src, int dst) {
 }
 
 void add_edge(World *w, Genotype *g, int src, int dst, double weight) {
-  assert(has_node(g, src));
-  assert(src >= 0);
-  assert(has_node(g, dst));
-  assert(dst >= 0);
+  if (!has_node(g, src) || src < 0 || !has_node(g, dst) || dst < 0)
+    return;
   if (w->multi_edges || !has_edge(g, src, dst)) {
     g->num_edges++;
     g->edges = realloc(g->edges, sizeof(Edge) * g->num_edges);
@@ -2698,10 +2637,11 @@ void mut_add_edge(World *w, Organism *o) {
   int src = select_in_use_node(g);
   int dst = select_in_use_node(g);
   double weight = rand_edge_weight(w);
+  assert(has_node(g, src));
+  assert(src >= 0);
+  assert(has_node(g, dst));
+  assert(dst >= 0);
   add_edge(w, g, src, dst, weight);
-  //add_edge(w, g, select_in_use_node(g), select_in_use_node(g), rand_edge_weight(w));
-  //log_mutation(w, "add_edge");
-  //set_mutation(w, o, MUT_ADD_EDGE, g->num_edges);
   MUTATION_RECORD rec;
   EDGE_MUTATION_RECORD edge_rec = { g->num_edges - 1, src, dst, weight };
   rec.type = MUT_ADD_EDGE;
@@ -2729,8 +2669,6 @@ void mut_remove_edge(World *w, Organism *o) {
     edge_rec.weight = e->weight;
 
     remove_edge(g, selected_edge);
-    //log_mutation(w, "remove_edge");
-    //set_mutation(w, o, MUT_REMOVE_EDGE, g->num_edges);
   }
   MUTATION_RECORD rec;
   rec.type = MUT_REMOVE_EDGE;
@@ -2747,12 +2685,8 @@ void mut_move_edge(World *w, Organism *o) {
   MOVE_EDGE_MUTATION_RECORD edge_rec = { selected_edge, e->src, -1, e->dst, -1, e->weight };
   if (rand() & 1)
     e->src = select_in_use_node(g);
-    //g->edges[selected_edge].src = select_in_use_node(g);
   else
     e->dst = select_in_use_node(g);
-    //g->edges[selected_edge].dst = select_in_use_node(g);
-  //log_mutation(w, "move_edge");
-  //set_mutation(w, o, MUT_MOVE_EDGE, selected_edge);
   edge_rec.src = e->src;
   edge_rec.dst = e->dst;
   MUTATION_RECORD rec;
@@ -2761,7 +2695,7 @@ void mut_move_edge(World *w, Organism *o) {
   set_mutation(w, o, &rec);
 }
 
-void mut_add_node(World *w, Organism *o) {
+int add_node(World *w, Organism *o) {
   Genotype *g = o->genotype;
   int add_index = take_first_unused_node(g);
 
@@ -2773,8 +2707,13 @@ void mut_add_node(World *w, Organism *o) {
   }
   Node *node = &g->nodes[add_index];
   init_random_node(w, node, add_index);
-  //log_mutation(w, "add_node");
-  //set_mutation(w, o, MUT_ADD_NODE, g->num_nodes_in_use);
+  return add_index;
+}
+
+void mut_add_node(World *w, Organism *o) {
+  int add_index = add_node(w, o);
+  Genotype *g = o->genotype;
+  Node *node = &g->nodes[add_index];
   NODE_MUTATION_RECORD node_rec = {
     add_index,
     node->initial_activation,
@@ -2792,6 +2731,26 @@ void mut_add_node(World *w, Organism *o) {
 
   if (debug)
     sanity_check_organism(w, o);
+}
+
+void remove_node(World *w, Organism *o, int selected_node) {
+  Genotype *g = o->genotype;
+  int unremovable = g->num_in + g->num_out;
+  if (selected_node < unremovable || selected_node >= g->num_nodes_in_use)
+    return;
+
+  // mark unused
+  g->nodes[selected_node].in_use = false;
+  g->num_nodes_in_use--;
+  // redirect any affected edges
+  for (Edge *e = g->edges; (e - g->edges) < g->num_edges; ) {
+    if (e->src == selected_node || e->dst == selected_node)
+      // can't increment e because memory may shift
+      remove_edge(g, (e - g->edges));
+    else
+      // can always increment because even when memory doesn't shift, we'll be on last element
+      e++;
+  }
 }
 
 void mut_remove_node(World *w, Organism *o) {
@@ -2815,24 +2774,18 @@ void mut_remove_node(World *w, Organism *o) {
     n->control_update,
     n->initial_activation_type
   };
-  // mark unused
-  g->nodes[selected_node].in_use = false;
-  g->num_nodes_in_use--;
-  // redirect any affected edges
-  for (Edge *e = g->edges; (e - g->edges) < g->num_edges; ) {
-    if (e->src == selected_node || e->dst == selected_node)
-      // can't increment e because memory may shift
-      remove_edge(g, (e - g->edges));
-    else
-      // can always increment because even when memory doesn't shift, we'll be on last element
-      e++;
-  }
-  //log_mutation(w, "remove_node");
-  //set_mutation(w, o, MUT_REMOVE_NODE, selected_node);
+  remove_node(w, o, selected_node);
   MUTATION_RECORD rec;
   rec.type = MUT_REMOVE_NODE;
   rec.node_mutation = node_rec;
   set_mutation(w, o, &rec);
+}
+
+void set_knob(World *w, Organism *o, int genotype_index, double value) {
+  if (genotype_index >= o->genotype->num_in)
+    return;
+  Node *node_to_change = &o->genotype->nodes[genotype_index];
+  node_to_change->initial_activation = clamp(value);
 }
 
 void mut_turn_knob(World *w, Organism *o) {
@@ -2858,8 +2811,6 @@ void mut_turn_knob(World *w, Organism *o) {
       clamp(node_to_change->initial_activation + nudge);
   o->from_turned_knob = true; // FIXME: switch to use mutation info instead
   knob_rec.value = node_to_change->initial_activation;
-  //log_mutation(w, "turn_knob");
-  //set_mutation(w, o, MUT_TURN_KNOB, nudge);
   MUTATION_RECORD rec;
   rec.type = MUT_TURN_KNOB;
   rec.knob_turn = knob_rec;
@@ -2892,8 +2843,6 @@ void mut_alter_activation_type(World *w, Organism *o) {
             assert(false);
         }
         alter_rec.type = node_to_change->activation_type;
-        //log_mutation(w, "alter_act_type");
-        //set_mutation(w, o, MUT_ALTER_ACTIVATION_TYPE, n);
         MUTATION_RECORD rec;
         rec.type = MUT_ALTER_ACTIVATION_TYPE;
         rec.alter_activation_type = alter_rec;
@@ -2931,8 +2880,6 @@ void mut_alter_input_acc(World *w, Organism *o) {
           default:
             assert(false);
         }
-        //log_mutation(w, "alter_input_acc");
-        //set_mutation(w, o, MUT_ALTER_INPUT_ACC, n);
         alter_rec.acc = node_to_change->input_acc;
         MUTATION_RECORD rec;
         rec.type = MUT_ALTER_INPUT_ACC;
@@ -2959,8 +2906,6 @@ void mut_alter_input_acc(World *w, Organism *o) {
           default:
             assert(false);
         }
-        //log_mutation(w, "alter_input_acc");
-        //set_mutation(w, o, MUT_ALTER_INPUT_ACC, n);
         alter_rec.acc = node_to_change->input_acc;
         MUTATION_RECORD rec;
         rec.type = MUT_ALTER_INPUT_ACC;
@@ -2993,8 +2938,6 @@ void mut_alter_input_acc(World *w, Organism *o) {
           default:
             assert(false);
         }
-        //log_mutation(w, "alter_input_acc");
-        //set_mutation(w, o, MUT_ALTER_INPUT_ACC, n);
         alter_rec.acc = node_to_change->input_acc;
         MUTATION_RECORD rec;
         rec.type = MUT_ALTER_INPUT_ACC;
@@ -3030,8 +2973,6 @@ void mut_alter_output_type(World *w, Organism *o) {
           default:
             assert(false);
         }
-        //log_mutation(w, "alter_out_type");
-        //set_mutation(w, o, MUT_ALTER_OUTPUT_TYPE, n);
         alter_rec.type = node_to_change->output_type;
         MUTATION_RECORD rec;
         rec.type = MUT_ALTER_OUTPUT_TYPE;
@@ -3058,8 +2999,6 @@ void mut_alter_output_type(World *w, Organism *o) {
           default:
             assert(false);
         }
-        //log_mutation(w, "alter_out_type");
-        //set_mutation(w, o, MUT_ALTER_OUTPUT_TYPE, n);
         alter_rec.type = node_to_change->output_type;
         MUTATION_RECORD rec;
         rec.type = MUT_ALTER_OUTPUT_TYPE;
@@ -3069,10 +3008,17 @@ void mut_alter_output_type(World *w, Organism *o) {
   }
 }
 
+void set_control(World *w, Organism *o, int selected, double value) {
+  Genotype *g = o->genotype;
+  if (selected >= g->num_nodes_in_use)
+    return;
+  Node *node = &g->nodes[selected];
+  node->control = clamp(value);
+}
+
 void mut_turn_control(World *w, Organism *o) {
   Genotype *g = o->genotype;
   int selected = select_in_use_node(g);
-  //Node *node = &g->nodes[select_in_use_node(g)];
   Node *node = &g->nodes[selected];
   KNOB_TURN_RECORD knob_rec = {
     selected,
@@ -3080,12 +3026,9 @@ void mut_turn_control(World *w, Organism *o) {
     0.0,
     0.0
   };
-  //node->control += clamp(sample_normal(w->control_increment));
   double nudge = sample_normal(w->control_increment);
   knob_rec.nudge = nudge;
   node->control = clamp(node->control + nudge);
-  //log_mutation(w, "turn_control");
-  //set_mutation(w, o, MUT_TURN_CONTROL, nudge);
   knob_rec.value = node->control;
   MUTATION_RECORD rec;
   rec.type = MUT_TURN_CONTROL;
