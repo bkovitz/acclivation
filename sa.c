@@ -2619,6 +2619,12 @@ bool has_edge(Genotype *g, int src, int dst) {
   return false;
 }
 
+void set_edge_weight(Genotype *g, int edge_index, double weight) {
+  if (edge_index >= g->num_edges)
+    return;
+  g->edges[edge_index].weight = weight;
+}
+
 void add_edge(World *w, Genotype *g, int src, int dst, double weight) {
   if (!has_node(g, src) || src < 0 || !has_node(g, dst) || dst < 0)
     return;
@@ -2695,8 +2701,7 @@ void mut_move_edge(World *w, Organism *o) {
   set_mutation(w, o, &rec);
 }
 
-int add_node(World *w, Organism *o) {
-  Genotype *g = o->genotype;
+int add_node(World *w, Genotype *g) {
   int add_index = take_first_unused_node(g);
 
   g->num_nodes_in_use++;
@@ -2711,8 +2716,8 @@ int add_node(World *w, Organism *o) {
 }
 
 void mut_add_node(World *w, Organism *o) {
-  int add_index = add_node(w, o);
   Genotype *g = o->genotype;
+  int add_index = add_node(w, g);
   Node *node = &g->nodes[add_index];
   NODE_MUTATION_RECORD node_rec = {
     add_index,
@@ -2733,8 +2738,7 @@ void mut_add_node(World *w, Organism *o) {
     sanity_check_organism(w, o);
 }
 
-void remove_node(World *w, Organism *o, int selected_node) {
-  Genotype *g = o->genotype;
+void remove_node(Genotype *g, int selected_node) {
   int unremovable = g->num_in + g->num_out;
   if (selected_node < unremovable || selected_node >= g->num_nodes_in_use)
     return;
@@ -2774,17 +2778,17 @@ void mut_remove_node(World *w, Organism *o) {
     n->control_update,
     n->initial_activation_type
   };
-  remove_node(w, o, selected_node);
+  remove_node(g, selected_node);
   MUTATION_RECORD rec;
   rec.type = MUT_REMOVE_NODE;
   rec.node_mutation = node_rec;
   set_mutation(w, o, &rec);
 }
 
-void set_knob(World *w, Organism *o, int genotype_index, double value) {
-  if (genotype_index >= o->genotype->num_in)
+void set_knob(Genotype *g, int genotype_index, double value) {
+  if (genotype_index >= g->num_in)
     return;
-  Node *node_to_change = &o->genotype->nodes[genotype_index];
+  Node *node_to_change = &g->nodes[genotype_index];
   node_to_change->initial_activation = clamp(value);
 }
 
@@ -2815,6 +2819,13 @@ void mut_turn_knob(World *w, Organism *o) {
   rec.type = MUT_TURN_KNOB;
   rec.knob_turn = knob_rec;
   set_mutation(w, o, &rec);
+}
+
+void set_activation_type(Genotype *g, int node_index, ACTIVATION_TYPE type) {
+  if (node_index >= g->num_nodes)
+    return;
+  Node *n = &g->nodes[node_index];
+  n->activation_type = type;
 }
 
 void mut_alter_activation_type(World *w, Organism *o) {
@@ -2852,6 +2863,13 @@ void mut_alter_activation_type(World *w, Organism *o) {
     default:
       assert(false);
   }
+}
+
+void set_input_acc(Genotype *g, int node_index, INPUT_ACC type) {
+  if (node_index >= g->num_nodes)
+    return;
+  Node *n = &g->nodes[node_index];
+  n->input_acc = type;
 }
 
 void mut_alter_input_acc(World *w, Organism *o) {
@@ -2950,6 +2968,13 @@ void mut_alter_input_acc(World *w, Organism *o) {
   }
 }
 
+void set_output_type(Genotype *g, int node_index, OUTPUT_TYPE type) {
+  if (node_index >= g->num_nodes)
+    return;
+  Node *n = &g->nodes[node_index];
+  n->output_type = type;
+}
+
 void mut_alter_output_type(World *w, Organism *o) {
   switch (w->output_types) {
     case ONLY_PASS_THROUGH:
@@ -3008,8 +3033,7 @@ void mut_alter_output_type(World *w, Organism *o) {
   }
 }
 
-void set_control(World *w, Organism *o, int selected, double value) {
-  Genotype *g = o->genotype;
+void set_control(Genotype *g, int selected, double value) {
   if (selected >= g->num_nodes_in_use)
     return;
   Node *node = &g->nodes[selected];

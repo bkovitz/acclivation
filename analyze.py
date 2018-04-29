@@ -27,11 +27,6 @@ def parseSimResults(simResults, numSteps, numNodes):
 
 
 class SASim(Thread):
-    # - maybe add some text tag to edges?
-    # - maybe click to see history of a node's activations? outputs?
-    # - finish simple way of editing graph
-    #   - alter activation type, input acc, output type
-    # - any (easy) way to make arrows reach 'to' node?
     def __init__(self, graphData, numSteps, simResults):
         Thread.__init__(self)
         self.q = Queue()
@@ -102,11 +97,15 @@ class SASim(Thread):
                 if 'invis' in line:
                     continue
                 m = re.match('^edge ([a-zA-Z0-9]+) ([a-zA-Z0-9]+) ([0-9]+) ([0-9. ]+)', line)
-                src, dst, n, coordsStr = m.groups()
-                n = int(n)
-                coords = [float(c) for c in coordsStr.strip().split()[:2*n]]
+                src, dst, nedges, coordsStr = m.groups()
+                nedges = int(nedges)
+                tokens = coordsStr.strip().split()
+                coords = [float(c) for c in tokens[:2*nedges]]
                 coords = [self.invertY(c) if i&1 else c for i,c in enumerate(coords)]
-                edges.append([src, dst, n, coords])
+                weight = float(tokens[-3])
+                wx = float(tokens[-2])
+                wy = self.invertY(float(tokens[-1]))
+                edges.append([src, dst, nedges, coords, weight, wx, wy])
         self.nodes = nodes
         self.edges = edges
         self.canvasWidth = int(self.graphWidth * self.scale + self.margin)
@@ -173,9 +172,12 @@ class SASim(Thread):
             nodeIds.append(self.canvas.create_text(m + x*self.scale, m + y*self.scale, text=label))
         self.nodeIds = nodeIds
 
-        for src, dst, n, coords in self.edges:
+        for src, dst, n, coords, weight, wx, wy in self.edges:
             scaledCoords = [m + x*self.scale for x in coords]
             self.canvas.create_line(*scaledCoords, smooth=1, width=2, arrow=LAST, arrowshape=(15,20,10))
+            swx = m + wx*self.scale
+            swy = m + wy*self.scale
+            self.canvas.create_text(swx, swy, text='%1.1f' % weight)
 
         self.canvas.bind_all('<Left>', self.left)
         self.canvas.bind_all('<Right>', self.right)
@@ -597,12 +599,12 @@ class Runner(object):
 
     def cmdAddnode(self):
         if self.selectedOrg is not None:
-            sa.add_node(self.world, self.selectedOrg)
+            sa.add_node(self.world, self.selectedOrg.genotype)
             self.cmdPrint()
 
     def cmdRemnode(self, n):
         if self.selectedOrg is not None:
-            sa.remove_node(self.world, self.selectedOrg, n)
+            sa.remove_node(self.selectedOrg.genotype, n)
             self.cmdPrint()
 
     def cmdAddedge(self, arg):
@@ -619,13 +621,13 @@ class Runner(object):
     def cmdSetknob(self, arg):
         i, value = arg
         if self.selectedOrg is not None:
-            sa.set_knob(self.world, self.selectedOrg, i, value)
+            sa.set_knob(self.selectedOrg.genotype, i, value)
             self.cmdPrint()
 
     def cmdSetcontrol(self, arg):
         i, value = arg
         if self.selectedOrg is not None:
-            sa.set_control(self.world, self.selectedOrg, i, value)
+            sa.set_control(self.selectedOrg.genotype, i, value)
             self.cmdPrint()
 
     def cmdHelp(self):
