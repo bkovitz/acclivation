@@ -464,6 +464,18 @@ typedef struct {
   int num_out;
 } Genotype;
 
+Node *get_node_i(Genotype *g, int i) {
+  if (i >= g->num_nodes)
+    return NULL;
+  return &g->nodes[i];
+}
+
+Edge *get_edge_i(Genotype *g, int i) {
+  if (i >= g->num_edges)
+    return NULL;
+  return &g->edges[i];
+}
+
 void set_gvector(Genotype *g, double x, double y) {
   g->nodes[0].initial_activation = x;
   g->nodes[1].initial_activation = y;

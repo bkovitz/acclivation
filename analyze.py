@@ -5,13 +5,15 @@ import re
 import readline
 import sa
 import sys
+import ttk
 
 from cStringIO import StringIO
 from graphviz import Source
 from Queue import Queue
 from threading import Thread
 from Tkinter import Tk, Frame, Scrollbar, Canvas, mainloop, LAST, ALL, \
-    HORIZONTAL, VERTICAL, BOTTOM, TOP, X, Y, BOTH, LEFT, RIGHT, YES, NW
+    HORIZONTAL, VERTICAL, BOTTOM, TOP, X, Y, BOTH, LEFT, RIGHT, YES, NW, \
+    Label, Entry, Button
 
 # ----------------------------------------------------------------------------
 
@@ -25,18 +27,41 @@ def parseSimResults(simResults, numSteps, numNodes):
     assert(len(steps) == 1 + numSteps) # +1 for initial activation
     return steps
 
+def makeentry(parent, caption, cur, row, column=0, ro=False, **options):
+    Label(parent, text=caption).grid(row=row, column=column)
+    entry = Entry(parent, **options)
+    entry.insert(0, '%s' % cur)
+    if ro:
+        entry.config(state='readonly')
+    entry.grid(row=row, column=column+1)
+    return entry
+
+def makecombo(parent, caption, cur, row, column=0, **options):
+    Label(parent, text=caption).grid(row=row, column=column)
+    combo = ttk.Combobox(parent, state='readonly', **options)
+    combo.current(cur)
+    combo.grid(row=row, column=column+1)
+    return combo
 
 class SASim(Thread):
-    def __init__(self, graphData, numSteps, simResults):
+    def __init__(self, runner, organism, graphData, numSteps, simResults):
         Thread.__init__(self)
+        self.runner = runner
+        self.organism = organism
         self.q = Queue()
         self.scale = 90.
-        self.margin = 40
+        self.margin = 60
         self.canvas = None
+        self.editFrame = None
         self.halfMargin = self.margin / 2.
         self.graphData = graphData
         self.numSteps = numSteps
         self.simResults = simResults
+        self.hoverTarget = ('', None)
+        self.selectedNode = None
+        self.nodeTextIds = None
+        self.nodeIds = None
+        self.initNodeConstants()
         self.start()
 
     def onUi(self, func):
@@ -58,16 +83,20 @@ class SASim(Thread):
     def run(self):
         self.root = Tk()
         self.root.protocol('WM_DELETE_WINDOW', self.quit)
-        self.setup(self.graphData, self.numSteps, self.simResults)
+        self.setup(self.organism, self.graphData, self.numSteps, self.simResults)
         self.root.after(100, self.pollLoop)
         self.root.mainloop()
 
-    def update(self, graphData, numSteps, simResults):
+    def update(self, organism, graphData, numSteps, simResults):
         def do_update():
-            self.setup(graphData, numSteps, simResults)
+            self.clearEditFrame()
+            self.setup(organism, graphData, numSteps, simResults)
         self.onUi(do_update)
 
-    def setup(self, graphData, numSteps, simResults):
+    def setup(self, organism, graphData, numSteps, simResults):
+        self.organism = organism
+        self.hoverTarget = ('', None)
+        self.selectedNode = None
         self.parseGraphData(graphData)
         if self.canvas is None:
             self.buildDisplay()
@@ -94,6 +123,7 @@ class SASim(Thread):
                 y = self.invertY(y)
                 nodes.append([name, x, y, width, height, label.strip('"')])
             elif line.startswith('edge'):
+                print line
                 if 'invis' in line:
                     continue
                 m = re.match('^edge ([a-zA-Z0-9]+) ([a-zA-Z0-9]+) ([0-9]+) ([0-9. ]+)', line)
@@ -112,7 +142,7 @@ class SASim(Thread):
         self.canvasHeight = int(self.graphHeight * self.scale + self.margin)
 
     def updateActivations(self):
-        for n,_id in enumerate(self.nodeIds):
+        for n,_id in enumerate(self.nodeTextIds):
             fullText = self.nodes[n][-1]
             act = self.steps[self.curStep][n]
             actStr = ('%5.4f' % act) if act != -1000.0 else '-'
@@ -146,9 +176,9 @@ class SASim(Thread):
 
     def buildDisplay(self):
         winWidth = 1000
-        winHeight = 400
+        winHeight = 800
         frame = Frame(self.root, width=winWidth, height=winHeight)
-        frame.pack(expand=YES, fill=BOTH)
+        frame.pack(side=TOP, expand=YES, fill=X)
 
         c = Canvas(frame, width=winWidth, height=winHeight, scrollregion=(0, 0, self.canvasWidth, self.canvasHeight))
 
@@ -163,26 +193,170 @@ class SASim(Thread):
         c.pack(side=LEFT, expand=YES, fill=BOTH)
         self.canvas = c
 
+        editFrame = Frame(self.root, width=winWidth, height=0)
+        editFrame.pack(side=BOTTOM, fill=X)
+        self.editFrame = editFrame
+
+
+    def selectNode(self, nodeId, i):
+        if nodeId != self.selectedNode:
+            if self.selectedNode is not None:
+                self.canvas.itemconfigure(self.selectedNode, fill='')
+            if nodeId is not None:
+                self.canvas.itemconfigure(nodeId, fill='yellow')
+            self.selectedNode = nodeId
+            self.selectedId = i
+        self.setupEditNode(i)
+
+    def clearEditFrame(self):
+        for widget in self.editFrame.winfo_children():
+            widget.destroy()
+
+    def initNodeConstants(self):
+        # update when Node changes
+        self.inputAccValues = {
+            '0_SUM_INCOMING' : sa.SUM_INCOMING,
+            '1_MULT_INCOMING' : sa.MULT_INCOMING,
+            '2_MIN_INCOMING' : sa.MIN_INCOMING
+        }
+        self.inputAccValuesRev = { v:k for k,v in self.inputAccValues.iteritems() }
+        self.activationTypeValues = {
+            '0_SIGMOID' : sa.SIGMOID,
+            '1_CLAMP_ONLY' : sa.CLAMP_ONLY
+        }
+        self.activationTypeValuesRev = { v:k for k,v in self.activationTypeValues.iteritems() }
+        self.outputTypeValues = {
+            '0_PASS_THROUGH' : sa.PASS_THROUGH,
+            '1_STEEP_SIGMOID' : sa.STEEP_SIGMOID,
+            '2_TWO_STEP' : sa.TWO_STEP
+        }
+        self.outputTypeValuesRev = { v:k for k,v in self.outputTypeValues.iteritems() }
+
+    def setupEditNode(self, ni):
+        # update when Node changes
+        self.clearEditFrame()
+        n = sa.get_node_i(self.organism.genotype, ni)
+        initialActivation = makeentry(self.editFrame, 'initial activation', n.initial_activation, 0)
+        finalOutput = makeentry(self.editFrame, 'final output', n.final_output, 1, ro=True)
+        finalActivation = makeentry(self.editFrame, 'final activation', n.final_activation, 2, ro=True)
+        control = makeentry(self.editFrame, 'control', n.control, 3)
+        inputAcc = makecombo(self.editFrame, 'input acc', n.input_acc, 0, 2, \
+            values=sorted(self.inputAccValues.keys()))
+        activationType = makecombo(self.editFrame, 'activation type', n.activation_type, 1, 2, \
+            values=sorted(self.activationTypeValues.keys()))
+        outputType = makecombo(self.editFrame, 'output type', n.output_type, 2, 2, \
+            values=sorted(self.outputTypeValues.keys()))
+        def saveNode():
+            n.initial_activation = float(initialActivation.get())
+            n.control = float(control.get())
+            n.input_acc = self.inputAccValues[inputAcc.get()]
+            n.activation_type = self.activationTypeValues[activationType.get()]
+            n.outputType = self.outputTypeValues[outputType.get()]
+            self.runner.cmdSim()
+        Button(self.editFrame, text="save", command=saveNode).grid(row=0, column=4)
+
+    def setupEditEdge(self, ei):
+        # update when Edge changes
+        #print 'vv'
+        #for i in range(0, ei+1):
+            #e = sa.get_edge_i(self.organism.genotype, i)
+            #print e.src, e.dst, i
+        #print '^^'
+        #print '->', ei
+        self.clearEditFrame()
+        e = sa.get_edge_i(self.organism.genotype, ei)
+        src = makeentry(self.editFrame, 'source', e.src, 0, ro=True)
+        dst = makeentry(self.editFrame, 'destination', e.dst, 1, ro=True)
+        weight = makeentry(self.editFrame, 'weight', e.weight, 2)
+        def saveEdge():
+            #print weight.get()
+            e.weight = float(weight.get())
+            self.runner.cmdSim()
+        Button(self.editFrame, text="save", command=saveEdge).grid(row=0, column=4)
+
+    def hover(self, target):
+        self.hoverTarget = target
+
+    def addNode(self):
+        sa.add_node(self.runner.world, self.organism.genotype)
+        self.runner.cmdSim()
+
+    def addEdge(self):
+        if self.selectedNode is None:
+            print 'select source node'
+            return
+        typ, _id = self.hoverTarget
+        if _id is None:
+            print 'hover over destination node'
+            return
+        sa.add_edge(self.runner.world, self.organism.genotype, self.selectedId, \
+                _id, sa.rand_edge_weight(self.runner.world))
+        self.runner.cmdSim()
+
+    def removeNode(self, n):
+        sa.remove_node(self.organism.genotype, n)
+        self.runner.cmdSim()
+
+    def removeEdge(self, e):
+        sa.remove_edge(self.organism.genotype, e)
+        self.runner.cmdSim()
+
+    def remove(self):
+        typ, _id = self.hoverTarget
+        if _id is None:
+            print 'hover to remove'
+            return
+        if typ == 'node':
+            self.removeNode(_id)
+        elif typ == 'edge':
+            self.removeEdge(_id)
+
     def populateCanvas(self):
-        self.canvas.delete('all')
+        c = self.canvas
+        c.delete('all')
+        nodeTextIds = []
         nodeIds = []
         m = self.halfMargin
+        i = 0
         for name, x, y, w, h, label in self.nodes:
-            self.canvas.create_oval(m + (x-w/2.)*self.scale, m + (y-h/2.)*self.scale, m + (x+w/2.)*self.scale, m + (y+h/2.)*self.scale, width=3)
-            nodeIds.append(self.canvas.create_text(m + x*self.scale, m + y*self.scale, text=label))
+            nodeId = c.create_oval(m + (x-w/2.)*self.scale, m + (y-h/2.)*self.scale, m + (x+w/2.)*self.scale, m + (y+h/2.)*self.scale, width=3, fill='lightgray', activefill='white')
+            c.tag_bind(nodeId, '<Enter>', lambda e, i=i: self.hover(('node', i)))
+            c.tag_bind(nodeId, '<Leave>', lambda e: self.hover(('', None)))
+            c.tag_bind(nodeId, '<Button-1>', lambda e, nodeId=nodeId, i=i: self.selectNode(nodeId, i))
+            nodeIds.append(nodeId)
+            nodeTextId = c.create_text(m + x*self.scale, m + y*self.scale, text=label)
+            c.tag_bind(nodeTextId, '<Enter>', lambda e, i=i: self.hover(('node', i)))
+            c.tag_bind(nodeTextId, '<Leave>', lambda e: self.hover(('', None)))
+            c.tag_bind(nodeTextId, '<Button-1>', lambda e, nodeId=nodeId, i=i: self.selectNode(nodeId, i))
+            nodeTextIds.append(nodeTextId)
+            i += 1
+        self.nodeTextIds = nodeTextIds
         self.nodeIds = nodeIds
 
+        i = 0
         for src, dst, n, coords, weight, wx, wy in self.edges:
             scaledCoords = [m + x*self.scale for x in coords]
-            self.canvas.create_line(*scaledCoords, smooth=1, width=2, arrow=LAST, arrowshape=(15,20,10))
+            lineId = c.create_line(*scaledCoords, smooth=1, width=2, arrow=LAST, arrowshape=(15,20,10), activefill='white')
+            c.tag_bind(lineId, '<Enter>', lambda e, i=i: self.hover(('edge', i)))
+            c.tag_bind(lineId, '<Leave>', lambda e: self.hover(('', None)))
+            c.tag_bind(lineId, '<Button-1>', lambda e, i=i: self.setupEditEdge(i))
             swx = m + wx*self.scale
             swy = m + wy*self.scale
-            self.canvas.create_text(swx, swy, text='%1.1f' % weight)
+            c.create_text(swx, swy, text='%1.1f' % weight)
+            i += 1
 
-        self.canvas.bind_all('<Left>', self.left)
-        self.canvas.bind_all('<Right>', self.right)
+        c.bind_all('<Left>', self.left)
+        c.bind_all('-', self.left)
+        c.bind_all('<Right>', self.right)
+        c.bind_all('+', self.right)
+        c.bind_all('=', self.right)
+        c.bind_all('n', lambda e: self.addNode())
+        c.bind_all('e', lambda e: self.addEdge())
+        c.bind_all('r', lambda e: self.remove())
+        c.bind_all('s', lambda e: self.selectNode(None, None))
         self.curStep = 0
-        self.stepId = self.canvas.create_text(3, 3, text='[%d]' % self.curStep, anchor=NW)
+        self.stepId = c.create_text(3, 3, text='[%d]' % self.curStep, anchor=NW)
+        c.create_text(33, 3, text='[n/e=add_node/edge r=remove -/+=step <1>=select]', anchor=NW)
 
 # ----------------------------------------------------------------------------
 
@@ -506,6 +680,7 @@ class Runner(object):
         org = self.selectedOrg
         sa.print_dot(self.world, org, buf)
         dot = buf.getvalue()
+        print dot
         g = Source(dot)
         graphData = g.pipe('plain')
         # sa results
@@ -513,9 +688,9 @@ class Runner(object):
         sa.sa(self.world, org.genotype, buf)
         simResults = buf.getvalue()
         if self.sasim is None or not self.sasim.is_alive():
-            self.sasim = SASim(graphData, self.world.sa_timesteps, simResults)
+            self.sasim = SASim(self, org, graphData, self.world.sa_timesteps, simResults)
         else:
-            self.sasim.update(graphData, self.world.sa_timesteps, simResults)
+            self.sasim.update(org, graphData, self.world.sa_timesteps, simResults)
 
     def cmdSaplot(self):
         import numpy as np
