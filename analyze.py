@@ -123,10 +123,9 @@ class SASim(Thread):
                 y = self.invertY(y)
                 nodes.append([name, x, y, width, height, label.strip('"')])
             elif line.startswith('edge'):
-                print line
                 if 'invis' in line:
                     continue
-                m = re.match('^edge ([a-zA-Z0-9]+) ([a-zA-Z0-9]+) ([0-9]+) ([0-9. ]+)', line)
+                m = re.match('^edge ([a-zA-Z0-9]+) ([a-zA-Z0-9]+) ([0-9]+) ([0-9. -]+)', line)
                 src, dst, nedges, coordsStr = m.groups()
                 nedges = int(nedges)
                 tokens = coordsStr.strip().split()
@@ -257,19 +256,15 @@ class SASim(Thread):
 
     def setupEditEdge(self, ei):
         # update when Edge changes
-        #print 'vv'
-        #for i in range(0, ei+1):
-            #e = sa.get_edge_i(self.organism.genotype, i)
-            #print e.src, e.dst, i
-        #print '^^'
-        #print '->', ei
         self.clearEditFrame()
-        e = sa.get_edge_i(self.organism.genotype, ei)
+        edge_idx = self.getUnderlyingEdge(ei)
+        if edge_idx is None:
+            return
+        e = sa.get_edge_i(self.organism.genotype, edge_idx)
         src = makeentry(self.editFrame, 'source', e.src, 0, ro=True)
         dst = makeentry(self.editFrame, 'destination', e.dst, 1, ro=True)
         weight = makeentry(self.editFrame, 'weight', e.weight, 2)
         def saveEdge():
-            #print weight.get()
             e.weight = float(weight.get())
             self.runner.cmdSim()
         Button(self.editFrame, text="save", command=saveEdge).grid(row=0, column=4)
@@ -297,9 +292,19 @@ class SASim(Thread):
         sa.remove_node(self.organism.genotype, n)
         self.runner.cmdSim()
 
+    def getUnderlyingEdge(self, ei):
+        src, dst, n, coords, weight, wx, wy = self.edges[ei]
+        edge_idx = sa.get_edge_by_value(self.organism.genotype, int(src[1:]), int(dst[1:]), weight)
+        if edge_idx == -1:
+            print 'error! no underlying edge found'
+            return None
+        return edge_idx
+
     def removeEdge(self, e):
-        sa.remove_edge(self.organism.genotype, e)
-        self.runner.cmdSim()
+        edge_idx = self.getUnderlyingEdge(e)
+        if edge_idx is not None:
+            sa.remove_edge(self.organism.genotype, edge_idx)
+            self.runner.cmdSim()
 
     def remove(self):
         typ, _id = self.hoverTarget
@@ -680,7 +685,6 @@ class Runner(object):
         org = self.selectedOrg
         sa.print_dot(self.world, org, buf)
         dot = buf.getvalue()
-        print dot
         g = Source(dot)
         graphData = g.pipe('plain')
         # sa results

@@ -476,6 +476,15 @@ Edge *get_edge_i(Genotype *g, int i) {
   return &g->edges[i];
 }
 
+int get_edge_by_value(Genotype *g, int src, int dst, double weight) {
+  for (int i = 0; i < g->num_edges; i++) {
+    Edge *e = &g->edges[i];
+    if (e->src == src && e->dst == dst && fabs(e->weight - weight) <= 0.001)
+      return i;
+  }
+  return -1;
+}
+
 void set_gvector(Genotype *g, double x, double y) {
   g->nodes[0].initial_activation = x;
   g->nodes[1].initial_activation = y;
