@@ -443,35 +443,6 @@ class SelectByOrganismArg(RegexArg):
         return (epoch, generation, organism)
 
 
-class IndexArg(RegexArg):
-    def __init__(self):
-        super(IndexArg, self).__init__(
-            '^([0-9]+)$', 'i')
-
-    def get(self, s):
-        return int(re.match(self.regex, s).group(1))
-
-
-class AddEdgeArg(RegexArg):
-    def __init__(self):
-        super(AddEdgeArg, self).__init__(
-            '^([0-9]+)/([0-9]+)/([0-9.-]+)$', 'i/i/f')
-
-    def get(self, s):
-        m = re.match(self.regex, s)
-        return tuple([int(m.group(1)), int(m.group(2)), float(m.group(3))])
-
-
-class SetArg(RegexArg):
-    def __init__(self):
-        super(SetArg, self).__init__(
-            '^([0-9]+)/([0-9.-]+)$', 'i/f')
-
-    def get(self, s):
-        m = re.match(self.regex, s)
-        return tuple([int(m.group(1)), float(m.group(2))])
-
-
 class LineageArg(object):
     def __init__(self, runner, relMap):
         self.runner = runner
@@ -543,27 +514,6 @@ class Runner(object):
             'list':
                 Command('list parent(s) or child(ren) of current organism', {
                      StringArg('parents'), StringArg('children')
-                }),
-            'addnode': Command('add a node to current organism', {}),
-            'remnode':
-                Command('remove a node from current organism', {
-                    IndexArg()
-                }),
-            'addedge':
-                Command('add an edge to current organism', {
-                    AddEdgeArg()
-                }),
-            'remedge':
-                Command('remove an edge from current organism', {
-                    IndexArg()
-                }),
-            'setknob':
-                Command('set a g-vector knob value', {
-                    SetArg()
-                }),
-            'setcontrol':
-                Command('set a node control value', {
-                    SetArg()
                 }),
             'world': Command('show current world parameters', {}),
             'help': Command('show help', {}),
@@ -711,7 +661,11 @@ class Runner(object):
         plt.plot(activationsByStep)
         plt.ylim((-1.2,1.2))
         plt.legend(l)
-        plt.show()
+        if self.sasim is not None and self.sasim.is_alive():
+            print 'close sim first'
+        else:
+            self.root = Tk()
+            plt.show()
 
     def cmdPrint(self):
         print self.selectedStr()
@@ -751,7 +705,11 @@ class Runner(object):
             sa.dump_organism_virtual_fitness_func(self.world, self.selectedOrg, False, buf)
             csv = buf.getvalue()
             X, Y, Z = parse(csv, 0, 1, 4)
-        plot(X, Y, Z, False)
+        if self.sasim is not None and self.sasim.is_alive():
+            print 'close sim first'
+        else:
+            self.root = Tk()
+            plot(X, Y, Z, False)
 
     def cmdDot(self):
         buf = StringIO()
@@ -775,39 +733,6 @@ class Runner(object):
             exec(cmd)
         except Exception, e:
             print e
-
-    def cmdAddnode(self):
-        if self.selectedOrg is not None:
-            sa.add_node(self.world, self.selectedOrg.genotype)
-            self.cmdPrint()
-
-    def cmdRemnode(self, n):
-        if self.selectedOrg is not None:
-            sa.remove_node(self.selectedOrg.genotype, n)
-            self.cmdPrint()
-
-    def cmdAddedge(self, arg):
-        src, dst, weight = arg
-        if self.selectedOrg is not None:
-            sa.add_edge(self.world, self.selectedOrg.genotype, src, dst, weight)
-            self.cmdPrint()
-
-    def cmdRemedge(self, e):
-        if self.selectedOrg is not None:
-            sa.remove_edge(self.selectedOrg.genotype, e)
-            self.cmdPrint()
-
-    def cmdSetknob(self, arg):
-        i, value = arg
-        if self.selectedOrg is not None:
-            sa.set_knob(self.selectedOrg.genotype, i, value)
-            self.cmdPrint()
-
-    def cmdSetcontrol(self, arg):
-        i, value = arg
-        if self.selectedOrg is not None:
-            sa.set_control(self.selectedOrg.genotype, i, value)
-            self.cmdPrint()
 
     def cmdHelp(self):
         for name, command in self.commands.items():

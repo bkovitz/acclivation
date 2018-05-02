@@ -33,10 +33,10 @@ X_ARGS = $(YXLINE) $(RESTRICTED) --bumps=1 \
 	--reward_coverage=0 \
 	--num_epochs=80 --generations_per_epoch=20 \
 	--num_organisms=80 --num_candidates=6 \
-	--num_nodes=10 --num_edges=16 \
+	--num_nodes=4 --num_edges=1 \
 	--input_accs=1 --activation_types=3 --output_types=0 --knob_type=0 \
 	--mutation_type_ub=10 --extra_mutation_rate=0.00 --crossover_freq=0.05 \
-	--multi_edges=0 --allow_move_edge=0 --edge_weights=0 --edge_inheritance=1 \
+	--multi_edges=0 --allow_move_edge=0 --edge_weights=1 --edge_inheritance=1 \
 	--log=ancestors \
 	--spreading_rate=0.05 --decay=0.9 --log=ancestors #--seed=1043614093
 
