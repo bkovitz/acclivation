@@ -930,6 +930,7 @@ typedef struct world_t {
   int param_set;
   int run;
   COORD_SET ridge_coords;
+  bool invu; // smooth version of invv?
 } World;
 
 double phenotype_fitness(World *, const double *phenotype);
@@ -1594,6 +1595,7 @@ World *load_preamble(FILE *f) {
 void log_generation(World *w) {
   if (w->log) {
     verify(1 == fwrite(&w->epoch, sizeof(w->epoch), 1, w->log));
+    verify(1 == fwrite(&w->c1, sizeof(w->c1), 1, w->log)); // ugly
     verify(1 == fwrite(&w->generation, sizeof(w->epoch), 1, w->log));
     // log organsims
     for (int i = 0; i < w->num_organisms; i++) {
@@ -1635,11 +1637,21 @@ GENERATION *create_generation(World *w) {
   return gen;
 }
 
-GENERATION *load_generation(World *w, int epoch, int generation, FILE *f) {
+typedef struct {
+  double c1; // OAOO violation - c1 in World is authoritative
+  int num_generations;
+  GENERATION **generations;
+} EPOCH;
+
+GENERATION *load_generation(World *w, int epoch, EPOCH *pepoch, int generation, FILE *f) {
   GENERATION *gen = create_generation(w);
   int loaded_epoch;
   verify(1 == fread(&loaded_epoch, sizeof(loaded_epoch), 1, f));
   verify_msg(epoch == loaded_epoch, "bad epoch number in ancestor file");
+  double loaded_c1;
+  verify(1 == fread(&loaded_c1, sizeof(loaded_c1), 1, f));
+  if (pepoch->c1 == UNWRITTEN)
+      pepoch->c1 = loaded_c1;
   int loaded_generation;
   verify(1 == fread(&loaded_generation, sizeof(loaded_generation), 1, f));
   verify_msg(generation == loaded_generation, "bad generation number in ancestor file");
@@ -1672,14 +1684,9 @@ GENERATION *load_generation(World *w, int epoch, int generation, FILE *f) {
   return gen;
 }
 
-typedef struct {
-  int num_generations;
-  GENERATION **generations;
-} EPOCH;
-
-
 EPOCH *create_epoch(World *w) {
   EPOCH *epoch = calloc(1, sizeof(EPOCH));
+  epoch->c1 = UNWRITTEN;
   epoch->num_generations = w->generations_per_epoch;
   epoch->generations = calloc(epoch->num_generations, sizeof(GENERATION *));
   return epoch;
@@ -1711,7 +1718,7 @@ RUN *load_ancestor_file(char *path) {
     run->epochs[e-1] = create_epoch(w);
     EPOCH *epoch = run->epochs[e-1];
     for (int g = 1; g <= epoch->num_generations; g++) {
-      epoch->generations[g-1] = load_generation(w, e, g, f);
+      epoch->generations[g-1] = load_generation(w, e, epoch, g, f);
     }
   }
   unsigned sentinel = 0;
@@ -2540,21 +2547,26 @@ double distance(double x1, double y1, double x2, double y2) {
   return sqrt((x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1));
 }
 
-double invv(double target, double radius, double x) {
+double invv(World *w, double target, double radius, double x) {
   double dist = fabs(target - x);
-  if (dist >= radius)
+  if (dist >= radius) {
     return 0.0;
-  else
-    return (radius - dist) / radius;
+  } else {
+    if (w->invu) {
+        return 1 - pow(dist / radius, 2);
+    } else {
+        return (radius - dist) / radius;
+    }
+  }
 }
 
 double along_ridge(World *w, double x, double y) {
   //printf("x = %lf; y = %lf; fabs(%lf) = %lf\n", x, y, y - (w->c2 * x + w->c3), fabs(y - (w->c2 * x + w->c3)));
   switch (w->ridge_type) {
   case LINE:
-    return invv(0.0, w->ridge_radius, fabs(y - (w->c2 * x + w->c3)));
+    return invv(w, 0.0, w->ridge_radius, fabs(y - (w->c2 * x + w->c3)));
   case CIRCLE:
-    return invv(0.0, w->ridge_radius, fabs((x*x + y*y) - (0.5*0.5)));
+    return invv(w, 0.0, w->ridge_radius, fabs((x*x + y*y) - (0.5*0.5)));
   default:
     assert(false);
   }
@@ -3643,6 +3655,7 @@ void run_from_command_line_options(int argc, char **argv) {
     { "param_set", required_argument, 0, 0 },
     { "log", required_argument, 0, 0 },
     { "reward_coverage", required_argument, 0, 0 },
+    { "invu", required_argument, 0, 0 },
     { NULL, 0, 0, 0 },
   };
   int c;
@@ -3775,6 +3788,9 @@ void run_from_command_line_options(int argc, char **argv) {
         break;
       case 40:
         w->reward_coverage = atoi(optarg);
+        break;
+      case 41:
+        w->invu = atoi(optarg);
         break;
       default:
         printf("Internal error\n");

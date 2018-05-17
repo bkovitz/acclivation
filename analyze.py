@@ -507,8 +507,8 @@ class Runner(object):
             'dot': Command('show graph of current organism dot', {}),
             'sim': Command('simulate current organism', {}),
             'plot':
-                Command('plot current phenotype fitness or virtual fitness', {
-                    StringArg('pfitness'), StringArg('vfitness')
+                Command('plot current phenotype fitness, range, or virtual fitness', {
+                    StringArg('phfitness'), StringArg('phrange'), StringArg('vfitness')
                 }),
             'neighborhood': Command('show current organism\'s fitness neighborhood', {}),
             'list':
@@ -563,12 +563,14 @@ class Runner(object):
         orgMap = {}
         parentMap = {}
         childMap = {}
+        epochMap = {}
         for e, epoch in enumerate(self.runData):
             for g, generation in enumerate(epoch):
                 for o, organism in enumerate(generation):
                     # organism map
                     orgId = (e+1, g+1, o)
                     orgMap[orgId] = organism
+                    epochMap[orgId] = epoch
                     # parent/child maps
                     parents = parentMap.setdefault(orgId, [])
                     if organism.birth_info.type == sa.CROSSOVER:
@@ -595,6 +597,7 @@ class Runner(object):
         self.orgMap = orgMap
         self.parentMap = parentMap
         self.childMap = childMap
+        self.epochMap = epochMap
 
     def getWorldParams(self):
         buf = StringIO()
@@ -615,6 +618,8 @@ class Runner(object):
     def cmdSelect(self, selection):
         if selection in self.orgMap:
             self.selectedOrg = self.orgMap[selection]
+            self.world.c1 = self.epochMap[selection].c1
+            sa.update_dependent_fitness_variables(self.world)
             self.selected = selection
             self.cmdPrint()
         else:
@@ -695,11 +700,18 @@ class Runner(object):
     def cmdPlot(self, typ):
         # delay import because it takes several seconds
         from plot_xyz import plot, parse
-        if typ == 'pfitness':
+        scatter = False
+        if typ == 'phfitness':
             buf = StringIO()
             sa.dump_phenotype_fitness_func(self.world, False, buf)
             csv = buf.getvalue()
             X, Y, Z = parse(csv, 0, 1, 2)
+        elif typ == 'phrange':
+            buf = StringIO()
+            sa.dump_organism_virtual_fitness_func(self.world, self.selectedOrg, False, buf)
+            csv = buf.getvalue()
+            X, Y, Z = parse(csv, 2, 3, 4)
+            scatter = True
         elif typ == 'vfitness':
             buf = StringIO()
             sa.dump_organism_virtual_fitness_func(self.world, self.selectedOrg, False, buf)
@@ -709,7 +721,7 @@ class Runner(object):
             print 'close sim first'
         else:
             self.root = Tk()
-            plot(X, Y, Z, False)
+            plot(X, Y, Z, scatter)
 
     def cmdDot(self):
         buf = StringIO()
