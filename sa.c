@@ -988,7 +988,7 @@ World *create_world() {
   w->edge_inheritance = INHERIT_SRC_EDGES_FROM_MOMMY;
   w->num_candidates = 7;
   w->knob_constant = 0.02;
-  w->knob_type = KNOB_DISCRETE;
+  w->knob_type = KNOB_NORMAL; // KNOB_DISCRETE;
   w->control_increment = 0.2;
   w->dump_fitness_nbhd = false;
   w->dump_fitness_epoch = -1;
