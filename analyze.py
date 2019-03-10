@@ -484,6 +484,7 @@ class Runner(object):
         self.selected = (1, 1, 0)
         self.selectedOrg = self.orgMap[self.selected]
         self.commands = {
+            'exit': Command('exit', {}),
             'quit': Command('exit', {}),
             'select':
                 Command('select an organism by <epoch>.<generation>.<organism-index>', {
@@ -614,6 +615,9 @@ class Runner(object):
             self.sasim.onUi(lambda: self.sasim.quit())
             self.sasim.join()
         sys.exit(0)
+
+    def cmdExit(self):
+        self.cmdQuit()
 
     def cmdSelect(self, selection):
         if selection in self.orgMap:

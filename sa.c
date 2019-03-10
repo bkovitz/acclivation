@@ -882,7 +882,8 @@ typedef struct world_t {
   int num_in;
   int num_out;
   double decay;
-  double spreading_rate;
+  //double spreading_rate;
+  double alpha;
   ACTIVATION_TYPES activation_types;
   INITIAL_ACTIVATION_TYPE initial_activation_type;
   INPUT_ACCS input_accs;
@@ -942,19 +943,22 @@ World *create_world() {
   World *w = calloc(1, sizeof(World));
   w->seed = make_random_seed();
   w->num_organisms = 80;
-  w->sa_timesteps = 20;
+  w->sa_timesteps = 6; //20;
   w->generations_per_epoch = 20;
   w->num_epochs = 100;
   w->num_nodes = 4; //8;
   w->num_edges = 0; //16;
   w->num_in = 2;
   w->num_out = 2;
-  w->decay = 0.8;
-  w->spreading_rate = 0.2;
+  w->decay = 1.0;
+  //w->spreading_rate = 0.2;
+  w->alpha = 0.9;
   w->input_accs = 0x01; // SUM_INCOMING only
-  w->activation_types = 0x01;  // SIGMOID only
+  //w->activation_types = 0x01;  // SIGMOID only
+  w->activation_types = 0x02;  // CLAMP_ONLY only
   w->initial_activation_type = NO_INITIAL_ACTIVATION;
-  w->edge_weights = EDGE_WEIGHTS_ONLY_PLUS_1; //EDGE_WEIGHTS_POS_OR_NEG;
+  //w->edge_weights = EDGE_WEIGHTS_ONLY_PLUS_1; //EDGE_WEIGHTS_POS_OR_NEG;
+  w->edge_weights = EDGE_WEIGHTS_POS_OR_NEG;
   w->multi_edges = true;
   w->allow_move_edge = false;
   w->output_types = ONLY_PASS_THROUGH;
@@ -978,9 +982,9 @@ World *create_world() {
   w->ridge_type = LINE;
   w->ridge_radius = 0.2;
   w->reward_coverage = false;
-  w->mutation_type_ub = 10;
+  w->mutation_type_ub = 20;
   w->extra_mutation_rate = 0.0; //0.1;
-  w->crossover_freq = 0.02;
+  w->crossover_freq = 0.1;
   w->edge_inheritance = INHERIT_SRC_EDGES_FROM_MOMMY;
   w->num_candidates = 7;
   w->knob_constant = 0.02;
@@ -1295,11 +1299,10 @@ double control_value(double input) {
   return exp(2.0 * input);
 }
 
-//void sa(Genotype *g, int timesteps, double decay, double spreading_rate) {
 void sa(World *w, Genotype *g, FILE *outf) {
   int timesteps = w->sa_timesteps;
   double decay = w->decay;
-  double spreading_rate = w->spreading_rate;
+  //double spreading_rate = w->spreading_rate;
   //Genotype *g = o->genotype;
 
   // TODO refactor/simplify
@@ -1334,7 +1337,8 @@ void sa(World *w, Genotype *g, FILE *outf) {
             if (next_controls[edge->dst] == UNWRITTEN) {
               next_controls[edge->dst] = clamp(
                   g->nodes[edge->dst].control +
-                  incoming_output / spreading_rate);
+                  incoming_output / (1.0 - w->alpha));
+                  //incoming_output / spreading_rate);
               break;
             }
             // fall through
@@ -1392,14 +1396,14 @@ void sa(World *w, Genotype *g, FILE *outf) {
           double a;
           switch (node->input_acc) {
             case SUM_INCOMING:
-              a = activations[n];
+              a = activations[n] * w->alpha;
               break;
             case MULT_INCOMING:
             case MIN_INCOMING:
               a = 0.0;
               break;
           }
-          double x = spreading_rate *
+          double x = (1.0 - w->alpha) *
                      incoming_activations[n] *
                      pow(decay, timestep - 1);
           switch (node->activation_type) {
@@ -1451,7 +1455,6 @@ void sanity_check(World *w);
 void set_phenotypes_and_fitnesses(World *w) {
   for (int n = 0; n < w->num_organisms; n++) {
     Organism *o = w->organisms[n];
-    //sa(o->genotype, w->sa_timesteps, w->decay, w->spreading_rate);
     sa(w, o->genotype, verbose ? stdout : NULL);
     if (debug)
       sanity_check(w);
@@ -1876,7 +1879,6 @@ void dump_organism_fitness_nbhd(World *w, Organism *original) {
     for (double dy = -m * w->knob_constant; dy <= m * w->knob_constant; dy += w->knob_constant) {
       g->nodes[0].initial_activation = original->genotype->nodes[0].initial_activation + dx;
       g->nodes[1].initial_activation = original->genotype->nodes[1].initial_activation + dy;
-      //sa(o->genotype, w->sa_timesteps, w->decay, w->spreading_rate);
       sa(w, o->genotype, verbose ? stdout : NULL);
       o->fitness = w->genotype_fitness_func(w, o->genotype);
       printf("  % lf % lf % .16lf % .16lf % lf\n",
@@ -2149,7 +2151,6 @@ double measure_coverage(World *w, Genotype *test_g) {
   for (double x = -1.0; x <= 1.0; x += 2 * w->knob_constant) {
     for (double y = -1.0; y <= 1.0; y += 2 * w->knob_constant) {
       set_gvector(g, x, y);
-      //sa(g, w->sa_timesteps, w->decay, w->spreading_rate);
       sa(w, g, verbose ? stdout : NULL);
       int ix = x2i(w, g->nodes[w->num_in].final_output);
       int iy = x2i(w, g->nodes[w->num_in + 1].final_output);
@@ -2423,7 +2424,8 @@ void print_world_params(World *w, FILE *outf) {
   fputc('\n', outf);
   fputs("// Spreading activation\n", outf);
   fprintf(outf, "w->sa_timesteps=%d;\n", w->sa_timesteps);
-  fprintf(outf, "w->spreading_rate=%lf;\n", w->spreading_rate);
+  //fprintf(outf, "w->spreading_rate=%lf;\n", w->spreading_rate);
+  fprintf(outf, "w->alpha=%lf;\n", w->alpha);
   fprintf(outf, "w->decay=%lf;\n", w->decay);
   fprintf(outf, "w->initial_activation_type=%s;\n",
       initial_activation_type_string(w->initial_activation_type));
@@ -2444,6 +2446,7 @@ void print_world_params(World *w, FILE *outf) {
     default:
       assert(false);
   }
+  fputc('\n', outf);
   fprintf(outf, "w->control_update=%s;\n", control_update_string(w->control_update));
   fprintf(outf, "w->control_increment=%lf;\n", w->control_increment);
   fputc('\n', outf);
@@ -3313,7 +3316,8 @@ void sa_test() {
   World *w = create_world();
   w->sa_timesteps = 13;
   w->decay = 1.0;
-  w->spreading_rate = 1.0;
+  //w->spreading_rate = 1.0;
+  w->alpha = 0.0;
   //sa(&genotype, 13, 1.0, 1.0);
   sa(w, &genotype, stdout);
 }
@@ -3342,7 +3346,8 @@ void sa_test2() {
   World *w = create_world();
   w->sa_timesteps = 20;
   w->decay = 1.0;
-  w->spreading_rate = 0.01;
+  //w->spreading_rate = 0.01;
+  w->alpha = 0.99;
   //sa(&genotype, 20, 1.0, 0.01);
   sa(w, &genotype, stdout);
 }
@@ -3489,7 +3494,8 @@ void good_run_oblique() {
   w->seed=203540935;
   w->ridge_radius=0.200000;
   w->c2=2.000000; w->c3=0.450000;
-  w->spreading_rate=0.010000;
+  //w->spreading_rate=0.010000;
+  w->alpha=0.99;
   w->mutation_type_ub=15;
   w->extra_mutation_rate=0.100000;
   w->crossover_freq=0.300000;
@@ -3510,7 +3516,8 @@ void good_run_oblique2() {
   w->seed=203540935;
   w->ridge_radius=0.200000;
   w->c2=2.000000; w->c3=0.450000;
-  w->spreading_rate=0.010000;
+  //w->spreading_rate=0.010000;
+  w->alpha=0.99;
   w->mutation_type_ub=16;
   w->extra_mutation_rate=0.100000;
   w->crossover_freq=0.300000;
@@ -3529,7 +3536,8 @@ void good_run_with_bumps() {
   w->seed=23992348;
   w->ridge_radius=0.200000;
   w->c2=1.000000; w->c3=0.000000;
-  w->spreading_rate=0.010000;
+  //w->spreading_rate=0.010000;
+  w->alpha=0.99;
   w->distance_weight=10.000000;
   w->bumps=true;
   w->mutation_type_ub=16;
@@ -3554,7 +3562,8 @@ void tom() {
   w->ridge_radius=0.200000;
   w->c2=1.000000; w->c3=0.000000;
   w->decay=0.900000;
-  w->spreading_rate=0.200000;
+  //w->spreading_rate=0.200000;
+  w->alpha=0.8;
   w->distance_weight=10.000000;
   w->bumps=true;
   w->mutation_type_ub=16;
@@ -3624,7 +3633,8 @@ void run_from_command_line_options(int argc, char **argv) {
     { "num_in", required_argument, 0, 0 },
     { "num_out", required_argument, 0, 0 },
     { "decay", required_argument, 0, 0 },
-    { "spreading_rate", required_argument, 0, 0 },
+    //{ "spreading_rate", required_argument, 0, 0 },
+    { "alpha", required_argument, 0, 0 },
     { "activation_types", required_argument, 0, 0 },
     { "edge_weights", required_argument, 0, 0 },
     { "distance_weight", required_argument, 0, 0 },
@@ -3698,7 +3708,8 @@ void run_from_command_line_options(int argc, char **argv) {
         w->decay = atof(optarg);
         break;
       case 10:
-        w->spreading_rate = atof(optarg);
+        //w->spreading_rate = atof(optarg);
+        w->alpha = atof(optarg);
         break;
       case 11:
         w->activation_types = atoi(optarg);
