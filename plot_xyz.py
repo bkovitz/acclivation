@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python2
 import csv
 import matplotlib.pyplot as plt
 import numpy as np
@@ -21,7 +21,7 @@ def parse(lines, x_col, y_col, z_col):
 
 def read(filename, x_col, y_col, z_col):
   with open(filename, 'r') as csvfile:
-    return parse(csvfile.read())
+    return parse(csvfile.read(), x_col, y_col, z_col)
 
 def plot(X, Y, Z, scatter):
   fig = plt.figure()

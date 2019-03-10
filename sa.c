@@ -1837,7 +1837,7 @@ void print_best_fitness(World *w) {
     g->nodes[3].final_output,
     0.0); // too slow
     //measure_coverage(w, o->genotype));
-  print_dot(w, o, stdout);
+  //print_dot(w, o, stdout);
 }
 
 void print_generation_results(World *w) {
@@ -2324,7 +2324,7 @@ void dump_organism_virtual_fitness_func(World *w, Organism *org, bool delims, FI
   w->reward_coverage = false;
   double delta = 0.02;
   if (delims)
-    fputs("BEGIN VFUNC", outf);
+    fputs("BEGIN VFUNC\n", outf);
   for (double g1 = -1.0; g1 <= 1.0; g1 += delta) {
     for (double g2 = -1.0; g2 <= 1.0; g2 += delta) {
       set_gvector(g, g1, g2);
@@ -2344,7 +2344,7 @@ void dump_organism_virtual_fitness_func(World *w, Organism *org, bool delims, FI
     }
   }
   if (delims)
-    fputs("END VFUNC", outf);
+    fputs("END VFUNC\n", outf);
   w->reward_coverage = save_reward_coverage;
   free_organism(o);
   fflush(outf);
@@ -2362,7 +2362,7 @@ void dump_phenotype_fitness_func(World *w, bool delims, FILE *outf) {
   //Genotype *g = create_random_genotype(w);
   double phenotype[w->num_out];
   if (delims)
-    fputs("BEGIN PHFUNC", outf);
+    fputs("BEGIN PHFUNC\n", outf);
   for (double p1 = -1.0; p1 <= 1.0; p1 += delta) {
     phenotype[0] = p1;
     for (double p2 = -1.0; p2 <= 1.0; p2 += delta) {
@@ -2377,7 +2377,7 @@ void dump_phenotype_fitness_func(World *w, bool delims, FILE *outf) {
     }
   }
   if (delims)
-    fputs("END PHFUNC", outf);
+    fputs("END PHFUNC\n", outf);
   fflush(outf);
 }
 
@@ -2531,7 +2531,7 @@ void run_world(World *w) {
   printf("epoch fitness deltas: ");
   print_stats(w->epoch_fitness_deltas);
   //print_data(w->epoch_fitness_deltas);
-  print_acclivity_measures_of_best(w);
+  //print_acclivity_measures_of_best(w);
   print_knob_fitness_numbers(w);
 
   close_ancestor_log(w);
@@ -2634,7 +2634,7 @@ double coverage_reward(World *w, Genotype *g) {
 double genotype_fitness(World *w, Genotype *g) {
   double phenotype[g->num_out];
   fill_phenotype_from_genotype(g, phenotype);
-  return phenotype_fitness(w, phenotype) + coverage_reward(w, g);
+  return phenotype_fitness(w, phenotype); // DCB + coverage_reward(w, g);
 }
 
 // -- next generation via crossover and mutation -----------------------------
@@ -3656,6 +3656,7 @@ void run_from_command_line_options(int argc, char **argv) {
     { "log", required_argument, 0, 0 },
     { "reward_coverage", required_argument, 0, 0 },
     { "invu", required_argument, 0, 0 },
+    { "noquiet", no_argument, 0, 0 },
     { NULL, 0, 0, 0 },
   };
   int c;
@@ -3791,6 +3792,9 @@ void run_from_command_line_options(int argc, char **argv) {
         break;
       case 41:
         w->invu = atoi(optarg);
+        break;
+      case 42:
+        quiet = false;
         break;
       default:
         printf("Internal error\n");
