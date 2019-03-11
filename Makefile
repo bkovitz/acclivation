@@ -115,9 +115,6 @@ data: sa run.py add_param_set.py
 	./run.py > d.csv
 	./add_param_set.py d.csv > data.csv
 
-run: sa
-	./sa
-
 out: x
 #	./sa > out
 #	#grep "epoch fitness" out
@@ -276,4 +273,19 @@ clean: swig_clean
 tags:
 	ctags *.[ch]
 
-.PHONY: tags run all dot clean plot fitness with_seed out tom swig_clean swig_test
+.PHONY: tags run all dot clean plot fitness with_seed out tom swig_clean swig_test runs
+
+# NEW EXPERIMENTS 2019-Mar-10 Inspired by Etienne Barnard's suggestion to look
+# at feed-forward networks.
+
+GOOD = --sa_timesteps=20 --log=ancestors --bumps=0 --num_organisms=40 --multi_edges=0 --knob_constant=0.1
+X = --sa_timesteps=20 --log=ancestors --bumps=1 --num_organisms=40 --multi_edges=0 --knob_constant=0.1
+
+ARGS = $(GOOD)  # Change this to some other variable to run other parameters
+run: sa
+	./sa $(ARGS) > out
+
+N = $(shell seq 1 20)
+runs: sa
+	rm outs/*
+	$(foreach i,$(N),./sa $(ARGS) --run=$i > outs/out$i; grep 'fitness deltas' outs/out$i;)

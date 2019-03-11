@@ -278,11 +278,11 @@ class SASim(Thread):
 
     def addEdge(self):
         if self.selectedNode is None:
-            print 'select source node'
+            print('select source node')
             return
         typ, _id = self.hoverTarget
         if _id is None:
-            print 'hover over destination node'
+            print('hover over destination node')
             return
         sa.add_edge(self.runner.world, self.organism.genotype, self.selectedId, \
                 _id, sa.rand_edge_weight(self.runner.world))
@@ -296,7 +296,7 @@ class SASim(Thread):
         src, dst, n, coords, weight, wx, wy = self.edges[ei]
         edge_idx = sa.get_edge_by_value(self.organism.genotype, int(src[1:]), int(dst[1:]), weight)
         if edge_idx == -1:
-            print 'error! no underlying edge found'
+            print('error! no underlying edge found')
             return None
         return edge_idx
 
@@ -309,7 +309,7 @@ class SASim(Thread):
     def remove(self):
         typ, _id = self.hoverTarget
         if _id is None:
-            print 'hover to remove'
+            print('hover to remove')
             return
         if typ == 'node':
             self.removeNode(_id)
@@ -554,8 +554,8 @@ class Runner(object):
                 for choice in commands[command].choices:
                     try:
                         matches += choice.tabMatch(parts[1])
-                    except Exception, e:
-                        print e
+                    except Exception as e:
+                        print(e)
                 matches += [None]
             return matches[state]
         return customCompleter
@@ -628,15 +628,15 @@ class Runner(object):
             self.cmdPrint()
         else:
             w = self.world
-            print 'org? <1-%d>.<1-%d>.<0-%d>' % \
-                    (w.num_epochs, w.generations_per_epoch, w.num_organisms-1)
+            print('org? <1-%d>.<1-%d>.<0-%d>' % \
+                    (w.num_epochs, w.generations_per_epoch, w.num_organisms-1))
 
     def cmdSa(self):
         w = self.world
         o = self.selectedOrg
         buf = StringIO()
         sa.sa(w, o.genotype, buf)
-        print sa.genotype_fitness(w, o.genotype) # can't use phenotype_fitness_func yet
+        print(sa.genotype_fitness(w, o.genotype)) # can't use phenotype_fitness_func yet
 
     def cmdSim(self):
         # graph data
@@ -671,19 +671,19 @@ class Runner(object):
         plt.ylim((-1.2,1.2))
         plt.legend(l)
         if self.sasim is not None and self.sasim.is_alive():
-            print 'close sim first'
+            print('close sim first')
         else:
             self.root = Tk()
             plt.show()
 
     def cmdPrint(self):
-        print self.selectedStr()
+        print(self.selectedStr())
         sa.print_organism(self.selectedOrg)
 
     def cmdPrintc(self):
         buf = StringIO()
         sa.print_genotype_c(self.selectedOrg.genotype, buf)
-        print buf.getvalue()
+        print(buf.getvalue())
 
     def cmdParent(self, parent):
         if parent in self.orgMap:
@@ -691,7 +691,7 @@ class Runner(object):
             self.selected = parent
             self.cmdPrint()
         else:
-            print parent, 'not in organism map'
+            print(parent, 'not in organism map')
 
     def cmdChild(self, child):
         if child in self.orgMap:
@@ -699,7 +699,7 @@ class Runner(object):
             self.selected = child
             self.cmdPrint()
         else:
-            print child, 'not in organism map'
+            print(child, 'not in organism map')
 
     def cmdPlot(self, typ):
         # delay import because it takes several seconds
@@ -722,7 +722,7 @@ class Runner(object):
             csv = buf.getvalue()
             X, Y, Z = parse(csv, 0, 1, 4)
         if self.sasim is not None and self.sasim.is_alive():
-            print 'close sim first'
+            print('close sim first')
         else:
             self.root = Tk()
             plot(X, Y, Z, scatter)
@@ -747,8 +747,8 @@ class Runner(object):
         try:
             w = self.world
             exec(cmd)
-        except Exception, e:
-            print e
+        except Exception as e:
+            print(e)
 
     def cmdHelp(self):
         for name, command in self.commands.items():
@@ -756,7 +756,7 @@ class Runner(object):
         self.printHelp('w.<param name>=<value>', 'change world parameter')
 
     def printHelp(self, command, help):
-        print '%s\t- %s' % (command, help)
+        print('%s\t- %s' % (command, help))
 
     def selectedStr(self):
         return '.'.join(['%d' % x for x in self.selected])
@@ -767,7 +767,7 @@ class Runner(object):
                 s = raw_input('>> ').strip()
                 tokens = s.split()
                 if not len(tokens):
-                    print self.selectedStr()
+                    print(self.selectedStr())
                     continue
                 command = tokens[0]
                 if command in self.commands.keys():
@@ -798,9 +798,9 @@ class Runner(object):
                 elif command.startswith('w.'):
                     self.cmdSetWorld(command)
                 else:
-                    print '?'
+                    print('?')
         except (EOFError, KeyboardInterrupt) as e:
-            print '\n'
+            print('\n')
 
 
 # ----------------------------------------------------------------------------
