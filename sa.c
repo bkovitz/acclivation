@@ -897,6 +897,7 @@ typedef struct world_t {
   double distance_weight;
   double dist_exponent;
   bool bumps;
+  bool moats;
   int epoch;
   int generation;
   double c1, c2, c3;
@@ -959,7 +960,7 @@ World *create_world() {
   w->initial_activation_type = NO_INITIAL_ACTIVATION;
   //w->edge_weights = EDGE_WEIGHTS_ONLY_PLUS_1; //EDGE_WEIGHTS_POS_OR_NEG;
   w->edge_weights = EDGE_WEIGHTS_POS_OR_NEG;
-  w->multi_edges = true;
+  w->multi_edges = false;
   w->allow_move_edge = false;
   w->output_types = ONLY_PASS_THROUGH;
   w->control_update = CONSTANT;
@@ -968,6 +969,7 @@ World *create_world() {
   w->distance_weight = 10.0;
   w->dist_exponent = 1.0;
   w->bumps = true;
+  w->moats = false;
   w->epoch = 0;
   w->generation = 0;
   w->c1 = 0.5;
@@ -2401,6 +2403,7 @@ void print_world_params(World *w, FILE *outf) {
       break;
   }
   fprintf(outf, "w->bumps=%s;\n", w->bumps ? "true" : "false");
+  fprintf(outf, "w->moats=%s;\n", w->moats ? "true" : "false");
   fprintf(outf, "w->ridge_radius=%lf;\n", w->ridge_radius);
   fprintf(outf, "w->c2=%lf; w->c3=%lf;\n", w->c2, w->c3);
   fprintf(outf, "w->c1_lb=%lf; w->c1_ub=%lf;\n", w->c1_lb, w->c1_ub);
@@ -2614,10 +2617,14 @@ double phenotype_fitness(World *w, const double *phenotype) {
               (w->distance_weight * pow(scaled_dist, w->dist_exponent));
     if (w->bumps) {
       double bump_amt = many_small_hills(phenotype);
-//      if (bump_amt <= 0.0)
-//        fitness = 0;
-//      else
-      fitness += bump_amt;
+      if (w->moats) {
+        if (bump_amt <= 0.0)
+          fitness = 0.0;
+        else
+          fitness += bump_amt;
+      } else {
+        fitness += bump_amt;
+      }
     }
   }
   if (fitness < 0.0) {
@@ -3667,6 +3674,7 @@ void run_from_command_line_options(int argc, char **argv) {
     { "reward_coverage", required_argument, 0, 0 },
     { "invu", required_argument, 0, 0 },
     { "noquiet", no_argument, 0, 0 },
+    { "moats", required_argument, 0, 0 },
     { NULL, 0, 0, 0 },
   };
   int c;
@@ -3806,6 +3814,9 @@ void run_from_command_line_options(int argc, char **argv) {
         break;
       case 42:
         quiet = false;
+        break;
+      case 43:
+        w->moats = atoi(optarg);
         break;
       default:
         printf("Internal error\n");

@@ -279,11 +279,15 @@ tags:
 # at feed-forward networks.
 
 GOOD = --sa_timesteps=20 --log=ancestors --bumps=0 --num_organisms=40 --multi_edges=0 --knob_constant=0.1
-X = --sa_timesteps=20 --log=ancestors --bumps=0 --num_organisms=40 --multi_edges=0 --knob_constant=0.1 $(CIRCLE)
+X = --sa_timesteps=20 --bumps=1 --moats=1 --num_organisms=40 --multi_edges=0 --knob_constant=0.05 --num_epochs=1000
+
+C0 =  $(CIRCLE) --sa_timesteps=20 --log=ancestors --bumps=0 --num_organisms=40 --multi_edges=0 --knob_constant=0.05 --allow_move_edge=1
+# not good
 
 ARGS = $(X)  # Change this to some other variable to run other parameters
 run: sa
 	./sa $(ARGS) > out
+	grep 'deltas' out
 
 N = $(shell seq 1 20)
 runs: sa
