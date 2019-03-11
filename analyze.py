@@ -221,7 +221,9 @@ class SASim(Thread):
         self.inputAccValuesRev = { v:k for k,v in self.inputAccValues.iteritems() }
         self.activationTypeValues = {
             '0_SIGMOID' : sa.SIGMOID,
-            '1_CLAMP_ONLY' : sa.CLAMP_ONLY
+            '1_CLAMP_ONLY' : sa.CLAMP_ONLY,
+            '2_POS_RECTIFIED' : sa.POS_RECTIFIED,
+            '3_NEG_RECTIFIED' : sa.NEG_RECTIFIED
         }
         self.activationTypeValuesRev = { v:k for k,v in self.activationTypeValues.iteritems() }
         self.outputTypeValues = {

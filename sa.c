@@ -114,11 +114,28 @@ const char *input_accs_string(INPUT_ACCS ia) {
 // How activation is calculated from accumulated inputs
 typedef enum {
   SIGMOID,
-  CLAMP_ONLY
+  CLAMP_ONLY,
   //SIGMOID_SUM
+  POS_RECTIFIED,
+  NEG_RECTIFIED
 } ACTIVATION_TYPE;
 
-// bits enable corresponding ACTIVATION_TYPEs
+const char *activation_type_string(ACTIVATION_TYPE type) {
+  switch (type) {
+    case SIGMOID:
+      return "S";
+    case CLAMP_ONLY:
+      return "C";
+    case POS_RECTIFIED:
+      return "+R";
+    case NEG_RECTIFIED:
+      return "-R";
+  }
+  assert(false);
+}
+
+// Each value represents a different set of possible ACTIVATION_TYPEs
+// that a Node can have.
 typedef unsigned int ACTIVATION_TYPES;
 
 const char *activation_types_string(ACTIVATION_TYPES at) {
@@ -129,6 +146,10 @@ const char *activation_types_string(ACTIVATION_TYPES at) {
       return "0x02 /* CLAMP_ONLY only */ ";
     case 0x03:
       return "0x03 /* SIGMOID and CLAMP_ONLY */ ";
+    case 0x04:
+      return "0x04 /* POS_RECTIFIED and NEG_RECTIFIED */ ";
+    case 0x05:
+      return "0x05 /* CLAMP_ONLY, POS_RECTIFIED, and NEG_RECTIFIED */ ";
   }
   assert(false);
 }
@@ -710,13 +731,18 @@ void print_id(ORGANISM_ID id) {
 
 void verify(bool);
 
+// TODO Incorporate input_acc
+const char *node_type_string(const Node *node) {
+  return activation_type_string(node->activation_type);
+}
+
 void print_node_mutation_record(NODE_MUTATION_RECORD *rec) {
   printf("    index=%d\n", rec->index);
   printf("    initial_activation=%lf\n", rec->initial_activation);
   printf("    control=%lf\n", rec->control);
   printf("    input_acc=%s\n", input_acc_string(rec->input_acc));
   printf("    activation_type=%s\n",
-      initial_activation_type_string(rec->activation_type));
+      activation_type_string(rec->activation_type));
   printf("    output_type=%s\n", output_type_string(rec->output_type));
   printf("    control_update=%s\n", control_update_string(rec->control_update));
   printf("    initial_activation_type=%s\n",
@@ -1054,6 +1080,19 @@ double rand_edge_weight(World *w) {
   }
 }
 
+ACTIVATION_TYPE clamp_pos_or_neg() {
+  switch (rand_int(1, 3)) {
+    case 1:
+      return CLAMP_ONLY;
+    case 2:
+      return POS_RECTIFIED;
+    case 3:
+      return NEG_RECTIFIED;
+    default:
+      assert(false);
+  }
+}
+
 double node_output(Node *node, double activation);
 
 void init_random_node(World *w, Node *n, int index) {
@@ -1093,6 +1132,12 @@ void init_random_node(World *w, Node *n, int index) {
       break;
     case 0x03:
       n->activation_type = coin_flip() ? SIGMOID : CLAMP_ONLY;
+      break;
+    case 0x04:
+      n->activation_type = coin_flip() ? POS_RECTIFIED : NEG_RECTIFIED;
+      break;
+    case 0x05:
+      n->activation_type = clamp_pos_or_neg();
       break;
     default:
       assert(false); // invalid activation_types
@@ -1155,17 +1200,6 @@ Organism *create_random_organism(World *w) {
   o->from_turned_knob = false; // FIXME: convert to use birth info
   o->birth_info.type = RANDOM;
   return o;
-}
-
-// TODO Incorporate input_acc
-const char *node_type_string(const Node *node) {
-  switch (node->activation_type) {
-    case SIGMOID:
-      return "S";
-    case CLAMP_ONLY:
-      return "C";
-  }
-  assert(false);
 }
 
 bool is_affected_by_control(Node *node) {
@@ -1425,6 +1459,13 @@ void sa(World *w, Genotype *g, FILE *outf) {
                   //activations[n] + steep_sigmoid(x, node->control, slope));
                   //activations[n] + steep_sigmoid(x, node->control, node->control));
               }
+              break;
+            case POS_RECTIFIED:
+              activations[n] = clamp2(a + x, 0.0, 1.0);
+              break;
+            case NEG_RECTIFIED:
+              activations[n] = clamp2(a + x, -1.0, 0.0);
+              break;
           }
         }
       }
@@ -2878,6 +2919,8 @@ void mut_alter_activation_type(World *w, Organism *o) {
       mut_turn_knob(w, o);
       break;
     case 0x03: // SIGMOID or CLAMP_ONLY
+    case 0x04: // POS_RECTIFIED or NEG_RECTIFIED
+    case 0x05: // CLAMP_ONLY, POS_RECTIFIED, or NEG_RECTIFIED
       {
         int n = select_in_use_node(o->genotype);
         Node *node_to_change = &o->genotype->nodes[n];
@@ -2886,15 +2929,34 @@ void mut_alter_activation_type(World *w, Organism *o) {
           node_to_change->activation_type,
           -1
         };
-        switch (node_to_change->activation_type) {
-          case SIGMOID:
-            node_to_change->activation_type = CLAMP_ONLY;
+        switch (w->activation_types) {
+          case 0x03: // SIGMOID or CLAMP_ONLY
+            switch (node_to_change->activation_type) {
+              case SIGMOID:
+                node_to_change->activation_type = CLAMP_ONLY;
+                break;
+              case CLAMP_ONLY:
+                node_to_change->activation_type = SIGMOID;
+                break;
+              default:
+                assert(false);
+            }
             break;
-          case CLAMP_ONLY:
-            node_to_change->activation_type = SIGMOID;
+          case 0x04: // POS_RECTIFIED or NEG_RECTIFIED
+            switch (node_to_change->activation_type) {
+              case POS_RECTIFIED:
+                node_to_change->activation_type = NEG_RECTIFIED;
+                break;
+              case NEG_RECTIFIED:
+                node_to_change->activation_type = POS_RECTIFIED;
+                break;
+              default:
+                assert(false);
+            }
             break;
-          default:
-            assert(false);
+          case 0x05: // CLAMP_ONLY, POS_RECTIFIED, or NEG_RECTIFIED
+            node_to_change->activation_type = clamp_pos_or_neg();
+            break;
         }
         alter_rec.type = node_to_change->activation_type;
         MUTATION_RECORD rec;
@@ -3716,7 +3778,6 @@ void run_from_command_line_options(int argc, char **argv) {
         w->decay = atof(optarg);
         break;
       case 10:
-        //w->spreading_rate = atof(optarg);
         w->alpha = atof(optarg);
         break;
       case 11:

@@ -279,7 +279,7 @@ tags:
 # at feed-forward networks.
 
 GOOD = --sa_timesteps=20 --log=ancestors --bumps=0 --num_organisms=40 --multi_edges=0 --knob_constant=0.1
-X = --sa_timesteps=20 --bumps=1 --moats=1 --num_organisms=40 --multi_edges=0 --knob_constant=0.05 --num_epochs=1000
+X = --log=ancestors --sa_timesteps=20 --bumps=1 --moats=1 --num_organisms=40 --multi_edges=0 --knob_constant=0.1 --activation_types=5 --alpha=0.0  #--num_epochs=1000
 
 C0 =  $(CIRCLE) --sa_timesteps=20 --log=ancestors --bumps=0 --num_organisms=40 --multi_edges=0 --knob_constant=0.05 --allow_move_edge=1
 # not good
@@ -291,5 +291,5 @@ run: sa
 
 N = $(shell seq 1 20)
 runs: sa
-	rm -f outs/out*
-	$(foreach i,$(N),./sa $(ARGS) --run=$i > outs/out$i; grep 'fitness deltas' outs/out$i;)
+	@rm -f outs/out*
+	@$(foreach i,$(N),./sa $(ARGS) --run=$i > outs/out$i; grep 'fitness deltas' outs/out$i;)
