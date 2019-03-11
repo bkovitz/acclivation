@@ -259,7 +259,7 @@ endif
 
 _sa.so: sa.i sa.c Makefile
 	swig -python sa.i
-	CFLAGS="-std=gnu99 -Og -g -Wno-strict-prototypes -Wno-return-type $(EXTRA_WARN) -Wno-unused-variable" LDFLAGS="-lm" python setup_sa.py build_ext --inplace
+	CFLAGS="-std=gnu99 -g -Wno-strict-prototypes -Wno-return-type $(EXTRA_WARN) -Wno-unused-variable" LDFLAGS="-lm" python setup_sa.py build_ext --inplace
 
 swig_clean:
 	rm -rf *.pyc *.so a.out* build sa_wrap.c* sa.py
@@ -279,13 +279,13 @@ tags:
 # at feed-forward networks.
 
 GOOD = --sa_timesteps=20 --log=ancestors --bumps=0 --num_organisms=40 --multi_edges=0 --knob_constant=0.1
-X = --sa_timesteps=20 --log=ancestors --bumps=1 --num_organisms=40 --multi_edges=0 --knob_constant=0.1
+X = --sa_timesteps=20 --log=ancestors --bumps=0 --num_organisms=40 --multi_edges=0 --knob_constant=0.1 $(CIRCLE)
 
-ARGS = $(GOOD)  # Change this to some other variable to run other parameters
+ARGS = $(X)  # Change this to some other variable to run other parameters
 run: sa
 	./sa $(ARGS) > out
 
 N = $(shell seq 1 20)
 runs: sa
-	rm outs/*
+	rm -f outs/out*
 	$(foreach i,$(N),./sa $(ARGS) --run=$i > outs/out$i; grep 'fitness deltas' outs/out$i;)
