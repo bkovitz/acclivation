@@ -281,16 +281,23 @@ tags:
 GOOD = --sa_timesteps=20 --log=ancestors --bumps=0 --num_organisms=40 --multi_edges=0 --knob_constant=0.1
 X1 = --log=ancestors --sa_timesteps=20 --bumps=1 --moats=1 --num_organisms=40 --multi_edges=0 --knob_constant=0.1 --activation_types=5 --alpha=0.0  #--num_epochs=1000
 #X = $(OBLIQUE_LINE) --log=ancestors --sa_timesteps=20 --bumps=1 --moats=1 --num_organisms=40 --multi_edges=0 --knob_constant=0.1 --activation_types=5 --alpha=0.9  #--num_epochs=1000
-X = $(OBLIQUE_LINE) --ridge_radius=1.0 --bumps=0 --moats=0 \
-	--knob_constant=0.1 --crossover_freq=0.05 --mutation_type_ub=16 --num_organisms=80 \
-	--input_accs=7 --activation_types=2 --sa_timesteps=20 --alpha=0.9 \
-	--edge_from_phnode=0 --edge_inheritance=3 --multi_edges=1 \
-	--dot=1 --log=ancestors --seed=2512380812 #--num_epochs=1000
+
+GOOD_THINYX_WITH_BUMPS = $(YXLINE) --ridge_radius=0.2 --bumps=1 --moats=1 \
+	--knob_constant=0.02 --crossover_freq=0.05 --mutation_type_ub=16 --num_organisms=100 \
+	--input_accs=1 --activation_types=6 --sa_timesteps=10 --alpha=0.8 \
+	--edge_from_phnode=1 --edge_inheritance=5 --multi_edges=0 \
+	--dot=1 --log=ancestors --num_epochs=40  --seed=1583407075
+
+OK_OBLIQUE_WIH_BUMPS = $(OBLIQUE_LINE) --ridge_radius=1.0 --bumps=1 --moats=1 \
+	--knob_constant=0.02 --crossover_freq=0.05 --mutation_type_ub=16 --num_organisms=200 \
+	--input_accs=1 --activation_types=6 --sa_timesteps=10 --alpha=0.8 \
+	--edge_from_phnode=1 --edge_inheritance=5 --multi_edges=0 \
+	--dot=1 --log=ancestors --num_epochs=40  --seed=2408275062
 
 C0 =  $(CIRCLE) --sa_timesteps=20 --log=ancestors --bumps=0 --num_organisms=40 --multi_edges=0 --knob_constant=0.05 --allow_move_edge=1
 # not good
 
-ARGS = $(X)  # Change this to some other variable to run other parameters
+ARGS = $(GOOD_THINYX_WITH_BUMPS)  # Change this to some other variable to run other parameters
 run: all
 	./sa $(ARGS) > out
 	@grep 'deltas' out

@@ -117,7 +117,8 @@ typedef enum {
   CLAMP_ONLY,
   //SIGMOID_SUM
   POS_RECTIFIED,
-  NEG_RECTIFIED
+  NEG_RECTIFIED,
+  SIGMOID_ACCUM
 } ACTIVATION_TYPE;
 
 const char *activation_type_string(ACTIVATION_TYPE type) {
@@ -130,6 +131,8 @@ const char *activation_type_string(ACTIVATION_TYPE type) {
       return "+R";
     case NEG_RECTIFIED:
       return "-R";
+    case SIGMOID_ACCUM:
+      return "A";
   }
   assert(false);
 }
@@ -150,6 +153,8 @@ const char *activation_types_string(ACTIVATION_TYPES at) {
       return "0x04 /* POS_RECTIFIED and NEG_RECTIFIED */ ";
     case 0x05:
       return "0x05 /* CLAMP_ONLY, POS_RECTIFIED, and NEG_RECTIFIED */ ";
+    case 0x06:
+      return "0x06 /* SIGMOID_ACCUM only */ ";
   }
   assert(false);
 }
@@ -1141,6 +1146,9 @@ void init_random_node(World *w, Node *n, int index) {
     case 0x05:
       n->activation_type = clamp_pos_or_neg();
       break;
+    case 0x06:
+      n->activation_type = SIGMOID_ACCUM;
+      break;
     default:
       assert(false); // invalid activation_types
   }
@@ -1467,6 +1475,12 @@ void sa(World *w, Genotype *g, FILE *outf) {
               break;
             case NEG_RECTIFIED:
               activations[n] = clamp2(a + x, -1.0, 0.0);
+              break;
+            case SIGMOID_ACCUM:  // ignore alpha; just accumulate
+              {
+                double sum = activations[n] + incoming_activations[n];
+                activations[n] = clamp(sigmoid(sum));
+              }
               break;
           }
         }
@@ -2929,6 +2943,7 @@ void mut_alter_activation_type(World *w, Organism *o) {
   switch (w->activation_types) {
     case 0x01: // SIGMOID only
     case 0x02: // CLAMP_ONLY only
+    case 0x06: // SIGMOID_ACCUM only
       mut_turn_knob(w, o);
       break;
     case 0x03: // SIGMOID or CLAMP_ONLY
