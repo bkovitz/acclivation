@@ -27,7 +27,7 @@
 int verbose = 0;
 bool quiet = false;
 bool debug = false;
-bool dot = true;
+bool dot = false;
 
 double max(double x, double y) {
   if (x >= y)
@@ -1440,16 +1440,7 @@ void sa(World *w, Genotype *g, FILE *outf) {
           if (activations[n] == UNWRITTEN) {
             activations[n] = 0.0;
           }
-          double a;
-          switch (node->input_acc) {
-            case SUM_INCOMING:
-              a = activations[n] * w->alpha;
-              break;
-            case MULT_INCOMING:
-            case MIN_INCOMING:
-              a = 0.0;
-              break;
-          }
+          double a = activations[n] * w->alpha;
           double x = (1.0 - w->alpha) *
                      incoming_activations[n] *
                      pow(decay, timestep - 1);
@@ -2309,7 +2300,7 @@ void run_epoch(World *w, int e) {
   double epoch_start_fitness;
   double last_fitness;
   change_fitness_constants(w);
-  if (!quiet && !dot)
+  if (!quiet)
     printf("\nepoch %d (c1=%lf, c2=%lf, c3=%lf) peak=(%.3lf, %.3lf)\n",
       e, w->c1, w->c2, w->c3, w->peak_x, w->peak_y);
   w->epoch = e;
@@ -2665,7 +2656,7 @@ double phenotype_fitness(World *w, const double *phenotype) {
   if (phenotype[0] != UNWRITTEN && phenotype[1] != UNWRITTEN) {
     double dist = distance(w->peak_x, w->peak_y, phenotype[0], phenotype[1]);
     double scaled_dist = (w->max_dist - dist) / w->max_dist;
-    fitness = require_valid_region(w, phenotype[0], phenotype[1]) *
+    fitness = // require_valid_region(w, phenotype[0], phenotype[1]) *
               along_ridge(w, phenotype[0], phenotype[1]) *
               (w->distance_weight * pow(scaled_dist, w->dist_exponent));
     if (w->bumps) {
@@ -3769,6 +3760,7 @@ void run_from_command_line_options(int argc, char **argv) {
     { "noquiet", no_argument, 0, 0 },
     { "moats", required_argument, 0, 0 },
     { "edge_from_phnode", required_argument, 0, 0 },
+    { "dot", required_argument, 0, 0 },
     { NULL, 0, 0, 0 },
   };
   int c;
@@ -3913,6 +3905,9 @@ void run_from_command_line_options(int argc, char **argv) {
         break;
       case 44:
         w->edge_from_phnode = atoi(optarg);
+        break;
+      case 45:
+        dot = atoi(optarg);
         break;
       default:
         printf("Internal error\n");

@@ -21,7 +21,7 @@ endif
 #Thin ridge along y=x
 YXLINE = --ridge_type=0 --c1_lb=-1 --c1_ub=1 
 
-OBLIQUE_LINE = $(YXLINE) --c2=2.0 --c3=-0.45
+OBLIQUE_LINE = $(YXLINE) --ridge_type=0 --c2=2.0 --c3=-0.45 --c1_lb=-0.275 --c1_ub=0.725
 
 #--c2=1 --c3=0 \
 #--c2=2.0 --c3=-0.45 \
@@ -257,7 +257,7 @@ else
   EXTRA_WARN="-Wno-maybe-uninitialized"
 endif
 
-_sa.so: sa.i sa.c Makefile
+_sa.so: sa.i sa.c
 	swig -python sa.i
 	CFLAGS="-std=gnu99 -g -Wno-strict-prototypes -Wno-return-type $(EXTRA_WARN) -Wno-unused-variable" LDFLAGS="-lm" python setup_sa.py build_ext --inplace
 
@@ -281,17 +281,21 @@ tags:
 GOOD = --sa_timesteps=20 --log=ancestors --bumps=0 --num_organisms=40 --multi_edges=0 --knob_constant=0.1
 X1 = --log=ancestors --sa_timesteps=20 --bumps=1 --moats=1 --num_organisms=40 --multi_edges=0 --knob_constant=0.1 --activation_types=5 --alpha=0.0  #--num_epochs=1000
 #X = $(OBLIQUE_LINE) --log=ancestors --sa_timesteps=20 --bumps=1 --moats=1 --num_organisms=40 --multi_edges=0 --knob_constant=0.1 --activation_types=5 --alpha=0.9  #--num_epochs=1000
-X = $(OBLIQUE_LINE) --log=ancestors --num_edges=4 --sa_timesteps=20 --bumps=0 --moats=0 --num_organisms=40 --multi_edges=1 --knob_constant=0.1 --activation_types=5 --alpha=0.9  --extra_mutation_rate=0.1 --mutation_type_ub=10 --edge_from_phnode=0 #--num_epochs=1000
+X = $(OBLIQUE_LINE) --ridge_radius=1.0 --bumps=0 --moats=0 \
+	--knob_constant=0.1 --crossover_freq=0.05 --mutation_type_ub=16 --num_organisms=80 \
+	--input_accs=7 --activation_types=2 --sa_timesteps=20 --alpha=0.9 \
+	--edge_from_phnode=0 --edge_inheritance=3 --multi_edges=1 \
+	--dot=1 --log=ancestors --seed=2512380812 #--num_epochs=1000
 
 C0 =  $(CIRCLE) --sa_timesteps=20 --log=ancestors --bumps=0 --num_organisms=40 --multi_edges=0 --knob_constant=0.05 --allow_move_edge=1
 # not good
 
 ARGS = $(X)  # Change this to some other variable to run other parameters
-run: sa
+run: all
 	./sa $(ARGS) > out
 	@grep 'deltas' out
 
 N = $(shell seq 1 20)
-runs: sa
+runs: all
 	@rm -f outs/out*
 	@$(foreach i,$(N),./sa $(ARGS) --run=$i > outs/out$i; grep 'fitness deltas' outs/out$i;)
