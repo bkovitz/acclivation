@@ -27,7 +27,7 @@
 int verbose = 0;
 bool quiet = false;
 bool debug = false;
-bool dot = false;
+bool dot = true;
 
 double max(double x, double y) {
   if (x >= y)
@@ -918,6 +918,7 @@ typedef struct world_t {
   CONTROL_UPDATE control_update; // all nodes get a copy of this
   bool multi_edges;
   bool allow_move_edge;
+  bool edge_from_phnode;
   Organism **organisms;
   double (*genotype_fitness_func)(struct world_t *, Genotype *);
   double distance_weight;
@@ -988,6 +989,7 @@ World *create_world() {
   w->edge_weights = EDGE_WEIGHTS_POS_OR_NEG;
   w->multi_edges = false;
   w->allow_move_edge = false;
+  w->edge_from_phnode = true;
   w->output_types = ONLY_PASS_THROUGH;
   w->control_update = CONSTANT;
   w->organisms = NULL; //calloc(num_organisms, sizeof(Organism));
@@ -1181,7 +1183,16 @@ Genotype *create_random_genotype(World *w) {
   }
 
   for (int e = 0; e < w->num_edges; e++) {
-    int src = rand() % g->num_nodes;
+    int src;
+    switch (w->edge_from_phnode) {
+      case true:
+        src = rand() % g->num_nodes;
+        break;
+      case false:
+        do {
+          src = rand() % g->num_nodes;
+        } while (is_phenotype_index(w, src));
+    }
     int dst = rand() % g->num_nodes;
     double weight = rand_edge_weight(w);
     add_edge(w, g, src, dst, weight);
@@ -1883,11 +1894,12 @@ void print_best_fitness(World *w) {
     g->nodes[3].final_output,
     0.0); // too slow
     //measure_coverage(w, o->genotype));
-  //print_dot(w, o, stdout);
+  if (dot)
+    print_dot(w, o, stdout);
 }
 
 void print_generation_results(World *w) {
-  if (!dot) {
+  if (!quiet) {
     printf("  generation %d\n", w->generation);
     print_best_fitness(w);
   }
@@ -2724,7 +2736,17 @@ void add_edge(World *w, Genotype *g, int src, int dst, double weight) {
 
 void mut_add_edge(World *w, Organism *o) {
   Genotype *g = o->genotype;
-  int src = select_in_use_node(g);
+  int src;
+  switch (w->edge_from_phnode) {
+    case true:
+      src = select_in_use_node(g);
+      break;
+    case false:
+      do {
+        src = select_in_use_node(g);
+      } while (is_phenotype_index(w, src));
+      break;
+  }
   int dst = select_in_use_node(g);
   double weight = rand_edge_weight(w);
   assert(has_node(g, src));
@@ -3182,9 +3204,11 @@ Organism *mutate(World *w, int parent, Organism *old_o) {
       mut_remove_node(w, o);
       break;
     case 2:
+    case 9:
       mut_add_edge(w, o);
       break;
     case 3:
+    case 10:
       mut_remove_edge(w, o);
       break;
     case 4:
@@ -3197,7 +3221,15 @@ Organism *mutate(World *w, int parent, Organism *old_o) {
       mut_alter_output_type(w, o);
       break;
     case 7:
-      mut_turn_control(w, o);
+      switch (w->output_types) {
+        case ONLY_PASS_THROUGH:
+          mut_turn_knob(w, o);
+          break;
+        case PASS_THROUGH_AND_STEEP_SIGMOID:
+        case PASS_THROUGH_AND_TWO_STEP:
+          mut_turn_control(w, o);
+          break;
+      }
       break;
     case 8:
       if (w->allow_move_edge) {
@@ -3702,7 +3734,6 @@ void run_from_command_line_options(int argc, char **argv) {
     { "num_in", required_argument, 0, 0 },
     { "num_out", required_argument, 0, 0 },
     { "decay", required_argument, 0, 0 },
-    //{ "spreading_rate", required_argument, 0, 0 },
     { "alpha", required_argument, 0, 0 },
     { "activation_types", required_argument, 0, 0 },
     { "edge_weights", required_argument, 0, 0 },
@@ -3737,6 +3768,7 @@ void run_from_command_line_options(int argc, char **argv) {
     { "invu", required_argument, 0, 0 },
     { "noquiet", no_argument, 0, 0 },
     { "moats", required_argument, 0, 0 },
+    { "edge_from_phnode", required_argument, 0, 0 },
     { NULL, 0, 0, 0 },
   };
   int c;
@@ -3878,6 +3910,9 @@ void run_from_command_line_options(int argc, char **argv) {
         break;
       case 43:
         w->moats = atoi(optarg);
+        break;
+      case 44:
+        w->edge_from_phnode = atoi(optarg);
         break;
       default:
         printf("Internal error\n");

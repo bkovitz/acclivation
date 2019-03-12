@@ -19,9 +19,9 @@ VIEW_PDF = evince
 endif
 
 #Thin ridge along y=x
-YXLINE = --ridge_type=0 --ridge_radius=0.1 \
-  --c2=2.0 --c3=-0.45 \
-	--c1_lb=-1 --c1_ub=1 
+YXLINE = --ridge_type=0 --c1_lb=-1 --c1_ub=1 
+
+OBLIQUE_LINE = $(YXLINE) --c2=2.0 --c3=-0.45
 
 #--c2=1 --c3=0 \
 #--c2=2.0 --c3=-0.45 \
@@ -279,7 +279,9 @@ tags:
 # at feed-forward networks.
 
 GOOD = --sa_timesteps=20 --log=ancestors --bumps=0 --num_organisms=40 --multi_edges=0 --knob_constant=0.1
-X = --log=ancestors --sa_timesteps=20 --bumps=1 --moats=1 --num_organisms=40 --multi_edges=0 --knob_constant=0.1 --activation_types=5 --alpha=0.0  #--num_epochs=1000
+X1 = --log=ancestors --sa_timesteps=20 --bumps=1 --moats=1 --num_organisms=40 --multi_edges=0 --knob_constant=0.1 --activation_types=5 --alpha=0.0  #--num_epochs=1000
+#X = $(OBLIQUE_LINE) --log=ancestors --sa_timesteps=20 --bumps=1 --moats=1 --num_organisms=40 --multi_edges=0 --knob_constant=0.1 --activation_types=5 --alpha=0.9  #--num_epochs=1000
+X = $(OBLIQUE_LINE) --log=ancestors --num_edges=4 --sa_timesteps=20 --bumps=0 --moats=0 --num_organisms=40 --multi_edges=1 --knob_constant=0.1 --activation_types=5 --alpha=0.9  --extra_mutation_rate=0.1 --mutation_type_ub=10 --edge_from_phnode=0 #--num_epochs=1000
 
 C0 =  $(CIRCLE) --sa_timesteps=20 --log=ancestors --bumps=0 --num_organisms=40 --multi_edges=0 --knob_constant=0.05 --allow_move_edge=1
 # not good
@@ -287,7 +289,7 @@ C0 =  $(CIRCLE) --sa_timesteps=20 --log=ancestors --bumps=0 --num_organisms=40 -
 ARGS = $(X)  # Change this to some other variable to run other parameters
 run: sa
 	./sa $(ARGS) > out
-	grep 'deltas' out
+	@grep 'deltas' out
 
 N = $(shell seq 1 20)
 runs: sa
