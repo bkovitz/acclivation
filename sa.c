@@ -1192,14 +1192,12 @@ Genotype *create_random_genotype(World *w) {
 
   for (int e = 0; e < w->num_edges; e++) {
     int src;
-    switch (w->edge_from_phnode) {
-      case true:
+    if (w->edge_from_phnode) {
+      src = rand() % g->num_nodes;
+    } else {
+      do {
         src = rand() % g->num_nodes;
-        break;
-      case false:
-        do {
-          src = rand() % g->num_nodes;
-        } while (is_phenotype_index(w, src));
+      } while (is_phenotype_index(w, src));
     }
     int dst = rand() % g->num_nodes;
     double weight = rand_edge_weight(w);
@@ -2742,15 +2740,12 @@ void add_edge(World *w, Genotype *g, int src, int dst, double weight) {
 void mut_add_edge(World *w, Organism *o) {
   Genotype *g = o->genotype;
   int src;
-  switch (w->edge_from_phnode) {
-    case true:
+  if (w->edge_from_phnode) {
+    src = select_in_use_node(g);
+  } else {
+    do {
       src = select_in_use_node(g);
-      break;
-    case false:
-      do {
-        src = select_in_use_node(g);
-      } while (is_phenotype_index(w, src));
-      break;
+    } while (is_phenotype_index(w, src));
   }
   int dst = select_in_use_node(g);
   double weight = rand_edge_weight(w);
