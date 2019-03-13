@@ -4,6 +4,7 @@ import os
 import re
 import readline
 import sa
+import subprocess
 import sys
 import ttk
 
@@ -510,8 +511,9 @@ class Runner(object):
             'dot': Command('show graph of current organism dot', {}),
             'sim': Command('simulate current organism', {}),
             'plot':
-                Command('plot current phenotype fitness, range, or virtual fitness', {
-                    StringArg('phfitness'), StringArg('phrange'), StringArg('vfitness')
+                Command('plot current phenotype fitness, range, virtual fitness, or lineage', {
+                    StringArg('phfitness'), StringArg('phrange'), StringArg('vfitness'),
+                    StringArg('lineage')
                 }),
             'neighborhood': Command('show current organism\'s fitness neighborhood', {}),
             'list':
@@ -564,6 +566,7 @@ class Runner(object):
 
     def buildOrgMap(self):
         orgMap = {}
+        revOrgMap = {}
         parentMap = {}
         childMap = {}
         epochMap = {}
@@ -573,6 +576,7 @@ class Runner(object):
                     # organism map
                     orgId = (e+1, g+1, o)
                     orgMap[orgId] = organism
+                    revOrgMap[organism] = orgId
                     epochMap[orgId] = epoch
                     # parent/child maps
                     parents = parentMap.setdefault(orgId, [])
@@ -598,6 +602,7 @@ class Runner(object):
                         childMap[parentId] = children
                     parentMap[orgId] = parents
         self.orgMap = orgMap
+        self.revOrgMap = revOrgMap
         self.parentMap = parentMap
         self.childMap = childMap
         self.epochMap = epochMap
@@ -703,8 +708,35 @@ class Runner(object):
         else:
             print(child, 'not in organism map')
 
+    def getLineage(self, organism, sofar={}, links=[]):
+        orgId = self.revOrgMap[organism]
+        if sofar.has_key(orgId):
+            return
+        sofar[orgId] = True
+        for parent in self.parentMap[orgId]:
+            links.append((parent, orgId))
+        for parent in self.parentMap[orgId]:
+            if self.orgMap.has_key(parent):
+                self.getLineage(self.orgMap[parent], sofar, links)
+        return links
+
+    def plotLineage(self, organism):
+        epoch,generation,oindex = self.revOrgMap[organism]
+        outf = 'e%dg%do%d-lineage' % (epoch, generation, oindex)
+        print('generating lineage dot file', outf)
+        with open(outf + '.dot', 'w') as f:
+            f.write('digraph g {\n')
+            for parent,child in self.getLineage(organism):
+                f.write('  %s -> %s\n' %
+                    ('e%dg%do%d' % parent, 'e%dg%do%d' % child))
+            f.write('}\n')
+        print('making pdf')
+        subprocess.call(['make', outf + '.pdf'])
+        print('showing')
+        subprocess.call(['evince', outf + '.pdf'])
+
     def cmdPlot(self, typ):
-        # delay import because it takes several seconds
+        # delay import till now because it takes several seconds
         from plot_xyz import plot, parse
         scatter = False
         if typ == 'phfitness':
@@ -723,6 +755,9 @@ class Runner(object):
             sa.dump_organism_virtual_fitness_func(self.world, self.selectedOrg, False, buf)
             csv = buf.getvalue()
             X, Y, Z = parse(csv, 0, 1, 4)
+        elif typ == 'lineage':
+            self.plotLineage(self.selectedOrg)
+            return
         if self.sasim is not None and self.sasim.is_alive():
             print('close sim first')
         else:
