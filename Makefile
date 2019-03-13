@@ -288,21 +288,38 @@ GOOD_THINYX_WITH_BUMPS = $(YXLINE) --ridge_radius=0.2 --bumps=1 --moats=1 \
 	--edge_from_phnode=1 --edge_inheritance=5 --multi_edges=0 \
 	--dot=1 --log=ancestors --num_epochs=40  --seed=1583407075
 
-OK_OBLIQUE_WIH_BUMPS = $(OBLIQUE_LINE) --ridge_radius=1.0 --bumps=1 --moats=1 \
+OBLIQUE_WITH_BUMPS = $(OBLIQUE_LINE) --ridge_radius=1.0 --bumps=1 --moats=1 \
 	--knob_constant=0.02 --crossover_freq=0.05 --mutation_type_ub=16 --num_organisms=200 \
 	--input_accs=1 --activation_types=6 --sa_timesteps=10 --alpha=0.8 \
-	--edge_from_phnode=1 --edge_inheritance=5 --multi_edges=0 \
+	--edge_from_phnode=1 --edge_inheritance=5 --multi_edges=0
+
+OK_OBLIQUE_WITH_BUMPS = $(OBLIQUE_WITH_BUMPS) \
 	--dot=1 --log=ancestors --num_epochs=40  --seed=2408275062
 
-C0 =  $(CIRCLE) --sa_timesteps=20 --log=ancestors --bumps=0 --num_organisms=40 --multi_edges=0 --knob_constant=0.05 --allow_move_edge=1
-# not good
+X = $(OBLIQUE_WITH_BUMPS) --ridge_radius=0.2 \
+	--dot=0 --num_epochs=80 \
+	--mutation_type_ub=16 --num_organisms=800 --generations_per_epoch=20
 
-ARGS = $(GOOD_THINYX_WITH_BUMPS)  # Change this to some other variable to run other parameters
+OK = $(YXLINE) --ridge_radius=0.2 --bumps=1 --moats=1 \
+	--knob_type=1 --knob_constant=0.02 --crossover_freq=0.02 --mutation_type_ub=100 --num_organisms=400 \
+	--input_accs=1 --activation_types=6 --sa_timesteps=5 --alpha=0.8 \
+	--edge_from_phnode=0 --edge_inheritance=5 --multi_edges=0 \
+	--num_epochs=50  --dot=0 #--log=ancestors #--seed=1583407075
+
+C0 =  $(CIRCLE) --ridge_radius=0.2 --bumps=1 --moats=1 \
+	--knob_type=1 --knob_constant=0.02 --crossover_freq=0.02 --mutation_type_ub=100 --num_organisms=800 \
+	--input_accs=1 --activation_types=6 --sa_timesteps=5 --alpha=0.8 \
+	--edge_from_phnode=0 --edge_inheritance=5 --multi_edges=0 \
+	--num_epochs=50  --dot=0 #--log=ancestors #--seed=1583407075
+
+ARGS = $(X) # Change this to some other variable to run other parameters
+#ARGS = $(OK_OBLIQUE_WITH_BUMPS)
 run: all
 	./sa $(ARGS) > out
 	@grep 'deltas' out
 
 N = $(shell seq 1 20)
 runs: all
+	@echo "$(ARGS)"
 	@rm -f outs/out*
 	@$(foreach i,$(N),./sa $(ARGS) --run=$i > outs/out$i; grep 'fitness deltas' outs/out$i;)
