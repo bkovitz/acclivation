@@ -113,3 +113,19 @@ static FILE *fopen_python(PyObject *output) {
     return resultobj;
   }
 };
+
+%extend MUTATION_INFO {
+  size_t __len__() { return $self->num_mutations; }
+
+  PyObject *__getitem__(size_t i) {
+    PyObject *resultobj = 0;
+    MUTATION_RECORD *result = 0 ;
+    if (i > ($self->num_mutations-1)) {
+      PyErr_SetNone(PyExc_StopIteration);
+      return NULL;
+    }
+    result = (MUTATION_RECORD *) (&$self->mutations[i]);
+    resultobj = SWIG_NewPointerObj(SWIG_as_voidptr(result), SWIGTYPE_p_MUTATION_RECORD, 0 |  0 );
+    return resultobj;
+  }
+};

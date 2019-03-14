@@ -720,6 +720,11 @@ class Runner(object):
                 self.getLineage(self.orgMap[parent], sofar, links)
         return links
 
+    def getMutationLabel(self, organism):
+        if organism.birth_info.type == sa.MUTATION:
+            return sa.get_mutation_label(organism.birth_info.mutation_info[0].type)
+        return ''
+
     def plotLineage(self, organism):
         epoch,generation,oindex = self.revOrgMap[organism]
         outf = 'e%dg%do%d-lineage' % (epoch, generation, oindex)
@@ -727,8 +732,13 @@ class Runner(object):
         with open(outf + '.dot', 'w') as f:
             f.write('digraph g {\n')
             for parent,child in self.getLineage(organism):
-                f.write('  %s -> %s\n' %
-                    ('e%dg%do%d' % parent, 'e%dg%do%d' % child))
+                label = self.getMutationLabel(self.orgMap[child])
+                if label:
+                    f.write('  %s -> %s [label = "%s"];\n' %
+                        ('e%dg%do%d' % parent, 'e%dg%do%d' % child, label))
+                else:
+                    f.write('  %s -> %s;\n' %
+                        ('e%dg%do%d' % parent, 'e%dg%do%d' % child))
             f.write('}\n')
         print('making pdf')
         subprocess.call(['make', outf + '.pdf'])

@@ -616,6 +616,23 @@ typedef enum {
   MUT_TURN_KNOB
 } MUTATION_TYPE;
 
+static char *mutation_labels[10] = {
+  "+N",
+  "-N",
+  "+E",
+  "-E",
+  "AA",
+  "AI",
+  "AO",
+  "TC",
+  "ME",
+  "K"
+};
+
+char *get_mutation_label(int i) {
+  return mutation_labels[i];
+}
+
 typedef struct {
   int index;
   double initial_activation;
