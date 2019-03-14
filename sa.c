@@ -929,7 +929,8 @@ typedef struct world_t {
   double distance_weight;
   double dist_exponent;
   bool bumps;
-  bool moats;
+  double bump_freq;
+  double moat_ub;
   int epoch;
   int generation;
   double c1, c2, c3;
@@ -1002,7 +1003,8 @@ World *create_world() {
   w->distance_weight = 10.0;
   w->dist_exponent = 1.0;
   w->bumps = true;
-  w->moats = false;
+  w->bump_freq = 30.0;
+  w->moat_ub = -1.0;
   w->epoch = 0;
   w->generation = 0;
   w->c1 = 0.5;
@@ -2459,7 +2461,8 @@ void print_world_params(World *w, FILE *outf) {
       break;
   }
   fprintf(outf, "w->bumps=%s;\n", w->bumps ? "true" : "false");
-  fprintf(outf, "w->moats=%s;\n", w->moats ? "true" : "false");
+  fprintf(outf, "w->bump_freq=%lf;\n", w->bump_freq);
+  fprintf(outf, "w->moat_ub=%lf;\n", w->moat_ub);
   fprintf(outf, "w->ridge_radius=%lf;\n", w->ridge_radius);
   fprintf(outf, "w->c2=%lf; w->c3=%lf;\n", w->c2, w->c3);
   fprintf(outf, "w->c1_lb=%lf; w->c1_ub=%lf;\n", w->c1_lb, w->c1_ub);
@@ -2601,8 +2604,8 @@ void run_world(World *w) {
 
 // -- fitness ----------------------------------------------------------------
 
-double many_small_hills(const double *phenotype) { // length is 2
-  return cos(phenotype[0] * 30.0) * sin(phenotype[1] * 30.0);
+double many_small_hills(World *w, const double *phenotype) { // length is 2
+  return cos(phenotype[0] * w->bump_freq) * sin(phenotype[1] * w->bump_freq);
 }
 
 double distance(double x1, double y1, double x2, double y2) {
@@ -2672,12 +2675,9 @@ double phenotype_fitness(World *w, const double *phenotype) {
               along_ridge(w, phenotype[0], phenotype[1]) *
               (w->distance_weight * pow(scaled_dist, w->dist_exponent));
     if (w->bumps) {
-      double bump_amt = many_small_hills(phenotype);
-      if (w->moats) {
-        if (bump_amt <= 0.0)
+      double bump_amt = many_small_hills(w, phenotype);
+      if (bump_amt <= w->moat_ub) {
           fitness = 0.0;
-        else
-          fitness += bump_amt;
       } else {
         fitness += bump_amt;
       }
@@ -3768,9 +3768,10 @@ void run_from_command_line_options(int argc, char **argv) {
     { "reward_coverage", required_argument, 0, 0 },
     { "invu", required_argument, 0, 0 },
     { "noquiet", no_argument, 0, 0 },
-    { "moats", required_argument, 0, 0 },
+    { "moat_ub", required_argument, 0, 0 },
     { "edge_from_phnode", required_argument, 0, 0 },
     { "dot", required_argument, 0, 0 },
+    { "bump_freq", required_argument, 0, 0 },
     { NULL, 0, 0, 0 },
   };
   int c;
@@ -3911,13 +3912,16 @@ void run_from_command_line_options(int argc, char **argv) {
         quiet = false;
         break;
       case 43:
-        w->moats = atoi(optarg);
+        w->moat_ub = atof(optarg);
         break;
       case 44:
         w->edge_from_phnode = atoi(optarg);
         break;
       case 45:
         dot = atoi(optarg);
+        break;
+      case 46:
+        w->bump_freq = atof(optarg);
         break;
       default:
         printf("Internal error\n");
