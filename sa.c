@@ -352,33 +352,59 @@ double average_data(DATA *data) {
     return sum_data(data) / data->len;
 }
 
-void print_stats(DATA *data) {
+typedef struct {
+  double mean;
+  double median;
+  double sd;
+  double min;
+  double max;
+} DESCRIPTIVE_STATS;
+
+void calc_descriptive_stats(DESCRIPTIVE_STATS *stats, DATA *data) {
   if (data->len == 0) {
-    puts("fd_mean=NA fd_median=NA fd_sd=NA fd_min=NA fd_max=NA");
+    stats->mean = stats->median = stats->sd = stats->min = stats->max = 0.0;
   } else {
     DATA *s = make_sorted_data(data);
 
-    double mean = average_data(s);
+    stats->mean = average_data(s);
 
-    double median;
     if ((s->len & 1) == 0)
-      median = (s->array[s->len / 2 - 1] + s->array[s->len / 2]) / 2.0;
+      stats->median = (s->array[s->len / 2 - 1] + s->array[s->len / 2]) / 2.0;
     else
-      median = s->array[s->len / 2];
+      stats->median = s->array[s->len / 2];
 
     DATA *sq_deviations = create_data();
     for (int i = 0; i < s->len; i++) {
-      double deviation = s->array[i] - mean;
+      double deviation = s->array[i] - stats->mean;
       add_datum(sq_deviations, deviation * deviation);
     }
-    double sd;
     if (sq_deviations->len == 1)
-      sd = sqrt(sq_deviations->array[0]);
+      stats->sd = sqrt(sq_deviations->array[0]);
     else                                  // Bessel's correction
-      sd = sqrt(sum_data(sq_deviations) / (sq_deviations->len - 1));
-    
-    printf("fd_mean=% .6lf  fd_median=% .6lf  fd_sd=% .6lf  fd_min=% .6lf  fd_max=% .6lf\n",
-      mean, median, sd, s->array[0], s->array[s->len - 1]);
+      stats->sd = sqrt(sum_data(sq_deviations) / (sq_deviations->len - 1));
+
+    stats->min = s->array[0];
+    stats->max = s->array[s->len - 1];
+
+    free_data(sq_deviations);
+    free_data(s);
+  }
+}
+
+void print_stats(char *prefix, DATA *data) {
+  if (data->len == 0) {
+    printf("%smean=NA %smedian=NA %ssd=NA %smin=NA %smax=NA\n",
+      prefix, prefix, prefix, prefix, prefix);
+  } else {
+    DESCRIPTIVE_STATS stats;
+    calc_descriptive_stats(&stats, data);
+    printf("%smean=% .6lf  %smedian=% .6lf  %ssd=% .6lf  %smin=% .6lf  %smax=% .6lf\n",
+      prefix, stats.mean,
+      prefix, stats.median,
+      prefix, stats.sd,
+      prefix, stats.min,
+      prefix, stats.max);
+
   }
 }
 
@@ -1930,6 +1956,13 @@ void print_generation_results(World *w) {
   if (!quiet) {
     printf("  generation %d\n", w->generation);
     print_best_fitness(w);
+    DATA *fitnesses = create_data();
+    for (int i = 0; i < w->num_organisms; i++) {
+      add_datum(fitnesses, w->organisms[i]->fitness);
+    }
+    printf("    ");
+    print_stats("", fitnesses);
+    free_data(fitnesses);
   }
 }
 
@@ -2629,7 +2662,7 @@ void run_world(World *w) {
     dump_phenotype_fitness_func(w, true, stdout);
   }
   printf("epoch fitness deltas: ");
-  print_stats(w->epoch_fitness_deltas);
+  print_stats("fd_", w->epoch_fitness_deltas);
   //print_data(w->epoch_fitness_deltas);
   //print_acclivity_measures_of_best(w);
   print_knob_fitness_numbers(w);
