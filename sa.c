@@ -948,6 +948,7 @@ typedef struct world_t {
   bool bumps;
   double bump_freq;
   double moat_ub;
+  bool flat;
   int epoch;
   int generation;
   double c1, c2, c3;
@@ -1022,6 +1023,7 @@ World *create_world() {
   w->bumps = true;
   w->bump_freq = 30.0;
   w->moat_ub = -1.0;
+  w->flat = false;
   w->epoch = 0;
   w->generation = 0;
   w->c1 = 0.5;
@@ -2480,6 +2482,7 @@ void print_world_params(World *w, FILE *outf) {
   fprintf(outf, "w->bumps=%s;\n", w->bumps ? "true" : "false");
   fprintf(outf, "w->bump_freq=%lf;\n", w->bump_freq);
   fprintf(outf, "w->moat_ub=%lf;\n", w->moat_ub);
+  fprintf(outf, "w->flat=%s;\n",  w->flat ? "true" : "false");
   fprintf(outf, "w->ridge_radius=%lf;\n", w->ridge_radius);
   fprintf(outf, "w->c2=%lf; w->c3=%lf;\n", w->c2, w->c3);
   fprintf(outf, "w->c1_lb=%lf; w->c1_ub=%lf;\n", w->c1_lb, w->c1_ub);
@@ -2695,8 +2698,13 @@ double phenotype_fitness(World *w, const double *phenotype) {
       double bump_amt = many_small_hills(w, phenotype);
       if (bump_amt <= w->moat_ub) {
           fitness = 0.0;
+      } else if (w->flat) {
+          if (bump_amt >= 0.0)
+            fitness = 1.0 + round(fitness * 1.0) / 1.0;
+          else
+            fitness -= 1.0;
       } else {
-        fitness += bump_amt;
+          fitness += bump_amt;
       }
     }
   }
@@ -3789,6 +3797,7 @@ void run_from_command_line_options(int argc, char **argv) {
     { "edge_from_phnode", required_argument, 0, 0 },
     { "dot", required_argument, 0, 0 },
     { "bump_freq", required_argument, 0, 0 },
+    { "flat", required_argument, 0, 0 },
     { NULL, 0, 0, 0 },
   };
   int c;
@@ -3939,6 +3948,9 @@ void run_from_command_line_options(int argc, char **argv) {
         break;
       case 46:
         w->bump_freq = atof(optarg);
+        break;
+      case 47:
+        w->flat = atoi(optarg);
         break;
       default:
         printf("Internal error\n");

@@ -291,8 +291,19 @@ THINYX_WITH_BUMPS = $(YXLINE) --ridge_radius=0.2 --bumps=1 --moat_ub=0.0 \
 GOOD_THINYX_WITH_BUMPS = $(YXLINE) $(THINYX_WITH_BUMPS)
 	--dot=1 --log=ancestors --num_epochs=40  --seed=1583407075
 
-X = $(THINYX_WITH_BUMPS) --moat_ub=0.5 --bump_freq=15.0 \
-	--num_organisms=800 --edge_inheritance=5 --knob_type=0
+X = $(THINYX_WITH_BUMPS) --moat_ub=0.21 --bump_freq=15.0 --flat=1 \
+	--num_organisms=80 --edge_inheritance=5 --knob_type=1 \
+  --num_candidates=8 \
+  #--seed=577086024 --log=ancestors
+
+# thu night
+RUN1 = $(THINYX_WITH_BUMPS) --moat_ub=0.5 --bump_freq=15.0 \
+	--num_organisms=800 --edge_inheritance=5 --knob_type=0 \
+  --seed=3233094016 --log=ancestors
+
+CLOSE_BUMPS_ACCLIVATION = $(THINYX_WITH_BUMPS) --moat_ub=0 --bump_freq=15.0 --flat=1 \
+	--num_organisms=80 --edge_inheritance=5 --knob_type=0 \
+  --num_candidates=8 --seed=3859373065 --log=ancestors
 
 OBLIQUE_WITH_BUMPS = $(OBLIQUE_LINE) --ridge_radius=1.0 --bumps=1 --moat_ub=0.0 \
 	--knob_constant=0.02 --crossover_freq=0.05 --mutation_type_ub=16 --num_organisms=200 \
