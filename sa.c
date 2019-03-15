@@ -947,8 +947,10 @@ typedef struct world_t {
   double dist_exponent;
   bool bumps;
   double bump_freq;
+  bool down_bump;
   double moat_ub;
   bool flat;
+  double flat_multiplier;
   int epoch;
   int generation;
   double c1, c2, c3;
@@ -1022,8 +1024,10 @@ World *create_world() {
   w->dist_exponent = 1.0;
   w->bumps = true;
   w->bump_freq = 30.0;
+  w->down_bump = false;
   w->moat_ub = -1.0;
   w->flat = false;
+  w->flat_multiplier = 1.0;
   w->epoch = 0;
   w->generation = 0;
   w->c1 = 0.5;
@@ -2357,9 +2361,18 @@ void run_epoch(World *w, int e) {
     }
     check_knob_turn(w, last_fitness);
   }
-  add_datum(w->epoch_fitness_deltas,
-    ((find_best_fitness(w) - epoch_start_fitness) /
-     (11.0 - epoch_start_fitness)));
+  double epoch_end_fitness = find_best_fitness(w);
+  double delta_numerator = epoch_end_fitness - epoch_start_fitness;
+  double epoch_fitness_delta;
+  if (epoch_start_fitness == 11.0) {
+    if (epoch_end_fitness < epoch_start_fitness)
+      epoch_fitness_delta = 0.0;
+    else
+      epoch_fitness_delta = 1.0;
+  } else {
+    epoch_fitness_delta = delta_numerator / (11.0 - epoch_start_fitness);
+  }
+  add_datum(w->epoch_fitness_deltas, epoch_fitness_delta);
   fflush(stdout);
 }
 
@@ -2481,8 +2494,10 @@ void print_world_params(World *w, FILE *outf) {
   }
   fprintf(outf, "w->bumps=%s;\n", w->bumps ? "true" : "false");
   fprintf(outf, "w->bump_freq=%lf;\n", w->bump_freq);
+  fprintf(outf, "w->down_bump=%s;\n", w->down_bump ? "true" : "false");
   fprintf(outf, "w->moat_ub=%lf;\n", w->moat_ub);
-  fprintf(outf, "w->flat=%s;\n",  w->flat ? "true" : "false");
+  fprintf(outf, "w->flat=%s;\n", w->flat ? "true" : "false");
+  fprintf(outf, "w->flat_multiplier=%lf;\n",  w->flat_multiplier);
   fprintf(outf, "w->ridge_radius=%lf;\n", w->ridge_radius);
   fprintf(outf, "w->c2=%lf; w->c3=%lf;\n", w->c2, w->c3);
   fprintf(outf, "w->c1_lb=%lf; w->c1_ub=%lf;\n", w->c1_lb, w->c1_ub);
@@ -2625,7 +2640,10 @@ void run_world(World *w) {
 // -- fitness ----------------------------------------------------------------
 
 double many_small_hills(World *w, const double *phenotype) { // length is 2
-  return cos(phenotype[0] * w->bump_freq) * sin(phenotype[1] * w->bump_freq);
+  double hill_y_offset = 0.0;
+  if (w->down_bump)
+    hill_y_offset = - (w->bump_freq * 0.5);
+  return cos(phenotype[0] * w->bump_freq) * sin((phenotype[1] + hill_y_offset) * w->bump_freq);
 }
 
 double distance(double x1, double y1, double x2, double y2) {
@@ -2700,7 +2718,8 @@ double phenotype_fitness(World *w, const double *phenotype) {
           fitness = 0.0;
       } else if (w->flat) {
           if (bump_amt >= 0.0)
-            fitness = 1.0 + round(fitness * 1.0) / 1.0;
+            fitness = 1.0 + round(fitness * w->flat_multiplier)
+                            / w->flat_multiplier;
           else
             fitness -= 1.0;
       } else {
@@ -3798,6 +3817,8 @@ void run_from_command_line_options(int argc, char **argv) {
     { "dot", required_argument, 0, 0 },
     { "bump_freq", required_argument, 0, 0 },
     { "flat", required_argument, 0, 0 },
+    { "flat_multiplier", required_argument, 0, 0 },
+    { "down_bump", required_argument, 0, 0 },
     { NULL, 0, 0, 0 },
   };
   int c;
@@ -3951,6 +3972,12 @@ void run_from_command_line_options(int argc, char **argv) {
         break;
       case 47:
         w->flat = atoi(optarg);
+        break;
+      case 48:
+        w->flat_multiplier = atof(optarg);
+        break;
+      case 49:
+        w->down_bump = atoi(optarg);
         break;
       default:
         printf("Internal error\n");
