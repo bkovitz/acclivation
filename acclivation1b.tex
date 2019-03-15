@@ -141,7 +141,7 @@ position where they can hill-climb successfully.
 
 To test the preceding hypothesis in a form in which acclivation will be
 visually apparent on plots printed on paper, we limit ourselves to genomes
-where $g_1$ and the phenotype are 2-dimensional vectors, and $g_2$ is a graph
+where $g_1$ and the phenotype are 2-dimensional vectors and $g_2$ is a graph
 connecting them.  The whole genome is a directed graph where:
 \begin{enumerate}
    \item Two nodes, called the \textit{knobs}, $k_1$ and $k_2$, are designated
@@ -178,8 +178,50 @@ an activation after 10 timesteps, then the genotype has no phenotype and is
 given a fitness of~0.0. This can happen if no edges provide a path from a knob
 to $p_1$ or~$p_2$.
 
-\section{Conclusions}
+@@Explain mutation and crossover
 
+\section{Experiments}
+
+In each experiment, we run the genome defined above, perhaps with a slight
+variation, against a different family of fitness functions, and see what
+virtual fitness functions emerge. We only plot $v_{g_2}$, i.e.~the virtual
+fitness function seen by the knobs, since we know of no way to plot fitness
+functions seen by a graph.
+
+We must say ``family'' of fitness functions, because each experiment's fitness
+function has a constant that changes randomly once per epoch, i.e.~every 20
+generations. This constant moves the peak of the fitness function to different
+places in phenotype space.
+
+Frequently moving the peak is necessary to induce strong selective pressure
+favoring evolvability rather than organisms that only approximate the current
+peak.@@cite Each new epoch is thus a race to approach the new peak. The most
+evolvable genotypes' lineages will approach the new peak faster than their
+less evolvable competitors. In this way, the experiments tend to reward
+evolvability especially strongly.
+
+\subsection{Experiment 1: The Narrow Ridge}
+
+In this experiment, we run the experimental genome against this fitness
+function, plotted in @@fig:
+\[
+   w(\phi) = 
+\]
+
+
+\subsection{Experiment 2: The Razorback}
+
+\subsection{Experiment 3: The Circle}
+
+\subsection{Experiment 4: Moats}
+
+\section{Discussion}
+
+@@genetic memory
+
+\subsection{Significance of the Transfer Function}
+
+\section{Conclusions}
 
 
 \bibliographystyle{apalike}
