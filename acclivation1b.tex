@@ -61,7 +61,7 @@ fitness function for the whole genome, is the composition of these functions,
 $w_\Phi(m_{G}(g))$ for $g$ in $G$.
 
 If we divide the genome into two parts, then each genotype $g \in G$ consists
-of a $g_1 \in G_1$ and $g_2 \in G_2$, in which each $g_2$ defines a
+of a $g_1 \in G_1$ and a $g_2 \in G_2$, in which each $g_2$ defines a
 partial-genotype--phenotype mapping $m_{g_2} : G_1 \rightarrow \Phi$. That is,
 if we hold part of the genome constant, say by fixing $g_2$, this defines a
 mapping from all possible values of the rest of the genome, $g_1$, to
@@ -84,7 +84,7 @@ Assuming no other advantages favoring either $g_{a1}$ or $g_{b1}$, if $g_{a1}$
 presents its mate $g_{a2}$ with a virtual fitness function $v_{g_{a1}}$ that
 $g_{a2}$ finds more evolvable than $v_{g_{b1}}$ is for $g_{b2}$, then the
 descendants of $g_a$ will evolve faster or further than the descendants of
-$g_b$.
+$g_b$ (according to how evolvability is defined).
 
 Therefore each partial genome is under selective pressure to create a virtual
 fitness landscape for the other partial genome that gives the latter greater
@@ -139,12 +139,13 @@ position where they can hill-climb successfully.
 
 \subsection{Genome for Experimentation}
 
-To test this in a form in which acclivation will be visually apparent on plots
-printed on paper, we limit ourselves to genomes consisting of a directed graph
-where:
+To test the preceding hypothesis in a form in which acclivation will be
+visually apparent on plots printed on paper, we limit ourselves to genomes
+where $g_1$ and the phenotype are 2-dimensional vectors, and $g_2$ is a graph
+connecting them.  The whole genome is a directed graph where:
 \begin{enumerate}
-   \item Two nodes, called \textit{the knobs}, $k_1$ and $k_2$, are designated
-      to each hold a number in $[-1.0, +1.0]$, called its \textit{initial
+   \item Two nodes, called the \textit{knobs}, $k_1$ and $k_2$, are designated
+      to each hold a number in $[-1.0, +1.0]$, called an \textit{initial
       activation}.
    \item Two other nodes, $p_1$ and $p_2$, are designated to hold the
       phenotype.
@@ -159,7 +160,7 @@ calculated according to the following function:
 \[
    a_j(t+1) = T(a_j(t) + \sum_iW_{ij}a_i(t))
 \]
-where $W_{ij}$ is the weight of the incoming edge, if any, of from node $i$ to
+where $W_{ij}$ is the weight of the incoming edge, if any, from node $i$ to
 node $j$, and $T$ is the following transfer function:
 \[
    T(x) = \frac{2}{1+\exp(-Sx)}-1
@@ -167,11 +168,15 @@ node $j$, and $T$ is the following transfer function:
 where $S=2.1972274554893376$. This constant gives $T$, when iterated,
 attractors at $\pm0.5$ and a repellor at 0.
 
+If a node does not have an activation at time~$t$, then it does not figure
+into the above sum for calculating any other node's activation. At time~$t=0$,
+only the knobs have activations.
+
 The phenotype is the vector $(a_{p_1}(10), a_{p_2}(10))$, i.e.~the activations
 of the phenotype nodes after 10 timesteps. If $p_1$ or $p_2$ has not received
-an activation after 10 timesteps, then it has no phenotype and is given a
-fitness of~0.0. This can happen if no edges provide a path from a knob to
-$p_1$ or~$p_2$.
+an activation after 10 timesteps, then the genotype has no phenotype and is
+given a fitness of~0.0. This can happen if no edges provide a path from a knob
+to $p_1$ or~$p_2$.
 
 \section{Conclusions}
 
