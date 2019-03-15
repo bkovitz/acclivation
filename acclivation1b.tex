@@ -1,11 +1,12 @@
 \documentclass[letterpaper]{article}
 
 \usepackage{natbib,alifeconf}  %% The order is important
+\usepackage{amsfonts}
 
 \newcommand{\gv}{$g$-vector}
 \newcommand{\phv}{$\phi$-vector}
 
-\title{Acclivation of a Virtual Fitness Landscape}
+\title{Acclivation of Virtual Fitness Landscapes}
 \author{Ben Kovitz$^{1}$, Dave Bender$^{1}$, \and Marcela Poffald \\
 \mbox{}\\
 $^1$Fluid Analogies Research Group, Indiana University, Bloomington, IN 47408 \\
@@ -43,18 +44,60 @@ reproduction.
 % how much epistasis is there in natural genomes?
 % crosstalk in metabolic networks
 
-\section{Introduction}
+\section{Virtual Fitness Functions}
 @@.\footnote{\cite{hogeweg2012toward}.}
 
 Any part of a genome is selected against a \textit{virtual fitness function}
 resulting from the rest of the genome and the fitness function faced by the
 genome as a whole. If the whole-genome fitness function reflects the influence
 of the environment on the genome, then the virtual fitness function represents
-the same for the part of the genome, whose environment includes the rest of
+the same for a part of the genome, whose environment includes the rest of
 the genome.
 
-Let a set of genotypes $G$ have a mapping $f_g : G \rightarrow \Phi$ to a set
-of phenotypes $\Phi$.
+Let a set of genotypes $G$ have a mapping $m_{G} : G \rightarrow \Phi$ to a set
+of phenotypes $\Phi$, and let $w_\Phi : \Phi \rightarrow \mathbb{R}$ be the
+fitness function for the phenotypes. Then $w_G : G \rightarrow \mathbb{R}$, the
+fitness function for the whole genome, is the composition of these functions,
+$w_\Phi(m_{G}(g))$ for $g$ in $G$.
+
+If we divide the genome into two parts, then each genotype $g \in G$ consists
+of a $g_1 \in G_1$ and $g_2 \in G_2$, in which each $g_2$ defines a
+partial-genotype--phenotype mapping $m_{g_2} : G_1 \rightarrow \Phi$. That is,
+if we hold part of the genome constant, say by fixing $g_2$, this defines a
+mapping from all possible values of the rest of the genome, $g_1$, to
+corresponding phenotypes. If we reverse $g_1$ and $g_2$, then of course we get
+the opposite partial-genotype--phenotype mapping, $m_{g_1} : G_2 \rightarrow
+\Phi$.
+
+These mappings, in turn, define virtual fitness functions $v_{g_2}(g_1) =
+w_\Phi(m_{g_2}(g_1))$ and $v_{g_1}(g_2) = w_\Phi(m_{g_1}(g_2))$. As mutations
+and crossovers can alter either or both of $g_1$ and $g_2$, the partial
+genomes $G_1$ and $G_2$ coevolve cooperatively, each selected by
+the fitness functions $v_{g_1}$ and $v_{g_2}$, which vary among all the
+individuals and vary each generation.
+
+Let \textit{evolvability} be defined in some reasonable way (there are many),
+so that greater evolvability implies some advantage in navigating a fitness
+landscape upward faster or further over succeeding generations. Let $g_a,g_b
+\in G$ be two individuals in the same population and the same generation.
+Assuming no other advantages favoring either $g_{a1}$ or $g_{b1}$, if $g_{a1}$
+presents its mate $g_{a2}$ with a virtual fitness function $v_{g_{a1}}$ that
+$g_{a2}$ finds more evolvable than $v_{g_{b1}}$ is for $g_{b2}$, then the
+descendants of $g_a$ will evolve faster or further than the descendants of
+$g_b$.
+
+Therefore each partial genome is under selective pressure to create a virtual
+fitness landscape for the other partial genome that gives the latter greater
+evolvability. To illustrate with an unrealistically simple example, if the eye
+and the arm are governed by separate sets of genes, and some arm shapes make
+it easier for the eye to evolve, then there is selective pressure favoring
+alleles for those arm genes. This selective pressure happens indirectly: in
+one generation, 
+
+The above considerations make no difference for homogeneous genomes, where
+every part of each genotype undergoes mutation and crossover the same as every
+other part and exerts the same effect on the phenotype or the total fitness as
+every other part. However, 
 
 \section{Experiments}
 
