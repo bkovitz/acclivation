@@ -91,30 +91,87 @@ fitness landscape for the other partial genome that gives the latter greater
 evolvability. To illustrate with an unrealistically simple example, if the eye
 and the arm are governed by separate sets of genes, and some arm shapes make
 it easier for the eye to evolve, then there is selective pressure favoring
-alleles for those arm genes. This selective pressure happens indirectly: in
-one generation, 
+alleles for those arm shapes. All other factors being equal, evolution favors
+arms that make eyes easier to evolve. This selective pressure happens
+indirectly; in one generation, greater fitness wins. But over successive
+generations, descendants of organisms with greater evolvability will tend to
+have greater fitness than organisms with lesser evolvability.@@cite-Altenberg?
 
 The above considerations make no difference for homogeneous genomes, where
 every part of each genotype undergoes mutation and crossover the same as every
-other part and exerts the same effect on the phenotype or the total fitness as
-every other part. However, 
+other part and exerts the same effect on the phenotype or on the total fitness
+as every other part. However, if $G_1$ and $G_2$ vary according to different
+operators and/or affect the phenotype or total fitness differently, there is
+potential for each part to seek values that make the other part more
+evolvable, resulting in a period of progressively increasing evolvability for
+the organism as a whole.
 
-\section{Experiments}
+In the rest of this paper, we examine a natural and common way for this
+synergy to occur: when $g_1$ consists of a vector of real numbers (``knobs'')
+and $g_2$ consists of a network that provides connections through which the
+numbers from $g_1$ interact.
 
-Each genotype is a directed graph containing at least four nodes, designated
-$g_1, g_2, p_1,$ and $p_2$. Additional nodes are designated $n_1, n_2, n_3,
-\ldots$. Associated with each node other than $p_1$ and $p_2$ is an ``initial
-activation'': a number in the range $[-1.0,+1.0]$.
+\section{Acclivation}
 
-The genotype--phenotype mapping consists of running the following
-spreading-activation algorithm on the graph, and considering the resulting
-acclivations of $p_1$ and $p_2$ the phenotype.
+As is well known, a genome consisting of a vector of numbers, where mutations
+alter the numbers by small amounts, evolves most easily against a hill-shaped
+fitness function. In a hill-shaped fitness function, local increases in
+fitness correlate perfectly with movement toward the peak of the whole fitness
+landscape. The more ``rugged'' the landscape, the weaker is this correlation,
+so that following the local gradient can lead organisms to become stuck at
+local maxima, which might be very low, and from which they cannot escape by
+local mutations (though they might escape by crossover).@@cite-Kauffman
 
-The initial activations of $g_1$ and $g_2$ are called the \gv, i.e. the
-genotype vector. The activations of $p_1$ and $p_2$ are called the
-\phv, i.e. the phenotype vector.
+Therefore, if a vector of numbers faces a rugged fitness landscape, with
+difficult features such as low local peaks and impassable moats, we can
+improve its evolvability for a vector of numbers by making its fitness
+function more hill-shaped. Let us call the process of making a fitness
+landscape more hill-shaped \textit{acclivation.}
 
-@@fitness function $w$
+So, in a genome where $G_1$ is a vector of numbers that mutate by small
+amounts, and $G_2$ is a directed graph that feeds the numbers in $G_1$ through
+nodes that perform some function on the numbers from their input edges,
+eventually leading to a phenotype whose fitness determines the fate of the
+whole organism, we should expect selective pressure for genotypes $g_2 \in
+G_2$ to produce mappings that induce acclivation on the virtual fitness
+functions $v_{g_2}$. Evolution should favor graphs that put knobs in a
+position where they can hill-climb successfully.
+
+\subsection{Genome for Experimentation}
+
+To test this in a form in which acclivation will be visually apparent on plots
+printed on paper, we limit ourselves to genomes consisting of a directed graph
+where:
+\begin{enumerate}
+   \item Two nodes, called \textit{the knobs}, $k_1$ and $k_2$, are designated
+      to each hold a number in $[-1.0, +1.0]$, called its \textit{initial
+      activation}.
+   \item Two other nodes, $p_1$ and $p_2$, are designated to hold the
+      phenotype.
+   \item Each edge has a weight of either $+1.0$ or $-1.0$.
+\end{enumerate}
+
+The phenotype is determined by a process of spreading activation, run for
+10 timesteps. Each timestep, the initial activations from the knobs flow into
+adjacent nodes, producing a number in $[-1.0, +1.0]$ called the node's
+\textit{activation}. The activation of a node $a_j$ at timestep $t+1$ is
+calculated according to the following function:
+\[
+   a_j(t+1) = T(a_j(t) + \sum_iW_{ij}a_i(t))
+\]
+where $W_{ij}$ is the weight of the incoming edge, if any, of from node $i$ to
+node $j$, and $T$ is the following transfer function:
+\[
+   T(x) = \frac{2}{1+\exp(-Sx)}-1
+\]
+where $S=2.1972274554893376$. This constant gives $T$, when iterated,
+attractors at $\pm0.5$ and a repellor at 0.
+
+The phenotype is the vector $(a_{p_1}(10), a_{p_2}(10))$, i.e.~the activations
+of the phenotype nodes after 10 timesteps. If $p_1$ or $p_2$ has not received
+an activation after 10 timesteps, then it has no phenotype and is given a
+fitness of~0.0. This can happen if no edges provide a path from a knob to
+$p_1$ or~$p_2$.
 
 \section{Conclusions}
 
