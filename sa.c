@@ -997,6 +997,7 @@ typedef struct world_t {
          INHERIT_HALF_OF_ALL_EDGES,
          INHERIT_ALL_EDGES } edge_inheritance;
   int num_candidates;
+  double viability_lb;
   double knob_constant;
   enum { KNOB_DISCRETE, KNOB_NORMAL } knob_type;
   double control_increment;
@@ -1073,6 +1074,7 @@ World *create_world() {
   w->crossover_freq = 0.1;
   w->edge_inheritance = INHERIT_SRC_EDGES_FROM_MOMMY;
   w->num_candidates = 7;
+  w->viability_lb = -1.0;
   w->knob_constant = 0.02;
   w->knob_type = KNOB_NORMAL; // KNOB_DISCRETE;
   w->control_increment = 0.2;
@@ -1584,10 +1586,20 @@ void init_random_population(World *w) {
 
 Organism *mutate(World *w, int, Organism *);
 
+int choose_random_organism(World *w) {
+  for (int i = 0; i < 10; i++) {
+    int n = rand() % w->num_organisms;
+    if (w->organisms[n]->fitness > w->viability_lb)
+      return n;
+  }
+  // If we couldn't find a viable organism, then take whatever we get.
+  return rand() % w->num_organisms;
+}
+
 int tournament_select(World *w) {
   int pool[w->num_candidates];
   for (int n = 0; n < w->num_candidates; n++) {
-    pool[n] = rand() % w->num_organisms;
+    pool[n] = choose_random_organism(w);
   }
   double max_fitness = -1e20;
   int best_organism_index = -1;
@@ -2617,6 +2629,7 @@ void print_world_params(World *w, FILE *outf) {
   fprintf(outf, "w->generations_per_epoch=%d;\n", w->generations_per_epoch);
   fprintf(outf, "w->num_organisms=%d;\n", w->num_organisms);
   fprintf(outf, "w->num_candidates=%d;\n", w->num_candidates);
+  fprintf(outf, "w->viability_lb=%lf;\n", w->viability_lb);
   fprintf(outf, "w->num_nodes=%d;\n", w->num_nodes);
   fprintf(outf, "w->num_edges=%d;\n", w->num_edges);
   fputc('\n', outf);
@@ -3852,6 +3865,7 @@ void run_from_command_line_options(int argc, char **argv) {
     { "flat", required_argument, 0, 0 },
     { "flat_multiplier", required_argument, 0, 0 },
     { "down_bump", required_argument, 0, 0 },
+    { "viability_lb", required_argument, 0, 0 },
     { NULL, 0, 0, 0 },
   };
   int c;
@@ -4011,6 +4025,9 @@ void run_from_command_line_options(int argc, char **argv) {
         break;
       case 49:
         w->down_bump = atoi(optarg);
+        break;
+      case 50:
+        w->viability_lb = atof(optarg);
         break;
       default:
         printf("Internal error\n");

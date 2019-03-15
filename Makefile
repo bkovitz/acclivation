@@ -291,10 +291,10 @@ THINYX_WITH_BUMPS = $(YXLINE) --ridge_radius=0.2 --bumps=1 --moat_ub=0.0 \
 GOOD_THINYX_WITH_BUMPS = $(YXLINE) $(THINYX_WITH_BUMPS)
 	--dot=1 --log=ancestors --num_epochs=40  --seed=1583407075
 
-X = $(THINYX_WITH_BUMPS) --ridge_radius=0.1 --moat_ub=0.5 --bump_freq=20.0 \
+X = $(THINYX_WITH_BUMPS) --ridge_radius=0.1 --moat_ub=0.5 --bump_freq=30.0 \
 	--flat=1 --flat_multiplier=1.0 --down_bump=1 \
-	--num_organisms=80 --edge_inheritance=5 --knob_type=0 --knob_constant=0.01 \
-	--num_candidates=8 --num_epochs=60 \
+	--num_organisms=80 --edge_inheritance=5 --knob_type=1 --knob_constant=0.01 \
+	--num_candidates=8 --num_epochs=60 --viability_lb=0.0 \
   #--seed=577086024 --log=ancestors
 
 # thu night
@@ -305,6 +305,13 @@ RUN1 = $(THINYX_WITH_BUMPS) --moat_ub=0.5 --bump_freq=15.0 \
 CLOSE_BUMPS_ACCLIVATION = $(THINYX_WITH_BUMPS) --moat_ub=0 --bump_freq=15.0 --flat=1 \
 	--num_organisms=80 --edge_inheritance=5 --knob_type=0 \
 	--num_candidates=8 --seed=3859373065 --log=ancestors
+
+TIGHT_FOLDING_FOR_LEAPING = $(THINYX_WITH_BUMPS) \
+	--ridge_radius=0.1 --moat_ub=0.5 --bump_freq=30.0 \
+	--flat=1 --flat_multiplier=1.0 --down_bump=1 \
+	--num_organisms=80 --edge_inheritance=5 --knob_type=1 --knob_constant=0.01 \
+	--num_candidates=8 --num_epochs=60 --viability_lb=0.0 \
+	--seed=1207166735 --log=ancestors
 
 OBLIQUE_WITH_BUMPS = $(OBLIQUE_LINE) --ridge_radius=1.0 --bumps=1 --moat_ub=0.0 \
 	--knob_constant=0.02 --crossover_freq=0.05 --mutation_type_ub=16 --num_organisms=200 \
