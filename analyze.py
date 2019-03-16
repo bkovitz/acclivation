@@ -369,9 +369,10 @@ class SASim(Thread):
 # ----------------------------------------------------------------------------
 
 class Command(object):
-    def __init__(self, help, choices):
+    def __init__(self, help, choices, allowOpts = False):
         self.help = help
         self.choices = choices
+        self.allowOpts = allowOpts
 
 
 class StringArg(object):
@@ -514,7 +515,7 @@ class Runner(object):
                 Command('plot current phenotype fitness, range, virtual fitness, or lineage', {
                     StringArg('phfitness'), StringArg('phrange'), StringArg('vfitness'),
                     StringArg('lineage')
-                }),
+                }, True),
             'neighborhood': Command('show current organism\'s fitness neighborhood', {}),
             'list':
                 Command('list parent(s) or child(ren) of current organism', {
@@ -745,7 +746,7 @@ class Runner(object):
         print('showing')
         subprocess.call(['evince', outf + '.pdf'])
 
-    def cmdPlot(self, typ):
+    def cmdPlot(self, typ, **kwargs):
         # delay import till now because it takes several seconds
         from plot_xyz import plot, parse
         scatter = False
@@ -771,8 +772,8 @@ class Runner(object):
         if self.sasim is not None and self.sasim.is_alive():
             print('close sim first')
         else:
-            self.root = Tk()
-            plot(X, Y, Z, scatter)
+            #self.root = Tk()
+            plot(X, Y, Z, scatter, **kwargs)
 
     def cmdDot(self):
         buf = StringIO()
@@ -808,6 +809,22 @@ class Runner(object):
     def selectedStr(self):
         return '.'.join(['%d' % x for x in self.selected])
 
+    def convertSimpleTypes(self, d):
+        res = {}
+        for k,v in d.items():
+            try:
+                v = int(v)
+            except ValueError:
+                try:
+                    v = float(v)
+                except ValueError:
+                    if v.lower() in ('t', 'true'):
+                        v = True
+                    elif v.lower() in ('f', 'false'):
+                        v = False
+            res[k] = v
+        return res
+
     def run(self):
         try:
             while True:
@@ -827,7 +844,8 @@ class Runner(object):
                         else:
                             getattr(self, 'cmd' + command.title())()
                     else:
-                        if len(tokens) != 2:
+                        optsOk = self.commands[command].allowOpts
+                        if len(tokens) != 2 and not optsOk:
                             self.printHelp(
                                 command, self.commands[command].help)
                         else:
@@ -836,8 +854,14 @@ class Runner(object):
                             for argMatch in argChoices:
                                 if argMatch.match(arg):
                                     gotit = True
-                                    getattr(self, 'cmd' +
-                                            command.title())(argMatch.get(arg))
+                                    cmdFunc = getattr(self, 'cmd' + command.title())
+                                    if optsOk:
+                                        optsDict = dict({k:v.strip('"') for k,v in
+                                            re.findall(r'(\S+)=(".*?"|\S+)', ' '.join(tokens[2:]))})
+                                        optsDict = self.convertSimpleTypes(optsDict)
+                                        cmdFunc(argMatch.get(arg), **optsDict)
+                                    else:
+                                        cmdFunc(argMatch.get(arg))
                                     break
                             if not gotit:
                                 self.printHelp(

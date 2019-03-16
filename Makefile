@@ -360,3 +360,11 @@ runs: all
 	@echo "$(ARGS)"
 	@rm -f outs/out*
 	@$(foreach i,$(N),./sa $(ARGS) --run=$i > outs/out$i; grep 'fitness deltas' outs/out$i;)
+
+# Targets for generating plots
+plot1:
+	echo "\
+select 4.4.4\n\
+plot phfitness show=False filename=e4g4o4phfit.png azim=30.0\n\
+exit\n\
+" | ./analyze.py
