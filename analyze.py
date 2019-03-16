@@ -485,8 +485,7 @@ class Runner(object):
         self.buildOrgMap()
         sys.stderr.write('done\n')
         self.sasim = None
-        self.selected = (1, 1, 0)
-        self.selectedOrg = self.orgMap[self.selected]
+        self.cmdSelect(self.getBestOrganism(self.world.num_epochs-1, self.world.generations_per_epoch-1))
         self.commands = {
             'exit': Command('exit', {}),
             'quit': Command('exit', {}),
@@ -564,6 +563,15 @@ class Runner(object):
                 matches += [None]
             return matches[state]
         return customCompleter
+
+    def getBestOrganism(self, epoch_num, generation_num):
+        best_fitness = -10000.0
+        best_fitness_idx = -1
+        for o, organism in enumerate(self.runData[epoch_num][generation_num]):
+            if organism.fitness > best_fitness:
+                best_fitness = organism.fitness
+                best_fitness_idx = o
+        return (epoch_num+1, generation_num+1, best_fitness_idx)
 
     def buildOrgMap(self):
         orgMap = {}
