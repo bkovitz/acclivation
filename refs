@@ -1,0 +1,76 @@
+Toward a Theory of Multilevel Evolution: Long-Term Information Integration Shapes the Mutational Landscape and Enhances Evolvability
+- discusses increased evolvability separte from population diversity
+   "However, the increase of evolvability is essentially different from the 
+   increase in population variability due to an increase of neutrality. In
+   the examples discussed here, evolution actually increases (the effect of)
+   mutational changes “in the right direction."
+  (http://www-binf.bio.uu.nl/BINF/theoryMLE.pdf)
+
+Evolution of Evolvability in Gene Regulatory Networks
+Crombach and Hogeweg
+https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1000112
+- environment changes over time
+- complex gene regulatory networks
+- "We show that the population evolves towards genotype-phenotype mappings that
+  allow for an orchestrated network-wide change in the gene expression pattern,
+  requiring only a few specific gene indels. The genes involved are hubs of the
+  networks"
+
+Evolving towared a changing fitness "regime":
+- in the context of genetic programming:
+  Pagie L, Hogeweg P (1997) Evolutionary consequences of coevolving targets. Evol
+  Comput 5: 401–418.
+  (http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.36.7856&rep=rep1&type=pdf)
+- electronic circuits
+  Kashtan N, Alon U (2005) Spontaneous evolution of modularity and network
+  motifs. Proc Natl Acad Sci U S A 102: 13773–13778.
+  (https://www.pnas.org/content/pnas/102/39/13773.full.pdf)
+  [and]
+  Kashtan N, Noor E, Alon U (2007) Varying environments can speed up evolution.
+  Proc Natl Acad Sci U S A 104: 13711–13716.
+  (https://www.pnas.org/content/pnas/104/34/13711.full.pdf)
+
+Review paper on whether evolvability is evolvable:
+- (https://philarchive.org/archive/PIGIEE)
+
+Evolutionary Consequences of Coevolving targets
+- (http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.36.7856&rep=rep1&type=pdf)
+- nice review of existing coevolution models (particularly Hills 1992)
+
+Feed-Forward Loop Circuits as a Side Effect of Genome Evolution
+- Interesting link between certain structures and molecular biology:
+  feed-forward loop circuits- top-level node A conntected to B which is in turn
+  connected to C,D,E,F, but A is also directly connected to each of C,D,E,F.
+  Do we see anything like this?
+  (https://academic.oup.com/mbe/article/23/10/1931/1096976)
+
+Towards a general theory of adaptive walks on rugged landscapes
+-Kauffman's nk landscapes
+(https://www.sciencedirect.com/science/article/pii/S0022519387800292)
+
+Graph transformations that produce networks with biological-like features:
+(e.g. random *genome* mutations leading to heirarchical networks)
+- Emergence of Scaling in Random Networks
+  (https://arxiv.org/pdf/cond-mat/9910332.pdf%3Forigin%3Dpublication_detail)
+-  Age-dependent evolution of the yeast protein
+   interaction network suggests a limited role of gene duplication and
+   divergence
+  (https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1000232)
+
+Yeast have been shown to evolve quickly to new environments via gene
+expresssion (and at genome level):
+-  Systematic changes
+   in gene expression patterns following adaptive evolution in yeast
+   (https://www.pnas.org/content/96/17/9721)
+
+A system for studying evolution of life-like virtual organisms
+- Claim is that "virtual cells" form
+- (https://biologydirect.biomedcentral.com/articles/10.1186/1745-6150-1-23)
+- discussion of jumping peaks
+  1) Multiple peaks and ridges
+  "The best way to describe this hypothesis is to consider evolutionary process
+  as climbing of peaks on the fitness landscape. If we imagine that organisms
+  with small and large genomes climb the same mountain by hopping from peak to
+  peak or by following ridges on the fitness landscape, then at the end all of
+  them will both reach the same highest peak and achieve the same level of
+  fitness, as it appears to be the case (Fig. 6B)."
