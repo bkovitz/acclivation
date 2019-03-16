@@ -282,12 +282,17 @@ GOOD = --sa_timesteps=20 --log=ancestors --bumps=0 --num_organisms=40 --multi_ed
 X1 = --log=ancestors --sa_timesteps=20 --bumps=1 --moat_ub=0.0 --num_organisms=40 --multi_edges=0 --knob_constant=0.1 --activation_types=5 --alpha=0.0  #--num_epochs=1000
 #X = $(OBLIQUE_LINE) --log=ancestors --sa_timesteps=20 --bumps=1 --moat_ub=0.0 --num_organisms=40 --multi_edges=0 --knob_constant=0.1 --activation_types=5 --alpha=0.9  #--num_epochs=1000
 
-X = $(YXLINE) --ridge_radius=0.2 \
-	--knob_type=1 --knob_constant=0.02 --crossover_freq=0.02 --mutation_type_ub=16 \
-	--num_organisms=40 --num_candidates=7 \
+YX = $(YXLINE) --ridge_radius=0.1 --bumps=0 \
+	--knob_type=1 --knob_constant=0.02 --crossover_freq=0.05 --mutation_type_ub=16 \
+	--num_organisms=200 --num_candidates=7 \
 	--input_accs=1 --activation_types=6 --sa_timesteps=10 --alpha=0.8 \
 	--edge_from_phnode=1 --edge_inheritance=1 --multi_edges=0 \
-	--num_epochs=40
+	--num_epochs=40 --dot=1
+
+GOOD_YXLINE1 = $(YX) --ridge_radius=0.2 --num_organisms=800 \
+	--dot=1 --log=ancestors --seed=2848818913
+
+GOOD_YXLINE2 = $(YX) --log=ancestors --seed=2436093377
 
 THINYX_WITH_BUMPS = $(YXLINE) --ridge_radius=0.2 --bumps=1 --moat_ub=0.0 \
 	--knob_constant=0.02 --crossover_freq=0.05 --mutation_type_ub=16 --num_organisms=100 \
@@ -344,7 +349,7 @@ C0 =  $(CIRCLE) --ridge_radius=0.2 --bumps=1 --moat_ub=0.0 \
 	--edge_from_phnode=0 --edge_inheritance=5 --multi_edges=0 \
 	--num_epochs=50  --dot=0 #--log=ancestors #--seed=1583407075
 
-ARGS = $(GOOD_THINYX_WITH_BUMPS) # Change this to some other variable to run other parameters
+ARGS = $(GOOD_YXLINE2) # Change this to some other variable to run other parameters
 #ARGS = $(OK_OBLIQUE_WITH_BUMPS)
 run: all
 	./sa $(ARGS) > out

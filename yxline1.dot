@@ -1,0 +1,37 @@
+digraph e40g20 {
+  { rank=source edge [style="invis"] n0 -> n1 }
+  { rank=sink edge [style="invis"] n2 -> n3 }
+  n0 [label="n0 (A+) i=-0.006 -0.006"]
+  n1 [label="n1 (A+) i=0.144 0.144"]
+  n2 [label="n2 (A+) -0.102"]
+  n3 [label="n3 (A+) -0.102"]
+  n4 [label="n4 (A+)"]
+  n5 [label="n5 (A+) -0.467"]
+  n6 [label="n6 (A+)"]
+  n7 [label="n7 (A+)"]
+  n8 [label="n8 (A+)"]
+  n9 [label="n9 (A+)"]
+  n10 [label="n10 (A+)"]
+  n11 [label="n11 (A+)"]
+  n12 [label="n12 (A+)"]
+  n13 [label="n13 (A+)"]
+  n14 [label="n14 (A+)"]
+  n15 [label="n15 (A+)"]
+  n16 [label="n16 (A+)"]
+  n17 [label="n17 (A+)"]
+  n18 [label="n18 (A+)"]
+  n19 [label="n19 (A+)"]
+  n20 [label="n20 (A+)"]
+  n21 [label="n21 (A+)"]
+  n22 [label="n22 (A+)"]
+  n23 [label="n23 (A+)"]
+  n24 [label="n24 (A+)"]
+  n25 [label="n25 (A+)"]
+  n27 [label="n27 (A+)"]
+  n0 -> n2 [label=1.000];
+  n0 -> n3 [label=1.000];
+  n3 -> n5 [label=1.000];
+  n21 -> n24 [label=1.000];
+  n24 -> n18 [label=-1.000];
+  n13 -> n22 [label=1.000];
+}
