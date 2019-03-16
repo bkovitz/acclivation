@@ -723,11 +723,13 @@ class Runner(object):
             return sa.get_mutation_label(organism.birth_info.mutation_info[0].type)
         return ''
 
-    def plotLineage(self, organism, show=True, filename=None):
+    def plotLineage(self, organism, show=True, filename=None, format='svg'):
         epoch,generation,oindex = self.revOrgMap[organism]
         outf = filename if filename is not None else 'e%dg%do%d-lineage' % (epoch, generation, oindex)
-        print('generating lineage dot file', outf)
-        with open(outf + '.dot', 'w') as f:
+        print('generating lineage dot file %s' % outf)
+        f = StringIO()
+        #with open(outf + '.dot', 'w') as f:
+        if True:
             f.write('digraph g {\n')
             for parent,child in self.getLineage(organism):
                 label = self.getMutationLabel(self.orgMap[child])
@@ -738,30 +740,28 @@ class Runner(object):
                     f.write('  %s -> %s;\n' %
                         ('e%dg%do%d' % parent, 'e%dg%do%d' % child))
             f.write('}\n')
-        print('making pdf')
-        subprocess.call(['make', outf + '.pdf'])
-        if show:
-            print('showing')
-            subprocess.call(['evince', outf + '.pdf'])
+        dot = f.getvalue()
+        g = Source(dot, filename=outf, format=format)
+        g.render(view=show)
 
-    def cmdPlot(self, typ, **kwargs):
+    def cmdPlot(self, typ, delta=0.02, **kwargs):
         # delay import till now because it takes several seconds
         from plot_xyz import plot, parse
         scatter = False
         if typ == 'phfitness':
             buf = StringIO()
-            sa.dump_phenotype_fitness_func(self.world, False, buf)
+            sa.dump_phenotype_fitness_func(self.world, False, delta, buf)
             csv = buf.getvalue()
             X, Y, Z = parse(csv, 0, 1, 2)
         elif typ == 'phrange':
             buf = StringIO()
-            sa.dump_organism_virtual_fitness_func(self.world, self.selectedOrg, False, buf)
+            sa.dump_organism_virtual_fitness_func(self.world, self.selectedOrg, False, delta, buf)
             csv = buf.getvalue()
             X, Y, Z = parse(csv, 2, 3, 4)
             scatter = True
         elif typ == 'vfitness':
             buf = StringIO()
-            sa.dump_organism_virtual_fitness_func(self.world, self.selectedOrg, False, buf)
+            sa.dump_organism_virtual_fitness_func(self.world, self.selectedOrg, False, delta, buf)
             csv = buf.getvalue()
             X, Y, Z = parse(csv, 0, 1, 4)
         elif typ == 'lineage':
@@ -781,7 +781,7 @@ class Runner(object):
             g = Source(dot, filename=filename, format=format)
         else:
             g = Source(dot, format=format)
-        g.render(view=show)
+        g.render(view=show) # grr. render adds extension to filename
 
     def cmdNeighborhood(self):
         sa.dump_organism_fitness_nbhd(self.world, self.selectedOrg)

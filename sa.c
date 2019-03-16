@@ -2454,13 +2454,13 @@ void run_epoch(World *w, int e) {
   fflush(outf);
 }*/
 
-void dump_organism_virtual_fitness_func(World *w, Organism *org, bool delims, FILE *outf) {
+void dump_organism_virtual_fitness_func(World *w, Organism *org, bool delims, double delta, FILE *outf) {
   Organism *o = copy_organism(org);
   Genotype *g = o->genotype;
   double cov_reward = coverage_reward(w, g);
   bool save_reward_coverage = w->reward_coverage;
   w->reward_coverage = false;
-  double delta = 0.02;
+  //double delta = 0.02;
   if (delims)
     fputs("BEGIN VFUNC\n", outf);
   for (double g1 = -1.0; g1 <= 1.0; g1 += delta) {
@@ -2490,11 +2490,11 @@ void dump_organism_virtual_fitness_func(World *w, Organism *org, bool delims, FI
 
 void dump_virtual_fitness_func(World *w, bool delims, FILE *outf) {
   int best_organism_index = find_best_organism(w);
-  dump_organism_virtual_fitness_func(w, w->organisms[best_organism_index], delims, outf);
+  dump_organism_virtual_fitness_func(w, w->organisms[best_organism_index], delims, 0.02, outf);
 }
 
-void dump_phenotype_fitness_func(World *w, bool delims, FILE *outf) {
-  double delta = 0.02;
+void dump_phenotype_fitness_func(World *w, bool delims, double delta, FILE *outf) {
+  //double delta = 0.02;
   //Genotype g;
   //init_random_genotype(w, &g, 0, 4, 2, 2);
   //Genotype *g = create_random_genotype(w);
@@ -2672,7 +2672,7 @@ void run_world(World *w) {
   }
   if (!quiet) {
     dump_virtual_fitness_func(w, true, stdout);
-    dump_phenotype_fitness_func(w, true, stdout);
+    dump_phenotype_fitness_func(w, true, 0.02, stdout);
   }
   printf("epoch fitness deltas: ");
   print_stats("fd_", w->epoch_fitness_deltas);
@@ -3550,7 +3550,7 @@ void dump_phenotype_fitness() {
   w->ridge_radius=0.200000;
   w->c2=1.000000; w->c3=0.000000;
   print_world_params(w, stdout);
-  dump_phenotype_fitness_func(w, true, stdout);
+  dump_phenotype_fitness_func(w, true, 0.02, stdout);
 }
 
 void quick_test(int seed) {
