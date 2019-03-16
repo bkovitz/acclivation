@@ -509,7 +509,7 @@ class Runner(object):
                 Command('select child of current organism', {
                     LineageArg(self, self.childMap)
                 }),
-            'dot': Command('show graph of current organism dot', {}),
+            'dot': Command('show graph of current organism dot', {}, True),
             'sim': Command('simulate current organism', {}),
             'plot':
                 Command('plot current phenotype fitness, range, virtual fitness, or lineage', {
@@ -723,9 +723,9 @@ class Runner(object):
             return sa.get_mutation_label(organism.birth_info.mutation_info[0].type)
         return ''
 
-    def plotLineage(self, organism):
+    def plotLineage(self, organism, show=True, filename=None):
         epoch,generation,oindex = self.revOrgMap[organism]
-        outf = 'e%dg%do%d-lineage' % (epoch, generation, oindex)
+        outf = filename if filename is not None else 'e%dg%do%d-lineage' % (epoch, generation, oindex)
         print('generating lineage dot file', outf)
         with open(outf + '.dot', 'w') as f:
             f.write('digraph g {\n')
@@ -740,8 +740,9 @@ class Runner(object):
             f.write('}\n')
         print('making pdf')
         subprocess.call(['make', outf + '.pdf'])
-        print('showing')
-        subprocess.call(['evince', outf + '.pdf'])
+        if show:
+            print('showing')
+            subprocess.call(['evince', outf + '.pdf'])
 
     def cmdPlot(self, typ, **kwargs):
         # delay import till now because it takes several seconds
@@ -764,7 +765,7 @@ class Runner(object):
             csv = buf.getvalue()
             X, Y, Z = parse(csv, 0, 1, 4)
         elif typ == 'lineage':
-            self.plotLineage(self.selectedOrg)
+            self.plotLineage(self.selectedOrg, **kwargs)
             return
         if self.sasim is not None and self.sasim.is_alive():
             print('close sim first')
@@ -772,12 +773,15 @@ class Runner(object):
             #self.root = Tk()
             plot(X, Y, Z, scatter, **kwargs)
 
-    def cmdDot(self):
+    def cmdDot(self, show=True, filename=None, format='svg'): #png,pdf
         buf = StringIO()
         sa.print_dot(self.world, self.selectedOrg, buf)
         dot = buf.getvalue()
-        g = Source(dot)
-        g.render(view=True)
+        if filename is not None:
+            g = Source(dot, filename=filename, format=format)
+        else:
+            g = Source(dot, format=format)
+        g.render(view=show)
 
     def cmdNeighborhood(self):
         sa.dump_organism_fitness_nbhd(self.world, self.selectedOrg)
@@ -832,16 +836,23 @@ class Runner(object):
                     continue
                 command = tokens[0]
                 if command in self.commands.keys():
+                    optsOk = self.commands[command].allowOpts
                     argChoices = self.commands[command].choices
                     if not len(argChoices):
                         # command with no args
-                        if len(tokens) != 1:
+                        if len(tokens) != 1 and not optsOk:
                             self.printHelp(
                                 command, self.commands[command].help)
                         else:
-                            getattr(self, 'cmd' + command.title())()
+                            cmdFunc = getattr(self, 'cmd' + command.title())
+                            if optsOk:
+                                optsDict = dict({k:v.strip('"') for k,v in
+                                    re.findall(r'(\S+)=(".*?"|\S+)', ' '.join(tokens[1:]))})
+                                optsDict = self.convertSimpleTypes(optsDict)
+                                cmdFunc(**optsDict)
+                            else:
+                                cmdFunc()
                     else:
-                        optsOk = self.commands[command].allowOpts
                         if len(tokens) != 2 and not optsOk:
                             self.printHelp(
                                 command, self.commands[command].help)
