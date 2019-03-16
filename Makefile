@@ -343,8 +343,8 @@ OK = $(YXLINE) --ridge_radius=0.2 --bumps=1 --moat_ub=0.0 \
 	--edge_from_phnode=0 --edge_inheritance=5 --multi_edges=0 \
 	--num_epochs=50  --dot=0 #--log=ancestors #--seed=1583407075
 
-C0 =  $(CIRCLE) --ridge_radius=0.2 --bumps=1 --moat_ub=0.0 \
-	--knob_type=1 --knob_constant=0.02 --crossover_freq=0.02 --mutation_type_ub=100 --num_organisms=800 \
+C0 =  $(CIRCLE) --ridge_radius=0.1 --bumps=1 --moat_ub=0.0 \
+	--knob_type=1 --knob_constant=0.02 --crossover_freq=0.02 --mutation_type_ub=100 --num_organisms=800 --num_candidates=80 \
 	--input_accs=1 --activation_types=6 --sa_timesteps=5 --alpha=0.8 \
 	--edge_from_phnode=0 --edge_inheritance=5 --multi_edges=0 \
 	--num_epochs=50  --dot=0 #--log=ancestors #--seed=1583407075
@@ -359,12 +359,22 @@ N = $(shell seq 1 20)
 runs: all
 	@echo "$(ARGS)"
 	@rm -f outs/out*
-	@$(foreach i,$(N),./sa $(ARGS) --run=$i > outs/out$i; grep 'fitness deltas' outs/out$i;)
+	@$(foreach i,$(N),./sa $(ARGS) --run=$i > outs/out$i; echo -n "$i: "; grep 'fitness deltas' outs/out$i;)
 
 # Targets for generating plots
 plot1:
 	echo "\
 select 4.4.4\n\
 plot phfitness show=False filename=e4g4o4phfit.png azim=30.0\n\
+exit\n\
+" | ./analyze.py
+
+plot_final_fittest:
+	echo "\
+select 41.20.77\n\
+plot phfitness show=False delta=0.005 azim=34.0 elev=64 cmapname=gnuplot_r\n\
+plot vfitness show=False delta=0.005 azim=34.0 elev=64 cmapname=gnuplot_r\n\
+plot phrange show=False delta=0.01 azim=34.0 elev=64 cmapname=plasma\n\
+dot show=False\n\
 exit\n\
 " | ./analyze.py
