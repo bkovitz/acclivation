@@ -631,6 +631,7 @@ class Runner(object):
         if selection in self.orgMap:
             self.selectedOrg = self.orgMap[selection]
             self.world.c1 = self.epochMap[selection].c1
+            print('c1 for selection: %s' % self.world.c1)
             sa.update_dependent_fitness_variables(self.world)
             self.selected = selection
             self.cmdPrint()
@@ -695,17 +696,13 @@ class Runner(object):
 
     def cmdParent(self, parent):
         if parent in self.orgMap:
-            self.selectedOrg = self.orgMap[parent]
-            self.selected = parent
-            self.cmdPrint()
+            self.cmdSelect(parent)
         else:
             print(parent, 'not in organism map')
 
     def cmdChild(self, child):
         if child in self.orgMap:
-            self.selectedOrg = self.orgMap[child]
-            self.selected = child
-            self.cmdPrint()
+            self.cmdSelect(child)
         else:
             print(child, 'not in organism map')
 
