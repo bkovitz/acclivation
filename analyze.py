@@ -770,18 +770,22 @@ class Runner(object):
         if self.sasim is not None and self.sasim.is_alive():
             print('close sim first')
         else:
+            if not 'filename' in kwargs:
+                kwargs['filename'] = 'e%dg%do%d' % self.selected
+                kwargs['filename'] += '-%s' % typ
             #self.root = Tk()
             plot(X, Y, Z, scatter, **kwargs)
 
     def cmdDot(self, show=True, filename=None, format='svg'): #png,pdf
+        outf = filename if filename is not None else 'e%dg%do%d' % self.selected
         buf = StringIO()
         sa.print_dot(self.world, self.selectedOrg, buf)
         dot = buf.getvalue()
-        if filename is not None:
-            g = Source(dot, filename=filename, format=format)
+        if outf is not None:
+            g = Source(dot, filename=outf, format=format)
         else:
             g = Source(dot, format=format)
-        g.render(view=show) # grr. render adds extension to filename
+        g.render(view=show) # NOTE: render appends extension
 
     def cmdNeighborhood(self):
         sa.dump_organism_fitness_nbhd(self.world, self.selectedOrg)
