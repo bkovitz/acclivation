@@ -74,3 +74,21 @@ A system for studying evolution of life-like virtual organisms
   peak or by following ridges on the fitness landscape, then at the end all of
   them will both reach the same highest peak and achieve the same level of
   fitness, as it appears to be the case (Fig. 6B)."
+  
+
+From "On the locality of grammatical evolution"
+(https://ub-madoc.bib.uni-mannheim.de/1255/1/ww_11_2005.pdf)
+- "The locality of a genotype-phenotype mapping describes how well genotypic
+  neighbors correspond to phenotypic neighbors. Previous work has indicated
+  that a high locality of representations is necessary for efficient evolutionary
+  search."
+
+- "In mutation-based search approaches, mutation steps must be small and
+  should result in similar solutions as larger search steps would result in a
+  randomization of the search. Then, guided search around good solutions would
+  become impossible as the mutation-based search algorithm would jump randomly
+  around the search space. However, low-locality representation show exactly
+  this behavior, as small changes in a genotype do not result in small changes
+  of a phenotype. Therefore, for low-locality representations, guided search is
+  no longer possible as local search steps in Φg result into random (large) search
+  steps in Φp."
