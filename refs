@@ -134,3 +134,48 @@ and the evolution of evolvability (Carter et al)
   whether the shape of the fitness function with respect to the
   genetic perturbations actually provides the information necessary to find the
   best genotype or the best solution.."
+
+==========================================================================
+Experimental evolution: experimental evolution and evolvability
+Clearly written.
+(this is a good review paper of evolvability in case you haven't already read it)
+In section on evolvability and fitness landscapes, a fitness landscape is
+described: "Fitness landscapes are produced by plotting fitness against genotype in a
+given environment". (ie. not plotted against a phenotype), and the sources of 
+evolvability discussed..
+
+.."increase evolvability by allowing populations to
+climb adaptive peaks on stationary landscapes more
+rapidly, for example, by reducing the time until a
+genotype of higher fitness appear in the population.
+However, the topography of the landscape itself may
+constrain adaptation. In particular, if the landscape is
+rugged, such that high-fitness genotypes are frequently
+separated from other high-fitness genotypes by adaptive
+valleys containing low-fitness genotypes, the ability of
+natural selection to maximize fitness and reach the fittest
+genotype may be limited. In this case, an alternative way
+in which evolvability could be increased would be through
+changes in the shape or stability of the fitness
+landscape, which would allow population to move
+around the landscape more easily. In this case,
+ evolvability would result from making fitness landscapes less
+rugged. This would entail changing how particular
+genotypes map to particular values of fitness by
+changing the interactions between components of fitness."
+
+"A mechanism that changes the ruggedness of fitness
+landscapes is implicit in much of the discussion of how
+the modularity at many levels of organismic organization
+may provide evolvability benefits, since increased
+modularity is expected to reduce the ruggedness of
+fitness landscapes (Wagner and Altenberg, 1996; 
+Kirschner and Gerhart, 1998; Wagner, 2005; Hansen, 2006)."
+
+Hansen, 2006 from above-
+Review of work in the structure of mapping from genotype to phenotyp (genetic
+architecture).
+(https://www.annualreviews.org/doi/pdf/10.1146/annurev.ecolsys.37.091305.110224)
+Really good overview and cites a lot of work, but very long.
+
+Wagner '05 and K&G '98 above don't seem very interesting.
