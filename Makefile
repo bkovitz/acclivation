@@ -366,9 +366,15 @@ CIRCLE_NICE4 = $(CIRCLE) $(DEFS) --ridge_radius=0.1 --bumps=0 --moat_ub=0.0 \
 	--num_organisms=800 --num_candidates=7 --num_epochs=40 \
 	--log=ancestors --seed=1447085122
 
+<<<<<<< HEAD
 C1 = $(DEFS) $(CIRCLE) --ridge_radius=0.2 --bumps=0 \
 	--num_organisms=800 --num_candidates=20 --num_epochs=40 \
 	--dot=0 #--log=ancestors #--seed=1583407075
+=======
+C1 = $(DEFS) $(CIRCLE) --ridge_radius=0.1 --bumps=0 \
+	--num_organisms=200 --num_candidates=10 --num_epochs=40 \
+	--dot=0
+>>>>>>> 1b0d329d89e047d62ccd3925b1b315e663bf7f97
 
 # outs-rz, outs-rz2
 RAZORBACK = $(DEFS) --bumps=1 --num_epochs=80
@@ -407,3 +413,21 @@ plot phrange show=False delta=0.01 azim=34.0 elev=64 cmapname=plasma\n\
 dot show=False\n\
 exit\n\
 " | ./analyze.py
+
+# potentials
+GOOD_CIRCLE1 = $(DEFS) $(CIRCLE) --ridge_radius=0.15 --bumps=0 \
+	--num_organisms=400 --num_candidates=40 --num_epochs=40 \
+	--dot=0 --log=ancestors --seed=3929395322
+
+REALLY_GOOD_CIRCLE1 = $(DEFS) $(CIRCLE) --ridge_radius=0.15 --bumps=0 \
+	--num_organisms=200 --num_candidates=40 --num_epochs=40 \
+  --dot=0 --log=ancestors --seed=1560864133
+
+circleplots:
+	echo "\
+plot phfitness show=False delta=0.005 azim=34.0 elev=64 cmapname=gnuplot_r filename=circle-phfitness.png\n\
+plot vfitness show=False delta=0.005 azim=34.0 elev=64 cmapname=gnuplot_r filename=circle-vfitness.png\n\
+plot phrange show=False delta=0.01 azim=34.0 elev=64 cmapname=plasma filename=circle-phrange.png\n\
+dot show=False filename=circle-dot format=png\n\
+exit\n\
+" | ./analyze.py REALLY_GOOD_CIRCLE1/ancestors
