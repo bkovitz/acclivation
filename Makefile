@@ -344,13 +344,36 @@ OK = $(YXLINE) --ridge_radius=0.2 --bumps=1 --moat_ub=0.0 \
 	--num_epochs=50  --dot=0 #--log=ancestors #--seed=1583407075
 
 C0 =  $(CIRCLE) --ridge_radius=0.1 --bumps=1 --moat_ub=0.0 \
-	--knob_type=1 --knob_constant=0.02 --crossover_freq=0.02 --mutation_type_ub=100 --num_organisms=800 --num_candidates=80 \
+	--knob_type=1 --knob_constant=0.02 --crossover_freq=0.02 --mutation_type_ub=16 --num_organisms=800 --num_candidates=80 \
 	--input_accs=1 --activation_types=6 --sa_timesteps=5 --alpha=0.8 \
 	--edge_from_phnode=0 --edge_inheritance=5 --multi_edges=0 \
-	--num_epochs=50  --dot=0 #--log=ancestors #--seed=1583407075
+	--num_epochs=50  --dot=0 --log=ancestors --seed=1583407075
 
-ARGS = $(GOOD_YXLINE2) # Change this to some other variable to run other parameters
-#ARGS = $(OK_OBLIQUE_WITH_BUMPS)
+# Defaults for runs for the ALIFE paper
+DEFS = --bumps=1 --down_bump=1 \
+	--knob_type=1 --knob_constant=0.02 --crossover_freq=0.02 --mutation_type_ub=16 \
+	--input_accs=1 --activation_types=6 --sa_timesteps=10 --alpha=0.8 \
+	--edge_from_phnode=0 --edge_inheritance=5 --multi_edges=0 --allow_move_edge=1 \
+	--num_organisms=200 --num_candidates=10 --num_epochs=40 \
+
+CIRCLE_NICE3 = $(DEFS) $(CIRCLE) --ridge_radius=0.2 --bumps=0 \
+	--allow_move_edge=0 \
+	--num_organisms=800 --num_candidates=7 --num_epochs=40 \
+	--log=ancestors --seed=4224274563
+
+CIRCLE_NICE4 = $(CIRCLE) $(DEFS) --ridge_radius=0.1 --bumps=0 --moat_ub=0.0 \
+	--allow_move_edge=0 \
+	--num_organisms=800 --num_candidates=7 --num_epochs=40 \
+	--log=ancestors --seed=1447085122
+
+C1 = $(DEFS) $(CIRCLE) --ridge_radius=0.1 --bumps=0 \
+	--num_organisms=200 --num_candidates=10 --num_epochs=40 \
+	--dot=0 #--log=ancestors #--seed=1583407075
+
+RAZORBACK = $(DEFS) --bumps=1 \
+	
+
+ARGS = $(RAZORBACK) # Change this to some other variable to run other parameters
 run: all
 	./sa $(ARGS) > out
 	@grep 'deltas' out
@@ -359,7 +382,7 @@ N = $(shell seq 1 20)
 runs: all
 	@echo "$(ARGS)"
 	@rm -f outs/out*
-	@$(foreach i,$(N),./sa $(ARGS) --run=$i > outs/out$i; echo -n "$i: "; grep 'fitness deltas' outs/out$i;)
+	@$(foreach i,$(N),./sa $(ARGS) --run=$i --log=outs/ancestors$i > outs/out$i ; echo -n "$i: "; grep 'fitness deltas' outs/out$i;)
 
 # Targets for generating plots
 plot1:
