@@ -1,3 +1,4 @@
+==========================================================================
 Toward a Theory of Multilevel Evolution: Long-Term Information Integration Shapes the Mutational Landscape and Enhances Evolvability
 - discusses increased evolvability separte from population diversity
    "However, the increase of evolvability is essentially different from the 
@@ -6,6 +7,7 @@ Toward a Theory of Multilevel Evolution: Long-Term Information Integration Shape
    mutational changes “in the right direction."
   (http://www-binf.bio.uu.nl/BINF/theoryMLE.pdf)
 
+==========================================================================
 Evolution of Evolvability in Gene Regulatory Networks
 Crombach and Hogeweg
 https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1000112
@@ -16,6 +18,7 @@ https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1000112
   requiring only a few specific gene indels. The genes involved are hubs of the
   networks"
 
+==========================================================================
 Evolving towared a changing fitness "regime":
 - in the context of genetic programming:
   Pagie L, Hogeweg P (1997) Evolutionary consequences of coevolving targets. Evol
@@ -30,13 +33,17 @@ Evolving towared a changing fitness "regime":
   Proc Natl Acad Sci U S A 104: 13711–13716.
   (https://www.pnas.org/content/pnas/104/34/13711.full.pdf)
 
+==========================================================================
 Review paper on whether evolvability is evolvable:
+Is evolvability evolvable? (Massimo Pigliucci)
 - (https://philarchive.org/archive/PIGIEE)
 
+==========================================================================
 Evolutionary Consequences of Coevolving targets
 - (http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.36.7856&rep=rep1&type=pdf)
 - nice review of existing coevolution models (particularly Hills 1992)
 
+==========================================================================
 Feed-Forward Loop Circuits as a Side Effect of Genome Evolution
 - Interesting link between certain structures and molecular biology:
   feed-forward loop circuits- top-level node A conntected to B which is in turn
@@ -44,10 +51,12 @@ Feed-Forward Loop Circuits as a Side Effect of Genome Evolution
   Do we see anything like this?
   (https://academic.oup.com/mbe/article/23/10/1931/1096976)
 
+==========================================================================
 Towards a general theory of adaptive walks on rugged landscapes
 -Kauffman's nk landscapes
 (https://www.sciencedirect.com/science/article/pii/S0022519387800292)
 
+==========================================================================
 Graph transformations that produce networks with biological-like features:
 (e.g. random *genome* mutations leading to heirarchical networks)
 - Emergence of Scaling in Random Networks
@@ -57,12 +66,14 @@ Graph transformations that produce networks with biological-like features:
    divergence
   (https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1000232)
 
+==========================================================================
 Yeast have been shown to evolve quickly to new environments via gene
 expresssion (and at genome level):
 -  Systematic changes
    in gene expression patterns following adaptive evolution in yeast
    (https://www.pnas.org/content/96/17/9721)
 
+==========================================================================
 A system for studying evolution of life-like virtual organisms
 - Claim is that "virtual cells" form
 - (https://biologydirect.biomedcentral.com/articles/10.1186/1745-6150-1-23)
@@ -74,3 +85,52 @@ A system for studying evolution of life-like virtual organisms
   peak or by following ridges on the fitness landscape, then at the end all of
   them will both reach the same highest peak and achieve the same level of
   fitness, as it appears to be the case (Fig. 6B)."
+  
+==========================================================================
+From "On the locality of grammatical evolution"
+(https://ub-madoc.bib.uni-mannheim.de/1255/1/ww_11_2005.pdf)
+- "The locality of a genotype-phenotype mapping describes how well genotypic
+  neighbors correspond to phenotypic neighbors. Previous work has indicated
+  that a high locality of representations is necessary for efficient evolutionary
+  search."
+- "In mutation-based search approaches, mutation steps must be small and
+  should result in similar solutions as larger search steps would result in a
+  randomization of the search. Then, guided search around good solutions would
+  become impossible as the mutation-based search algorithm would jump randomly
+  around the search space. However, low-locality representation show exactly
+  this behavior, as small changes in a genotype do not result in small changes
+  of a phenotype. Therefore, for low-locality representations, guided search is
+  no longer possible as local search steps in Φg result into random (large) search
+  steps in Φp."
+
+==========================================================================
+The role of epistatic gene interactions in the response to selection
+and the evolution of evolvability (Carter et al)
+- "positive directional epistasis" leads to better evolvability
+  "negative directional epistasis" leads to canalization
+- statistical epistasis appies to population; functional/physiological epistasis
+  applies to a particular genotype->phenotype mapping (non-additive interactions)
+- "..statistical epistasis does not describe directionality in the epistatic
+  interactions, i.e.  whether gene effects tend to reinforce or diminish each
+  other along particular directions in morphospace."
+- "several simulation studies with
+  complex genotype–phenotype maps have shown that
+  genetic architecture may change and that the evolution
+  of evolvability can occur"
+  references: COMPLEX ADAPTATIONS AND THE EVOLUTION OF EVOLVABILITY
+  (https://onlinelibrary.wiley.com/doi/pdf/10.1111/j.1558-5646.1996.tb02339.x)
+  Main point: evolvability depends on genotype-phenotype map; and good maps
+  evolve by either 1) epistatic mutations, or 2) creating new genes
+- (good canalization reference - https://www.cabdirect.org/cabdirect/abstract/19690102108
+   Canalisation and gene control. Rendel, JM)
+- on evolvability.. "The Darwinian heuristic is to choose sample points by
+  perturbing the more fit ones among those sampled thus far.
+  Implicit in the Darwinian heuristic is the notion of perturbation, and the
+  assumption that the fitness function is not
+  completely randomized by a perturbation (thus the genome
+  is not a "House of Cards" [Kingman 1978] in which any
+  genetic alteration brings it tumbling down)."
+- whether hillclimbing succeeds.. "depends on
+  whether the shape of the fitness function with respect to the
+  genetic perturbations actually provides the information necessary to find the
+  best genotype or the best solution.."
