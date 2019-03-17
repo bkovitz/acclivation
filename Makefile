@@ -18,7 +18,10 @@ else
 VIEW_PDF = evince
 endif
 
-GRAPHICS = rzwavy-vfunc.png rzwavy-phfunc.png rzwavy-phrange.png rzwavy-graph.png
+GRAPHICS = rzwavy-vfunc.png rzwavy-phfunc.png rzwavy-phrange.png rzwavy-graph.png \
+	circle-phfunc.png circle-vfunc.png circle-phrange.png circle-graph.png \
+	moats-phfunc.png moats-vfunc.png moats-phrange.png moats-graph.png \
+	yxline1-vfunc.png ratio.pdf
 
 acclivation1e.pdf: acclivation1e.tex acclivation.bib $(GRAPHICS)
 
@@ -298,6 +301,14 @@ YX = $(YXLINE) --ridge_radius=0.1 --bumps=0 \
 GOOD_YXLINE1 = $(YX) --ridge_radius=0.2 --num_organisms=800 \
 	--dot=1 --log=ancestors --seed=2848818913
 
+yxline1-vfunc.png:
+	./sa $(GOOD_YXLINE1) > yxline1.out
+	echo "\
+plot vfitness show=False delta=0.005 azim=34.0 elev=64 dpi=100 filename=yxline1-vfunc.png\n\
+exit\n\
+" | ./analyze.py ancestors
+
+
 GOOD_YXLINE2 = $(YX) --log=ancestors --seed=2436093377
 
 THINYX_WITH_BUMPS = $(YXLINE) --ridge_radius=0.2 --bumps=1 --moat_ub=0.0 \
@@ -346,10 +357,12 @@ exit\n\
 " | ./analyze.py ancestors
 	@touch moats1.done
 
+moats-phfunc.png moats-vfunc.png moats-phrange.png moats-graph.png: moats2.done
+
 moats2.done:
-	./sa $(CLOSE_BUMPS_ACCLIVATION) > moats2.out
+	./sa $(CLOSE_BUMPS_ACCLIVATION2) > moats2.out
 	echo "\
-plot phfitness show=False delta=0.005 azim=34.0 elev=64 dpi=100 filename=moats-phfunc.png\n\
+plot phfitness show=False delta=0.005 azim=111.0 elev=64 dpi=100 filename=moats-phfunc.png\n\
 plot vfitness show=False delta=0.005 azim=34.0 elev=64 dpi=100 filename=moats-vfunc.png\n\
 plot phrange show=False delta=0.01 azim=34.0 elev=64 dpi=100 filename=moats-phrange.png\n\
 dot show=False filename=moats-graph format=png\n\
@@ -414,9 +427,9 @@ rzwavy-vfunc.png rzwavy-phfunc.png rzwavy-phrange.png rzwavy-graph.png: rzwavy.d
 rzwavy.done:
 	./sa $(RZ_WAVY_SLOPE) --log=ancestors > rzwavy.out
 	echo "\
-plot phfitness show=False delta=0.01 azim=-109.0 elev=52 filename=rzwavy-phfunc.png\n\
-plot vfitness show=False delta=0.005 azim=52.0 elev=15 filename=rzwavy-vfunc.png\n\
-plot phrange show=False delta=0.01 azim=-66.0 elev=52 filename=rzwavy-phrange.png\n\
+plot phfitness show=False delta=0.01 azim=-109.0 elev=52 dpi=100 filename=rzwavy-phfunc.png\n\
+plot vfitness show=False delta=0.005 azim=52.0 elev=15 dpi=100 filename=rzwavy-vfunc.png\n\
+plot phrange show=False delta=0.01 azim=-66.0 elev=52 dpi=100 filename=rzwavy-phrange.png\n\
 dot show=False filename=rzwavy-graph format=png\n\
 exit\n" | ./analyze.py ancestors
 	@touch rzwavy.done
@@ -471,12 +484,14 @@ dot show=False filename=circle-dot format=png\n\
 exit\n\
 " | ./analyze.py REALLY_GOOD_CIRCLE1/ancestors
 
+circle-vfunc.png circle-phfunc.png circle-phrange.png circle-graph.png: circle.done
+
 circle.done:
 	./sa $(REALLY_GOOD_CIRCLE1) > really-good-circle.out
 	echo "\
-plot phfitness show=False delta=0.005 azim=34.0 elev=64 filename=circle-phfunc.png\n\
-plot vfitness show=False delta=0.005 azim=34.0 elev=64 filename=circle-vfunc.png\n\
-plot phrange show=False delta=0.01 azim=34.0 elev=64 filename=circle-phrange.png\n\
+plot phfitness show=False delta=0.005 azim=34.0 elev=64 dpi=100 filename=circle-phfunc.png\n\
+plot vfitness show=False delta=0.005 azim=34.0 elev=64 dpi=100 filename=circle-vfunc.png\n\
+plot phrange show=False delta=0.01 azim=34.0 elev=64 dpi=100 filename=circle-phrange.png\n\
 dot show=False filename=circle-graph format=png\n\
 exit\n\
 " | ./analyze.py ancestors

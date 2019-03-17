@@ -18,9 +18,11 @@
 \newcommand{\invv}{\ensuremath{\rotatebox[origin=c]{180}{\textrm{v}}}\xspace}
 
 \title{Acclivation of Virtual Fitness Landscapes}
-\author{Ben Kovitz$^{1}$, Dave Bender$^{1}$, \and Marcela Poffald \\
+\author{Ben Kovitz$^{1}$, Dave Bender$^{1}$, Marcela Poffald, \and Etienne
+Barnard$^{2}$ \\
 \mbox{}\\
 $^1$Fluid Analogies Research Group, Indiana University, Bloomington, IN 47408 \\
+$^2$North-West University, South Africa \\
 bkovitz@indiana.edu}
 
 \begin{document}
@@ -55,8 +57,10 @@ reproduction.
 % how much epistasis is there in natural genomes?
 % crosstalk in metabolic networks
 
+(NOW ADDING INTRODUCTION AND REFERENCES)
+
 \section{Virtual Fitness Functions}
-@@.\footnote{\cite{hogeweg2012toward}.}
+%@@.\footnote{\cite{hogeweg2012toward}.}
 
 Any part of a genome is selected against a \textit{virtual fitness function}
 resulting from the rest of the genome and the fitness function faced by the
@@ -127,7 +131,7 @@ numbers from $g_1$ interact.
 As is well known, a genome consisting of a vector of numbers, where mutations
 alter the numbers by small amounts, evolves most easily against a hill-shaped
 fitness function. In a hill-shaped fitness function, local increases in
-fitness correlate perfectly with movement toward the peak of the whole fitness
+fitness correlate with movement toward the peak of the whole fitness
 landscape. The more ``rugged'' the landscape, the weaker is this correlation,
 so that following the local gradient can lead organisms to become stuck at
 local maxima, which might be very low, and from which they cannot escape by
@@ -190,6 +194,20 @@ of the phenotype nodes after 10 timesteps. If $p_1$ or $p_2$ has not received
 an activation after 10 timesteps, then the genotype has no phenotype and is
 given a fitness of~0.0. This can happen if no edges provide a path from a knob
 to $p_1$ or~$p_2$.
+
+\begin{figure*}[t]
+\centering
+
+\begin{tabular}{lll}
+\subfloat[Phenotype fitness]{\includegraphics[width=.3\textwidth]{rzwavy-phfunc.png}} &
+\subfloat[Phenotype range]{\includegraphics[width=.3\textwidth]{rzwavy-phrange.png}} &
+\subfloat[Genotype]{\includegraphics[width=.3\textwidth]{rzwavy-graph.png}} \\
+\multicolumn{3}{c}{\subfloat[Virtual fitness]{\includegraphics[width=.7\textwidth]{rzwavy-vfunc.png}}} \\
+\end{tabular}
+
+\caption{One organism from experiment 1}
+\label{fig:razorback}
+\end{figure*}
 
 \subsection{Mutation and Crossover}
 
@@ -359,24 +377,10 @@ evolvability especially strongly.
 %near the peak, and will have little effect on the phenotype when the phenotype
 %is far from the peak.
 
-\begin{figure*}[t]
-\centering
-
-\begin{tabular}{lll}
-\subfloat[Phenotype fitness]{\includegraphics[width=.3\textwidth]{rzwavy-phfunc.png}} &
-\subfloat[Phenotype range]{\includegraphics[width=.3\textwidth]{rzwavy-phrange.png}} &
-\subfloat[Genotype]{\includegraphics[width=.3\textwidth]{rzwavy-graph.png}} \\
-\multicolumn{3}{c}{\subfloat[Virtual fitness]{\includegraphics[width=.7\textwidth]{rzwavy-vfunc.png}}} \\
-\end{tabular}
-
-\caption{One organism from experiment 1}
-\label{fig:razorback}
-\end{figure*}
-
 \subsection{Experiment 1: Razorback}
 
 In this experiment, we run the experimental genome against this fitness
-function, plotted in Figure~\ref{fig:razorback}:
+function, plotted in Figure~\ref{fig:razorback}(a):
 \[
    w_\Phi(\phi) = 10.0 \cdot \hat{d}(\phi, P)
                        \cdot \invv(|p_2 - p_1|; R)
@@ -423,6 +427,16 @@ across phenotype space, complicated by the addition of a regular pattern of
 undulations. The undulations add local minima throughout the fitness
 landscape to trap searches that merely follow the local gradient.
 
+Figure~\ref{fig:razorback} shows an organism that evolved in this experiment.
+The virtual fitness function illustrates acclivation: there is a steep slope
+leading to a ``butte'' containing the global fitness peak, and the narrow ridge
+of the phenotype function is widened and distorted, making it climbable from
+different directions.
+
+This organism also illustrates another fundamental way, aside from acclivation, of gaining evolvability: by excluding the bad parts of the phenotype space from the range of $m_{g_2}$.  The genotype--phenotype mapping does not allow access
+to any points in phenotype space other than those along the center of the
+ridge.
+
 \subsection{Experiment 2: Circle}
 
 \begin{figure*}[t]
@@ -435,7 +449,7 @@ landscape to trap searches that merely follow the local gradient.
 \multicolumn{3}{c}{\subfloat[Virtual fitness]{\includegraphics[width=.7\textwidth]{circle-vfunc.png}}} \\
 \end{tabular}
 
-\caption{One organism from experiment 2}
+\caption{One organism from experiment 2, ``Circle''}
 \label{fig:circle}
 \end{figure*}
 
@@ -461,11 +475,24 @@ of the perimeter of the circle---a circular ridge. We set $r=0.5$ and $R=0.2$.
 \multicolumn{3}{c}{\subfloat[Virtual fitness]{\includegraphics[width=.7\textwidth]{moats-vfunc.png}}} \\
 \end{tabular}
 
-\caption{One organism from experiment 3}
+\caption{One organism from experiment 3, ``Moats''}
 \label{fig:moats}
 \end{figure*}
 
 \subsection{Experiment 3: Moats}
+
+In this experiment, we run a modified version of the razorback fitness
+function: wherever $\text{waves}(\phi) \leq 0$, fitness is zero rather than
+slightly reduced; organisms with fitness zero are not allowed to
+reproduce; the ``islands'' where $\text{waves}(\phi) > 0$ are flat, so
+there is no gradient to climb within any one island; and the islands are
+spaced further apart than in the razorback experiment. So, organisms can only
+cross from one island to a higher island by a single mutation.
+
+Figure~\ref{fig:moats} shows an organism that successfully climbs the islands.
+It has evolved the trick of squeezing the islands closer together in the
+virtual fitness function so that single knob-turns can leap the moats between
+them, as well as limiting the range of the virtual fitness function to the line along the centers of the islands.
 
 \section{Observations and Discussion}
 
@@ -534,10 +561,10 @@ acclivation.
 
 \subsection{No Measure of Acclivation}
 
-We present no measure how often acclivation occurs or how much. We tried
+We present no measure of how often acclivation occurs or how much. We tried
 measuring the ``acclivity'' of a virtual fitness function by running a
 hill-climbing algorithm on it, but this yielded ambiguous results. Does a
-higher fitness reached by the hill-climber mean higher acclivation? Not the
+higher fitness reached by the hill-climber mean higher acclivation? Not if the
 genotype--phenotype mapping is constrained to a small range centered on the
 peak. Then the hill-climber reaches high fitness even though the virtual
 fitness function is not very hill-shaped. Do we measure how far the average
@@ -552,7 +579,9 @@ significance.
 
 \subsection{Nonlocality and Epistasis}
 
-@@
+Contrary to what we usually observe in evolutionary algorithms, nonlocality in
+the genotype--phenotype mapping and epistasis among the contributions of
+different parts of the genotype actually improve evolvability.@@
 
 \subsection{Mutation Rate}
 
@@ -626,6 +655,15 @@ selected to implement continuous variation along some axis as well as implement
 some part of graph topology (like maintaining an invariant relationship), or
 switch between these roles in different mutations.
 
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.3\textwidth]{yxline1-vfunc.png}
+\caption{A virtual fitness function that evolved against a narrow ridge
+(without undulations or moats). A single knob feeds directly into both
+phenotype nodes, making the operation of the transfer function $T$ visible.}
+\label{fig:yxline1}
+\end{figure}
+
 \subsection{The Transfer Function}
 
 One might expect that nearly any transfer function typically used in simulated
@@ -649,9 +687,9 @@ Activations from incoming edges $a_{i}$ beyond the first edge make a node
 calculate the function $T(a + \sum_i a_i)$, giving compositions of $T$ the
 ability to shift their output right or left.
 
-Figure~@@ illustrates the compression of the phenotype space in the center of
+Figure~\ref{fig:yxline1} illustrates the compression of the phenotype space in the center of
 knob space and the dilation toward the extremes. This virtual fitness function
-evolved against a fitness function like that in experiment @@ but without the
+evolved against a fitness function like that in experiment~1 but without the
 ``egg carton'': a simple diagonal ridge with no bumps. Note that the range of
 expansion corresponds to compression of the phenotype function as seen through
 $T$ and the range of contraction corresponds to dilation of the phenotype
@@ -668,19 +706,18 @@ The need to compose many instances of $T$ seems to be important. When we ran
 simulations that iterated spreading activation 3 or 5 times instead of 10,
 there was much less acclivation. 20 iterations seemed to have little effect.
 
-\subsection{Biological Significance}
+%\subsection{Biological Significance}
+%
+%DNA, neurons, social specialization
+%
+%expert perception?
+%
+%@cite-chem-paper
 
-DNA, neurons, social specialization
+\section{Summary}
 
-expert perception?
 
-@cite-chem-paper
-
-\section{Conclusions}
-
-\subsection{Limitations and Future Work}
-
-@@how to quantify acclivity
+% \subsection{Limitations and Future Work}
 
 
 \bibliographystyle{apalike}
