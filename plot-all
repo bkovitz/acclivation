@@ -1,0 +1,9 @@
+#! /bin/bash
+
+for i in {5..20}
+do
+    ./analyze.py outs/ancestors$i <<EOF
+      plot phrange filename=outs/phrange$i.png show=False
+      plot vfitness filename=outs/vfunc$i.png show=False
+EOF
+done

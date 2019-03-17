@@ -477,6 +477,7 @@ class LineageArg(object):
 
 class Runner(object):
     def __init__(self, filename='ancestors'):
+        self.filename = filename
         sys.stderr.write('loading..')
         self.runData = sa.load_ancestor_file(filename)
         sys.stderr.write('done\n')
@@ -782,6 +783,7 @@ class Runner(object):
                 kwargs['filename'] = 'e%dg%do%d' % self.selected
                 kwargs['filename'] += '-%s' % typ
             #self.root = Tk()
+            kwargs['wtitle'] = self.filename
             plot(X, Y, Z, scatter, **kwargs)
 
     def cmdDot(self, show=True, filename=None, format='svg'): #png,pdf
@@ -896,5 +898,8 @@ class Runner(object):
 
 # ----------------------------------------------------------------------------
 if __name__ == '__main__':
-    Runner().run()
+    if len(sys.argv) < 2:
+        Runner().run()
+    else:
+        Runner(sys.argv[1]).run()
     sys.exit(0)
