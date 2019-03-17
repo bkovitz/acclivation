@@ -366,14 +366,20 @@ CIRCLE_NICE4 = $(CIRCLE) $(DEFS) --ridge_radius=0.1 --bumps=0 --moat_ub=0.0 \
 	--num_organisms=800 --num_candidates=7 --num_epochs=40 \
 	--log=ancestors --seed=1447085122
 
-C1 = $(DEFS) $(CIRCLE) --ridge_radius=0.1 --bumps=0 \
-	--num_organisms=200 --num_candidates=10 --num_epochs=40 \
+C1 = $(DEFS) $(CIRCLE) --ridge_radius=0.2 --bumps=0 \
+	--num_organisms=800 --num_candidates=20 --num_epochs=40 \
 	--dot=0 #--log=ancestors #--seed=1583407075
 
-RAZORBACK = $(DEFS) --bumps=1 \
+# outs-rz, outs-rz2
+RAZORBACK = $(DEFS) --bumps=1 --num_epochs=80
+
+# Should go into the ALIFE paper
+RZ_WAVY_SLOPE = $(DEFS) --bumps=1 --seed=4152195160
+
+RZ = $(DEFS) --bumps=1 --num_epochs=40 --knob_type=0
 	
 
-ARGS = $(RAZORBACK) # Change this to some other variable to run other parameters
+ARGS = $(RZ_WAVY_SLOPE) # Change this to some other variable to run other parameters
 run: all
 	./sa $(ARGS) > out
 	@grep 'deltas' out
