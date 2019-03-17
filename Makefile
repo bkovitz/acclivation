@@ -18,7 +18,7 @@ else
 VIEW_PDF = evince
 endif
 
-GRAPHICS = rzwavy-vfunc.png rzwavy-phfunc.png rzwavy-phrange.png rzwavy-graph.svg
+GRAPHICS = rzwavy-vfunc.png rzwavy-phfunc.png rzwavy-phrange.png rzwavy-graph.png
 
 acclivation1e.pdf: acclivation1e.tex acclivation.bib $(GRAPHICS)
 
@@ -324,6 +324,10 @@ CLOSE_BUMPS_ACCLIVATION = $(THINYX_WITH_BUMPS) --moat_ub=0 --bump_freq=15.0 --fl
 	--num_organisms=80 --edge_inheritance=5 --knob_type=0 \
 	--num_candidates=8 --seed=3859373065 --log=ancestors
 
+CLOSE_BUMPS_ACCLIVATION2 = $(THINYX_WITH_BUMPS) --moat_ub=0 --bump_freq=15.0 --flat=1 \
+	--num_organisms=80 --edge_inheritance=5 --knob_type=0 \
+	--num_candidates=8 --viability_lb=0.0 --log=ancestors --seed=2722035180
+
 TIGHT_FOLDING_FOR_LEAPING = $(THINYX_WITH_BUMPS) \
 	--ridge_radius=0.1 --moat_ub=0.5 --bump_freq=30.0 \
 	--flat=1 --flat_multiplier=1.0 --down_bump=1 \
@@ -420,7 +424,7 @@ exit\n" | ./analyze.py ancestors
 RZ = $(DEFS) --bumps=1 --num_epochs=40 --knob_type=0
 
 
-ARGS = $(RZ_WAVY_SLOPE) # Change this to some other variable to run other parameters
+ARGS = $(CLOSE_BUMPS_ACCLIVATION2) # Change this to some other variable to run other parameters
 run: all
 	./sa $(ARGS) > out
 	@grep 'deltas' out
