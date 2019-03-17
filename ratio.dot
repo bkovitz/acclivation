@@ -1,0 +1,8 @@
+digraph graphname {
+size="4.5,3";
+node[fontsize=18 style=filled fillcolor=white];
+ranksep=0.4;
+ratio=compress;
+margin=0.1;
+
+G0 [label="× -6.420"] G1 [label="× -0.195"] G2 [label="+ 8.626"] G4 [label="× 2.229"] G5 [label="+ 5.851"] G7 [label="+ -5.556"] G8 [label="+ 9.261"] G9 [label="+ 1.114"] G10 [label="+ 9.337"] G11 [label="× 1.283"] G12 [label="+ -8.889"] G13 [label="+ 9.766"] G14 [label="× 1.299"] G15 [label="+ 4.858"] G17 [label="× -7.283"] G19 [label="× -9.880"] G20 [label="+ -6.512"] G21 [label="+ 2.873"] G22 [label="+ 4.371"] { rank=source START } { rank=sink edge [style="invis"] P0 -> P1 -> P2 -> P3 } G4 -> G4; G1 -> P1; G5 -> G1; G11 -> P1; G17 -> G22; G13 -> G0; G19 -> G5; G13 -> G21; G22 -> G7; G1 -> P0; G1 -> P2; G2 -> G11; START -> G1; G2 -> G5; G2 -> P0; START -> G2; G8 -> G20; G17 -> G19; G8 -> G14; G22 -> P2; G22 -> G10; G1 -> P3; G9 -> G12; G5 -> P3; }

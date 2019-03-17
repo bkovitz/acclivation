@@ -358,7 +358,53 @@ is far from the peak.
 
 \subsection{Experiment 2: Razorback}
 
-In this experiment, we superimpose an ``egg carton'' function onto the 
+In this experiment, we run the experimental genome against this fitness
+function, plotted in Figure~@@:
+\[
+   w_\Phi(\phi) = 10.0 \cdot \hat{d}(\phi, P)
+                       \cdot \invv(|p_2 - p_1|; R)
+                       + \text{waves}(\phi; 30)
+\]
+where:
+\begin{itemize}
+  \item[ ]
+    $P$ is a point (the peak) chosen randomly along the $y=x$ line each epoch;
+
+  \item[ ]
+$\hat{d}(\phi, P)$ is a measure of the proximity of $\phi$ to $P$ equal to
+$0.0$ for the maximum possible distance and $1.0$ for zero distance:
+\[
+  \hat{d}(\phi, P) = \frac{\max - d(\phi, P)}{\max}
+\]
+
+  \item[ ]
+    \invv is the ``inverted-v'' function: like an inverted-U function but
+    peaking sharply at $x=0$ and returning zero outside the radius $R$, set to
+    0.1 or 0.2 on different runs of the experiment:
+\[
+   \invv(x; R) =
+   \begin{cases}
+      0 & \text{if } |x|>R \\
+      1 - (\frac{x}{R})^2 &
+      \text{if } |x|\leq R
+   \end{cases}
+\]
+
+  \item[ ]
+    and ``waves'' is a function that adds regular undulations, giving the
+    overall fitness function an ``egg carton'' look:
+\[
+  \text{waves}(\phi; \nu) = \cos(\nu p_1)
+                            \cdot
+                            \sin(\nu (p_2 + \frac{\nu}{2})
+\]
+\end{itemize}
+
+So, this function rewards the phenotype up to 10 points for proximity to
+$P$, but only if the phenotype lies along a narrow ridge running diagonally
+across phenotype space, complicated by the addition of a regular pattern of
+undulations. The undulations add local minima throughout the fitness
+landscape to trap searches that merely follow the local gradient.
 
 \subsection{Experiment 3: Circle}
 
@@ -469,7 +515,7 @@ Allowing one mutation per generation is somewhat unrealistic biologically,
 since in living organisms, longer genomes have more opportunity to mutate;
 nature does not limit mutations to one per organism per generation. When we
 allowed a number of mutations proportional to the size of a genotype, the
-genotypes tended to `bloat'', acquiring hundreds of disconnected nodes and
+genotypes tended to ``bloat'', acquiring hundreds of disconnected nodes and
 edges. The problem is that when larger genotypes can make more mutations per
 generation, they have no incentive to optimize the way they respond to graph
 mutations.  When each organism can only vary from its parent by a single
@@ -505,12 +551,13 @@ virtual fitness functions whose domain is the knob settings, we had to purge
 the graph of all other constants capable of varying in small increments. This
 severely reduces evolvability.
 
-\begin{figure}
+\begin{figure}[b]
   \centering
-  \includegraphics[width=0.3\textwidth]{ratio.pdf}
+  \includegraphics[width=0.48\textwidth]{ratio.pdf}
   \caption{A graph from \citet{kovitz2015experiments} that evolved against a
     fitness function that rewards a constant ratio among the phenotype nodes,
   varying the absolute numbers once each epoch.}
+  \label{fig:virtual-knob}
 \end{figure}
 
 \citet{kovitz2015experiments} reports experiments with ``cascading designs''
@@ -518,7 +565,7 @@ where graphs evolve genotype--phenotype mappings for greater evolvability, also
 under pressure from fitness functions with constants that change once per epoch.
 All nodes in those graphs inherit constants that can mutate a small amount in
 each generation, like a knob. Those graphs, too, evolve virtual knobs, as shown
-in Figure~@@. The node that links directly to all four phenotype nodes functions
+in Figure~\ref{fig:virtual-knob}. The node that links directly to all four phenotype nodes functions
 as a virtual knob that approximately maintains an invariant relationship
 among the phenotype nodes.
 
