@@ -362,12 +362,6 @@ evolvability especially strongly.
 \begin{figure*}[t]
 \centering
 
-%\begin{tabular}{ll}
-%\subfloat[phfunc]{\includegraphics[width=.4\textwidth]{rzwavy-phfunc.png}} &
-%\subfloat[vfunc]{\includegraphics[width=.4\textwidth]{rzwavy-vfunc.png}} \\
-%\subfloat[phrange]{\includegraphics[width=.4\textwidth]{rzwavy-phrange.png}} &
-%\subfloat[graph]{\includegraphics[width=.4\textwidth]{rzwavy-graph.png}} \\
-%\end{tabular}
 \begin{tabular}{lll}
 \subfloat[Phenotype fitness]{\includegraphics[width=.3\textwidth]{rzwavy-phfunc.png}} &
 \subfloat[Phenotype range]{\includegraphics[width=.3\textwidth]{rzwavy-phrange.png}} &
@@ -379,7 +373,7 @@ evolvability especially strongly.
 \label{fig:razorback}
 \end{figure*}
 
-\subsection{Experiment 2: Razorback}
+\subsection{Experiment 1: Razorback}
 
 In this experiment, we run the experimental genome against this fitness
 function, plotted in Figure~\ref{fig:razorback}:
@@ -429,7 +423,21 @@ across phenotype space, complicated by the addition of a regular pattern of
 undulations. The undulations add local minima throughout the fitness
 landscape to trap searches that merely follow the local gradient.
 
-\subsection{Experiment 3: Circle}
+\subsection{Experiment 2: Circle}
+
+\begin{figure*}[t]
+\centering
+
+\begin{tabular}{lll}
+\subfloat[Phenotype fitness]{\includegraphics[width=.3\textwidth]{circle-phfunc.png}} &
+\subfloat[Phenotype range]{\includegraphics[width=.3\textwidth]{circle-phrange.png}} &
+\subfloat[Genotype]{\includegraphics[width=.3\textwidth]{circle-graph.png}} \\
+\multicolumn{3}{c}{\subfloat[Virtual fitness]{\includegraphics[width=.7\textwidth]{circle-vfunc.png}}} \\
+\end{tabular}
+
+\caption{One organism from experiment 2}
+\label{fig:circle}
+\end{figure*}
 
 In this experiment, we run the experimental genome against this fitness
 function:
@@ -443,7 +451,21 @@ at the start of each epoch. In words, the phenotype is rewarded up to 10.0
 points for proximity to the peak, but only if the phenotype lies within $R$
 of the perimeter of the circle---a circular ridge. We set $r=0.5$ and $R=0.2$.
 
-\subsection{Experiment 4: Moats}
+\begin{figure*}[t]
+\centering
+
+\begin{tabular}{lll}
+\subfloat[Phenotype fitness]{\includegraphics[width=.3\textwidth]{moats-phfunc.png}} &
+\subfloat[Phenotype range]{\includegraphics[width=.3\textwidth]{moats-phrange.png}} &
+\subfloat[Genotype]{\includegraphics[width=.3\textwidth]{moats-graph.png}} \\
+\multicolumn{3}{c}{\subfloat[Virtual fitness]{\includegraphics[width=.7\textwidth]{moats-vfunc.png}}} \\
+\end{tabular}
+
+\caption{One organism from experiment 3}
+\label{fig:moats}
+\end{figure*}
+
+\subsection{Experiment 3: Moats}
 
 \section{Observations and Discussion}
 

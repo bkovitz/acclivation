@@ -331,6 +331,29 @@ TIGHT_FOLDING_FOR_LEAPING = $(THINYX_WITH_BUMPS) \
 	--num_candidates=8 --num_epochs=60 --viability_lb=0.0 \
 	--seed=1207166735 --log=ancestors
 
+moats1.done:
+	./sa $(TIGHT_FOLDING_FOR_LEAPING) > moats1.out
+	echo "\
+plot phfitness show=False delta=0.005 azim=34.0 elev=64 dpi=100 filename=moats-phfunc.png\n\
+plot vfitness show=False delta=0.005 azim=34.0 elev=64 dpi=100 filename=moats-vfunc.png\n\
+plot phrange show=False delta=0.01 azim=34.0 elev=64 dpi=100 filename=moats-phrange.png\n\
+dot show=False filename=moats-graph format=png\n\
+exit\n\
+" | ./analyze.py ancestors
+	@touch moats1.done
+
+moats2.done:
+	./sa $(CLOSE_BUMPS_ACCLIVATION) > moats2.out
+	echo "\
+plot phfitness show=False delta=0.005 azim=34.0 elev=64 dpi=100 filename=moats-phfunc.png\n\
+plot vfitness show=False delta=0.005 azim=34.0 elev=64 dpi=100 filename=moats-vfunc.png\n\
+plot phrange show=False delta=0.01 azim=34.0 elev=64 dpi=100 filename=moats-phrange.png\n\
+dot show=False filename=moats-graph format=png\n\
+exit\n\
+" | ./analyze.py ancestors
+	@touch moats2.done
+
+
 OBLIQUE_WITH_BUMPS = $(OBLIQUE_LINE) --ridge_radius=1.0 --bumps=1 --moat_ub=0.0 \
 	--knob_constant=0.02 --crossover_freq=0.05 --mutation_type_ub=16 --num_organisms=200 \
 	--input_accs=1 --activation_types=6 --sa_timesteps=10 --alpha=0.8 \
@@ -443,3 +466,14 @@ plot phrange show=False delta=0.01 azim=34.0 elev=64 cmapname=plasma filename=ci
 dot show=False filename=circle-dot format=png\n\
 exit\n\
 " | ./analyze.py REALLY_GOOD_CIRCLE1/ancestors
+
+circle.done:
+	./sa $(REALLY_GOOD_CIRCLE1) > really-good-circle.out
+	echo "\
+plot phfitness show=False delta=0.005 azim=34.0 elev=64 filename=circle-phfunc.png\n\
+plot vfitness show=False delta=0.005 azim=34.0 elev=64 filename=circle-vfunc.png\n\
+plot phrange show=False delta=0.01 azim=34.0 elev=64 filename=circle-phrange.png\n\
+dot show=False filename=circle-graph format=png\n\
+exit\n\
+" | ./analyze.py ancestors
+	@touch circle.done
