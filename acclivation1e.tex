@@ -29,27 +29,26 @@ bkovitz@indiana.edu}
 \maketitle
 
 \begin{abstract}
-Simple spreading-activation networks are shown to exhibit acclivation of a
-``virtual fitness landscape''. That is, the fitness function faced by part of
-the genome, when the remainder of the genome is held constant, becomes
-progressively more smoothly sloped, or hill-shaped.
+Any part of a genome, considered separately from the rest of the genome,
+evolves against a ``virtual fitness landscape'' that results when the rest of
+the genome is held constant. We show that each part of a genome is under
+selective pressure to provide the other parts with a virtual fitness landscape
+that maximizes the evolvability of the other parts.
 
-Applied directly to the phenotype, the original fitness function is filled
-with traps and local optima. The topology of the spreading-activation network
-experiences indirect selective pressure to make the fitness landscape become
-less rugged as seen by a numerical vector that is fed into the network.
-The evolving topology exploits regularities in the original fitness
-function, such as a ``ridge'' and regularly spaced ``bumps'', to make it
-easier for the vector to navigate the fitness landscape by simple
-hill-climbing.
+When one part of a genome is a vector of numbers (``knobs''), and the rest is a
+graph that determines the mapping from knobs to phenotype, the graph is under
+selective pressure to acclivate the virtual fitness function faced by the
+knobs---that is, to make it more hill-shaped. When there is an evolutionary
+path for the graph to respond to this pressure, a synergy develops between the
+incremental exploration of phenotypes by knob-mutations and the discontinuous
+exploration by graph-mutations.
 
-This shows that under appropriate conditions, complex \mbox{epistasis} and
-non-locality of genotype--phenotype mapping can improve evolvability. These
-conditions are typical of those found in nature, where behavior and phenotypes
-are produced mainly by cascades of activity through a graph and coordination
-among the parts of the phenotype is a precondition of successful survival and
-reproduction.
-
+This kind of genome exploits epistasis and non-locality of genotype--phenotype
+mapping to provide a mechanism by which organisms can evolve improved
+evolvability, especially against fitness functions that vary periodically while
+keeping some invariants unchanged. The graph accumulates a memory of the
+regions of the fitness landscape visited in previous generations, held in the
+form of bias limiting and directing future evolution.
 \end{abstract}
 
 % Relevant topics to search in the literature:
@@ -205,7 +204,7 @@ to $p_1$ or~$p_2$.
 \multicolumn{3}{c}{\subfloat[Virtual fitness]{\includegraphics[width=.7\textwidth]{rzwavy-vfunc.png}}} \\
 \end{tabular}
 
-\caption{One organism from experiment 1}
+\caption{One organism from experiment 1, ``Razorback''}
 \label{fig:razorback}
 \end{figure*}
 
