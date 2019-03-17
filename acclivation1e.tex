@@ -4,11 +4,14 @@
 \usepackage{amsmath}
 \usepackage{amsfonts}
 \usepackage{graphicx}
-\usepackage{subcaption}
+%\usepackage{subcaption}
+\usepackage{subfig}
 \usepackage{xspace}
 \usepackage{needspace}
 \usepackage{pbox}
 \usepackage{hyperref}
+\usepackage{tabularx}
+\usepackage{multirow}
 
 \newcommand{\gv}{$g$-vector}
 \newcommand{\phv}{$\phi$-vector}
@@ -236,130 +239,150 @@ evolvable genotypes' lineages will approach the new peak faster than their
 less evolvable competitors. In this way, the experiments tend to reward
 evolvability especially strongly.
 
-\subsection{Experiment 1: Narrow Ridge}
+%\subsection{Experiment 1: Narrow Ridge}
+%
+%\begin{figure*}[t]
+%   \centering
+%   \begin{subfigure}[b]{0.2\textwidth}
+%   \includegraphics[width=2in]{yxline2-phfunc.eps}
+%   \caption{Phenotype fitness}
+%   \label{yxline2-phfunc}
+%   \end{subfigure}
+%   \begin{subfigure}[b]{0.2\textwidth}
+%   \includegraphics[width=2in]{yxline2-vfunc.eps}
+%   \caption{Virtual fitness}
+%   \label{yxline2-vfunc}
+%   \end{subfigure}
+%   \begin{subfigure}[b]{0.2\textwidth}
+%   \includegraphics[width=2in]{yxline2-phrange.eps}
+%   \caption{Phenotype range}
+%   \label{yxline2-phrange}
+%   \end{subfigure}
+%   \begin{subfigure}[b]{0.2\textwidth}
+%   \includegraphics[width=2in]{yxline2.pdf}
+%   \caption{Genotype}
+%   \label{yxline2-genotype}
+%   \end{subfigure}
+%
+%   \begin{subfigure}[b]{0.2\textwidth}
+%   \includegraphics[width=2in]{yxline1-phfunc.eps}
+%   \caption{Phenotype fitness}
+%   \label{yxline1-phfunc}
+%   \end{subfigure}
+%   \begin{subfigure}[b]{0.2\textwidth}
+%   \includegraphics[width=2in]{yxline1-vfunc.eps}
+%   \caption{Virtual fitness}
+%   \label{yxline1-vfunc}
+%   \end{subfigure}
+%   \begin{subfigure}[b]{0.2\textwidth}
+%   \includegraphics[width=2in]{yxline1-phrange.eps}
+%   \caption{Phenotype range}
+%   \label{yxline1-phrange}
+%   \end{subfigure}
+%   \begin{subfigure}[b]{0.2\textwidth}
+%   \includegraphics[width=2in]{yxline1.pdf}
+%   \caption{Genotype}
+%   \label{yxline1-genotype}
+%   \end{subfigure}
+%
+%
+%   \caption{Experiment~1: Narrow Ridge. (\subref{yxline2-phfunc}) has a
+%   ridge radius $R$ of $0.1$; (\subref{yxline1-phfunc}) has a ridge radius
+%   of $0.2$. $x,y$ values in phenotype ranges indicate points in phenotype
+%   space that have a preimage in knob space when the knobs are mapped through
+%   $m_{g_2}$. The $z$ values are the fitnesses of those phenotypes (the same
+%   as in (a) and (e)). Knobs are shown at the top of each graph, phenotype
+%nodes at the bottom. Numbers in nodes are activation levels at the end of
+%spreading activation. Numbers preceded by ``i='' are initial activation
+%levels.}
+%   \label{fig:narrow-ridge}
+%\end{figure*}
+%
+%In this experiment, we run the experimental genome against this fitness
+%function, plotted in Figures~\ref{yxline2-phfunc} and~\ref{yxline1-phfunc}:
+%\[
+%   w_\Phi(\phi) = 10.0 \cdot \hat{d}(\phi, P) \cdot \invv(|p_2 - p_1|; R)
+%\]
+%where
+%$R$ is a small radius, set to $0.1$ or $0.2$ in different runs of the
+%experiment,
+%$P$ is a point (the peak) chosen randomly along the $y=x$ line each epoch,
+%$\hat{d}(\phi, P)$ is a measure of the proximity of $\phi$ to $P$ equal to
+%$0.0$ for the maximum possible distance $M$ and $1.0$ for zero distance:
+%\[
+%  \hat{d}(\phi, P) = \frac{\max - d(\phi, P)}{\max}
+%\]
+%and \invv is the ``inverted-v function'' (like an inverted-U function but
+%peaking sharply at $x=0$ and returning zero outside the radius $R$):
+%\[
+%   \invv(x; R) =
+%   \begin{cases}
+%      0 & \text{if } |x|>R \\
+%      1 - (\frac{x}{R})^2 &
+%      \text{if } |x|\leq R
+%   \end{cases}
+%\]
+%So, the phenotype is rewarded up to 10.0 points for proximity to $P$, but only
+%if the phenotype lies along a narrow ridge running diagonally across phenotype
+%space. The diagonal direction is chosen to frustrate direct evolution: if the
+%knobs–-phenotype mapping is simply the identity function, $m_{g_2}(g_1)=g_1$,
+%then even if the phenotype lies along the ridge, a single knob-turn mutation
+%is likely to throw it off the ridge.
+%
+%In Figure~\ref{fig:narrow-ridge} we see two genotypes that evolved in this
+%experiment, illustrating two ways that the graph $g_2$ can provide a virtual
+%fitness function that affords more evolvability for the knobs than the
+%phenotype fitness function does.
+%
+%First, the virtual fitness function in (\subref{yxline2-vfunc}) illustrates
+%acclivation: is much wider and more gently sloped than the original fitness
+%function. The image of the ridge in knob-space is much easier to find and
+%navigate than the ridge in phenotype-space.
+%
+%Second, both virtual fitness functions, but especially the one in
+%(\subref{yxline1-vfunc}), illustrate another way to gain evolvability:
+%simply exclude the bad parts of the phenotype space from the range of
+%$m_{g_2}$. The phenotype ranges plotted in (\subref{yxline2-phrange})
+%and (\subref{yxline2-phrange})
+%do not permit \text{any} knob setting to map anywhere but along the very
+%center of the ridge. The vast ocean of zero-fitness points that lie off the
+%ridge in phenotype space is unreachable. The graphs accomplish this by simply
+%disconnecting one of the knobs.
+%
+%The relative sparsity of dots plotted in the middle of the phenotype range
+%in (\subref{yxline1-vfunc}) indicates that small knob-turnings in that range
+%move quickly, or relatively long distances, through phenotype space. The
+%relative density at the extremes indicates that knob-turnings move slowly
+%through phenotype space there. Note that this is the opposite of what would
+%promote greater evolvability for the knobs, since a knob-turning mutation is
+%likely to overshoot the peak or lose a lot of fitness when the phenotype is
+%near the peak, and will have little effect on the phenotype when the phenotype
+%is far from the peak.
 
 \begin{figure*}[t]
-   \centering
-   \begin{subfigure}[b]{0.2\textwidth}
-   \includegraphics[width=2in]{yxline2-phfunc.eps}
-   \caption{Phenotype fitness}
-   \label{yxline2-phfunc}
-   \end{subfigure}
-   \begin{subfigure}[b]{0.2\textwidth}
-   \includegraphics[width=2in]{yxline2-vfunc.eps}
-   \caption{Virtual fitness}
-   \label{yxline2-vfunc}
-   \end{subfigure}
-   \begin{subfigure}[b]{0.2\textwidth}
-   \includegraphics[width=2in]{yxline2-phrange.eps}
-   \caption{Phenotype range}
-   \label{yxline2-phrange}
-   \end{subfigure}
-   \begin{subfigure}[b]{0.2\textwidth}
-   \includegraphics[width=2in]{yxline2.pdf}
-   \caption{Genotype}
-   \label{yxline2-genotype}
-   \end{subfigure}
+\centering
 
-   \begin{subfigure}[b]{0.2\textwidth}
-   \includegraphics[width=2in]{yxline1-phfunc.eps}
-   \caption{Phenotype fitness}
-   \label{yxline1-phfunc}
-   \end{subfigure}
-   \begin{subfigure}[b]{0.2\textwidth}
-   \includegraphics[width=2in]{yxline1-vfunc.eps}
-   \caption{Virtual fitness}
-   \label{yxline1-vfunc}
-   \end{subfigure}
-   \begin{subfigure}[b]{0.2\textwidth}
-   \includegraphics[width=2in]{yxline1-phrange.eps}
-   \caption{Phenotype range}
-   \label{yxline1-phrange}
-   \end{subfigure}
-   \begin{subfigure}[b]{0.2\textwidth}
-   \includegraphics[width=2in]{yxline1.pdf}
-   \caption{Genotype}
-   \label{yxline1-genotype}
-   \end{subfigure}
+%\begin{tabular}{ll}
+%\subfloat[phfunc]{\includegraphics[width=.4\textwidth]{rzwavy-phfunc.png}} &
+%\subfloat[vfunc]{\includegraphics[width=.4\textwidth]{rzwavy-vfunc.png}} \\
+%\subfloat[phrange]{\includegraphics[width=.4\textwidth]{rzwavy-phrange.png}} &
+%\subfloat[graph]{\includegraphics[width=.4\textwidth]{rzwavy-graph.png}} \\
+%\end{tabular}
+\begin{tabular}{lll}
+\subfloat[Phenotype fitness]{\includegraphics[width=.3\textwidth]{rzwavy-phfunc.png}} &
+\subfloat[Phenotype range]{\includegraphics[width=.3\textwidth]{rzwavy-phrange.png}} &
+\subfloat[Genotype]{\includegraphics[width=.3\textwidth]{rzwavy-graph.png}} \\
+\multicolumn{3}{c}{\subfloat[Virtual fitness]{\includegraphics[width=.7\textwidth]{rzwavy-vfunc.png}}} \\
+\end{tabular}
 
-
-   \caption{Experiment~1: Narrow Ridge. (\subref{yxline2-phfunc}) has a
-   ridge radius $R$ of $0.1$; (\subref{yxline1-phfunc}) has a ridge radius
-   of $0.2$. $x,y$ values in phenotype ranges indicate points in phenotype
-   space that have a preimage in knob space when the knobs are mapped through
-   $m_{g_2}$. The $z$ values are the fitnesses of those phenotypes (the same
-   as in (a) and (e)). Knobs are shown at the top of each graph, phenotype
-nodes at the bottom. Numbers in nodes are activation levels at the end of
-spreading activation. Numbers preceded by ``i='' are initial activation
-levels.}
-   \label{fig:narrow-ridge}
+\caption{One organism from experiment 1}
+\label{fig:razorback}
 \end{figure*}
-
-In this experiment, we run the experimental genome against this fitness
-function, plotted in Figures~\ref{yxline2-phfunc} and~\ref{yxline1-phfunc}:
-\[
-   w_\Phi(\phi) = 10.0 \cdot \hat{d}(\phi, P) \cdot \invv(|p_2 - p_1|; R)
-\]
-where
-$R$ is a small radius, set to $0.1$ or $0.2$ in different runs of the
-experiment,
-$P$ is a point (the peak) chosen randomly along the $y=x$ line each epoch,
-$\hat{d}(\phi, P)$ is a measure of the proximity of $\phi$ to $P$ equal to
-$0.0$ for the maximum possible distance $M$ and $1.0$ for zero distance:
-\[
-  \hat{d}(\phi, P) = \frac{\max - d(\phi, P)}{\max}
-\]
-and \invv is the ``inverted-v function'' (like an inverted-U function but
-peaking sharply at $x=0$ and returning zero outside the radius $R$):
-\[
-   \invv(x; R) =
-   \begin{cases}
-      0 & \text{if } |x|>R \\
-      1 - (\frac{x}{R})^2 &
-      \text{if } |x|\leq R
-   \end{cases}
-\]
-So, the phenotype is rewarded up to 10.0 points for proximity to $P$, but only
-if the phenotype lies along a narrow ridge running diagonally across phenotype
-space. The diagonal direction is chosen to frustrate direct evolution: if the
-knobs–-phenotype mapping is simply the identity function, $m_{g_2}(g_1)=g_1$,
-then even if the phenotype lies along the ridge, a single knob-turn mutation
-is likely to throw it off the ridge.
-
-In Figure~\ref{fig:narrow-ridge} we see two genotypes that evolved in this
-experiment, illustrating two ways that the graph $g_2$ can provide a virtual
-fitness function that affords more evolvability for the knobs than the
-phenotype fitness function does.
-
-First, the virtual fitness function in (\subref{yxline2-vfunc}) illustrates
-acclivation: is much wider and more gently sloped than the original fitness
-function. The image of the ridge in knob-space is much easier to find and
-navigate than the ridge in phenotype-space.
-
-Second, both virtual fitness functions, but especially the one in
-(\subref{yxline1-vfunc}), illustrate another way to gain evolvability:
-simply exclude the bad parts of the phenotype space from the range of
-$m_{g_2}$. The phenotype ranges plotted in (\subref{yxline2-phrange})
-and (\subref{yxline2-phrange})
-do not permit \text{any} knob setting to map anywhere but along the very
-center of the ridge. The vast ocean of zero-fitness points that lie off the
-ridge in phenotype space is unreachable. The graphs accomplish this by simply
-disconnecting one of the knobs.
-
-The relative sparsity of dots plotted in the middle of the phenotype range
-in (\subref{yxline1-vfunc}) indicates that small knob-turnings in that range
-move quickly, or relatively long distances, through phenotype space. The
-relative density at the extremes indicates that knob-turnings move slowly
-through phenotype space there. Note that this is the opposite of what would
-promote greater evolvability for the knobs, since a knob-turning mutation is
-likely to overshoot the peak or lose a lot of fitness when the phenotype is
-near the peak, and will have little effect on the phenotype when the phenotype
-is far from the peak.
 
 \subsection{Experiment 2: Razorback}
 
 In this experiment, we run the experimental genome against this fitness
-function, plotted in Figure~@@:
+function, plotted in Figure~\ref{fig:razorback}:
 \[
    w_\Phi(\phi) = 10.0 \cdot \hat{d}(\phi, P)
                        \cdot \invv(|p_2 - p_1|; R)

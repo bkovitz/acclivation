@@ -6,7 +6,7 @@ LDLIBS=-lm
 LAT = latex -shell-escape
 #TEX = pdflatex --shell-escape
 TEXINPUTS=.:./sty:
-TEX = TEXINPUTS=.:./sty: latexmk -pdf -xelatex
+TEX = TEXINPUTS=.:./sty: latexmk -pdf -xelatex -halt-on-error
 BIB = bibtex8
 TEXFILES = $(wildcard *.tex)
 PDFFILES = $(TEXFILES:.tex=.pdf)
@@ -17,6 +17,10 @@ VIEW_PDF = open
 else
 VIEW_PDF = evince
 endif
+
+GRAPHICS = rzwavy-vfunc.png rzwavy-phfunc.png rzwavy-phrange.png rzwavy-graph.svg
+
+acclivation1e.pdf: acclivation1e.tex acclivation.bib $(GRAPHICS)
 
 #Thin ridge along y=x
 YXLINE = --ridge_type=0 --c1_lb=-1 --c1_ub=1 
@@ -90,6 +94,8 @@ GOOD_YXLINE_RUN = --num_epochs=120 --ridge_type=0 --bumps=0 --ridge_radius=0.2 \
 OK_YXLINE_BUMPS = #Oops, wrong params
 
 all: sa swig
+
+prog: sa swig
 
 $(PDFFILES): $(BIBFILES)
 %.pdf: %.tex
@@ -273,7 +279,7 @@ clean: swig_clean
 tags:
 	ctags *.[ch]
 
-.PHONY: tags run all dot clean plot fitness with_seed out tom swig_clean swig_test runs
+.PHONY: tags run all dot clean plot fitness with_seed out tom swig_clean swig_test runs prog
 
 # NEW EXPERIMENTS 2019-Mar-10 Inspired by Etienne Barnard's suggestion to look
 # at feed-forward networks.
@@ -366,24 +372,30 @@ CIRCLE_NICE4 = $(CIRCLE) $(DEFS) --ridge_radius=0.1 --bumps=0 --moat_ub=0.0 \
 	--num_organisms=800 --num_candidates=7 --num_epochs=40 \
 	--log=ancestors --seed=1447085122
 
-<<<<<<< HEAD
-C1 = $(DEFS) $(CIRCLE) --ridge_radius=0.2 --bumps=0 \
-	--num_organisms=800 --num_candidates=20 --num_epochs=40 \
-	--dot=0 #--log=ancestors #--seed=1583407075
-=======
 C1 = $(DEFS) $(CIRCLE) --ridge_radius=0.1 --bumps=0 \
 	--num_organisms=200 --num_candidates=10 --num_epochs=40 \
 	--dot=0
->>>>>>> 1b0d329d89e047d62ccd3925b1b315e663bf7f97
 
 # outs-rz, outs-rz2
 RAZORBACK = $(DEFS) --bumps=1 --num_epochs=80
 
 # Should go into the ALIFE paper
-RZ_WAVY_SLOPE = $(DEFS) --bumps=1 --seed=4152195160
+RZ_WAVY_SLOPE = $(DEFS) --bumps=1 --seed=4152195160 #--log=ancestors
+
+rzwavy-vfunc.png rzwavy-phfunc.png rzwavy-phrange.png rzwavy-graph.png: rzwavy.done
+
+rzwavy.done:
+	./sa $(RZ_WAVY_SLOPE) --log=ancestors > rzwavy.out
+	echo "\
+plot phfitness show=False delta=0.01 azim=-109.0 elev=52 filename=rzwavy-phfunc.png\n\
+plot vfitness show=False delta=0.005 azim=52.0 elev=15 filename=rzwavy-vfunc.png\n\
+plot phrange show=False delta=0.01 azim=-66.0 elev=52 filename=rzwavy-phrange.png\n\
+dot show=False filename=rzwavy-graph format=png\n\
+exit\n" | ./analyze.py ancestors
+	@touch rzwavy.done
 
 RZ = $(DEFS) --bumps=1 --num_epochs=40 --knob_type=0
-	
+
 
 ARGS = $(RZ_WAVY_SLOPE) # Change this to some other variable to run other parameters
 run: all
@@ -391,7 +403,7 @@ run: all
 	@grep 'deltas' out
 
 N = $(shell seq 1 20)
-runs: all
+runs: prog
 	@echo "$(ARGS)"
 	@rm -f outs/out*
 	@$(foreach i,$(N),./sa $(ARGS) --run=$i --log=outs/ancestors$i > outs/out$i ; echo -n "$i: "; grep 'fitness deltas' outs/out$i;)
