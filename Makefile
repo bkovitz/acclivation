@@ -23,7 +23,7 @@ GRAPHICS = rzwavy-vfunc.png rzwavy-phfunc.png rzwavy-phrange.png rzwavy-graph.pn
 	moats-phfunc.png moats-vfunc.png moats-phrange.png moats-graph.png \
 	yxline1-vfunc.png ratio.pdf
 
-acclivation1e.pdf: acclivation1e.tex acclivation.bib $(GRAPHICS)
+acclivation.pdf: acclivation.tex acclivation.bib $(GRAPHICS)
 
 #Thin ridge along y=x
 YXLINE = --ridge_type=0 --c1_lb=-1 --c1_ub=1 
