@@ -12,13 +12,14 @@
 \usepackage{hyperref}
 \usepackage{tabularx}
 \usepackage{multirow}
+\usepackage{float}
 
 \newcommand{\gv}{$g$-vector}
 \newcommand{\phv}{$\phi$-vector}
 \newcommand{\invv}{\ensuremath{\rotatebox[origin=c]{180}{\textrm{v}}}\xspace}
 
 \title{Acclivation of Virtual Fitness Landscapes}
-\author{Ben Kovitz$^{1}$, Dave Bender$^{1}$, Marcela Poffald, \and Etienne
+\author{Ben Kovitz$^{1}$, David Bender$^{1}$, Marcela Poffald, \and Etienne
 Barnard$^{2}$ \\
 \mbox{}\\
 $^1$Fluid Analogies Research Group, Indiana University, Bloomington, IN 47408 \\
@@ -56,17 +57,38 @@ form of bias limiting and directing future evolution.
 % how much epistasis is there in natural genomes?
 % crosstalk in metabolic networks
 
-(NOW ADDING INTRODUCTION AND REFERENCES)
+\section{Introduction}
+
+In previous work \citep{kovitz2015experiments}, we found that ``cascading
+designs''---organisms consisting of graphs that direct cascades of interactions
+among many parts---are well suited to evolve increasing evolvability, because
+a single mutation is likely to produce a coordinated change throughout the
+phenotype, preserving relationships among the parts of the phenotype that might
+be essential for survival while altering constants that incrementally improve
+fitness. The classic example of a cascading design is a metabolic network: a
+variety of enzymes, each catalyzing reactions that create, consume, speed, or
+slow other enzymes. Others include neural networks, genetic regulatory
+networks, and even software systems where cascades of activity are propagated
+by function-calls or message-passing.
+
+In the present paper, we investigate a synergy between the ``knobs'' of a
+cascading design---elements subject to incremental, quantitative mutation---and
+the ``graph'' or ``topology'' of a cascading design---the structure of
+interactions that is subject to discontinuous, sometimes radical mutations.
+We find that the graph is under selective pressure to map the fitness landscape
+of the phenotype to a more hill-shaped landscape for the knobs, thereby
+providing a mechanism by which evolvability can evolve
+\citep{colegrave2008experimental}.
 
 \section{Virtual Fitness Functions}
 %@@.\footnote{\cite{hogeweg2012toward}.}
 
 Any part of a genome is selected against a \textit{virtual fitness function}
-resulting from the rest of the genome and the fitness function faced by the
-genome as a whole. If the whole-genome fitness function reflects the influence
-of the environment on the genome, then the virtual fitness function represents
-the same for a part of the genome, whose environment includes the rest of
-the genome.
+resulting from the interaction between the rest of the genome and the fitness
+function faced by the genome as a whole. If the whole-genome fitness function
+reflects the influence of the environment on the genome, then the virtual
+fitness function represents the same for a part of the genome, whose
+environment includes the rest of the genome.
 
 Let a set of genotypes $G$ have a mapping $m_{G} : G \rightarrow \Phi$ to a set
 of phenotypes $\Phi$, and let $w_\Phi : \Phi \rightarrow \mathbb{R}$ be the
@@ -93,12 +115,13 @@ individuals and vary each generation.
 Let \textit{evolvability} be defined in some reasonable way (there are many),
 so that greater evolvability implies some advantage in navigating a fitness
 landscape upward faster or further over succeeding generations. Let $g_a,g_b
-\in G$ be two individuals in the same population and the same generation.
-Assuming no other advantages favoring either $g_{a1}$ or $g_{b1}$, if $g_{a1}$
-presents its mate $g_{a2}$ with a virtual fitness function $v_{g_{a1}}$ that
-$g_{a2}$ finds more evolvable than $v_{g_{b1}}$ is for $g_{b2}$, then the
-descendants of $g_a$ will evolve faster or further than the descendants of
-$g_b$ (according to how evolvability is defined).
+\in G$ be two individuals in the same population and the same generation,
+$g_a$ having parts $g_{a1}$ and $g_{a2}$ and $g_b$ having parts $g_{b1}$ and
+$g_{b2}$.  Assuming no other advantages favoring either $g_{a1}$ or $g_{b1}$,
+if $g_{a1}$ presents its mate $g_{a2}$ with a virtual fitness function
+$v_{g_{a1}}$ that $g_{a2}$ finds more evolvable than $v_{g_{b1}}$ is for
+$g_{b2}$, then the descendants of $g_a$ will evolve faster or further than the
+descendants of $g_b$ (according to how evolvability is defined).
 
 Therefore each partial genome is under selective pressure to create a virtual
 fitness landscape for the other partial genome that gives the latter greater
@@ -109,7 +132,8 @@ alleles for those arm shapes. All other factors being equal, evolution favors
 arms that make eyes easier to evolve. This selective pressure happens
 indirectly; in any single generation, greater fitness wins. But over successive
 generations, descendants of organisms with greater evolvability will tend to
-have greater fitness than organisms with lesser evolvability.@@cite-Altenberg?
+have greater fitness than organisms with lesser evolvability.
+%@@cite-Altenberg?
 
 The above considerations make no difference for homogeneous genomes, where
 every part of each genotype undergoes mutation and crossover the same as every
@@ -131,10 +155,11 @@ As is well known, a genome consisting of a vector of numbers, where mutations
 alter the numbers by small amounts, evolves most easily against a hill-shaped
 fitness function. In a hill-shaped fitness function, local increases in
 fitness correlate with movement toward the peak of the whole fitness
-landscape. The more ``rugged'' the landscape, the weaker is this correlation,
-so that following the local gradient can lead organisms to become stuck at
-local maxima, which might be very low, and from which they cannot escape by
-local mutations (though they might escape by crossover).@@cite-Kauffman
+landscape \citep{kauffman1987towards}. The more ``rugged'' the landscape, the
+weaker is this correlation, so that following the local gradient can lead
+organisms to become stuck at local maxima, which might be very low, and from
+which they cannot escape by local mutations (though they might escape by
+crossover).
 
 Therefore, if a vector of numbers faces a rugged fitness landscape, with
 difficult features such as low local peaks and impassable moats, we can
@@ -194,20 +219,6 @@ an activation after 10 timesteps, then the genotype has no phenotype and is
 given a fitness of~0.0. This can happen if no edges provide a path from a knob
 to $p_1$ or~$p_2$.
 
-\begin{figure*}[t]
-\centering
-
-\begin{tabular}{lll}
-\subfloat[Phenotype fitness]{\includegraphics[width=.3\textwidth]{rzwavy-phfunc.png}} &
-\subfloat[Phenotype range]{\includegraphics[width=.3\textwidth]{rzwavy-phrange.png}} &
-\subfloat[Genotype]{\includegraphics[width=.3\textwidth]{rzwavy-graph.png}} \\
-\multicolumn{3}{c}{\subfloat[Virtual fitness]{\includegraphics[width=.7\textwidth]{rzwavy-vfunc.png}}} \\
-\end{tabular}
-
-\caption{One organism from experiment 1, ``Razorback''}
-\label{fig:razorback}
-\end{figure*}
-
 \subsection{Mutation and Crossover}
 
 In generation 0 of the first epoch in each experiment, the population consists
@@ -231,18 +242,35 @@ algorithm:
     selection from the previous population, choose subsets of nodes from each,
     and randomly allow nodes to carry through to the child organism.
 \end{enumerate}
+
 Population sizes range from 80 to 800 depending on the experiment. We omit some
 details of the variation operator here for lack of importance. The source code
 is publicly available at
 \href{https://github.com/bkovitz/sa}{https://github.com/bkovitz/sa}.
 
+\begin{figure*}[h!]
+\centering
+
+\begin{tabular}{lll}
+\subfloat[Phenotype fitness]{\includegraphics[width=.3\textwidth]{rzwavy-phfunc.png}} &
+\subfloat[Phenotype range]{\includegraphics[width=.3\textwidth]{rzwavy-phrange.png}} &
+\subfloat[Genotype]{\includegraphics[width=.2\textwidth]{rzwavy-graph.png}} \\
+\multicolumn{3}{c}{\subfloat[Virtual fitness]{\includegraphics[width=.7\textwidth]{rzwavy-vfunc.png}}} \\
+\end{tabular}
+
+\caption{One organism from experiment 1, ``Razorback'' In (b), the phenotype
+range, $x,y$ values indicate points in phenotype space that have a preimage in
+knob space when the knobs are mapped through $m_{g_2}$. The $z$ values are the
+fitnesses of those phenotypes (the same as are plotted in (a)).}
+\label{fig:razorback}
+\end{figure*}
+
 \section{Experiments}
 
-In each experiment, we run the genome defined above, perhaps with a slight
-variation, against a different family of fitness functions, and see what
-virtual fitness functions emerge. We only plot $v_{g_2}$, the virtual
-fitness function seen by the knobs, since we know of no way to plot fitness
-functions seen by a graph.
+In each experiment, we run the genome defined above against a different family
+of fitness functions, and see what virtual fitness functions emerge. We only
+plot $v_{g_2}$, the virtual fitness function seen by the knobs, since we know
+of no way to plot fitness functions seen by a graph.
 
 Each experiment tries a ``family'' of fitness functions, because each
 experiment's fitness function has a constant that changes randomly once per
@@ -251,7 +279,9 @@ function to different places in phenotype space.
 
 Frequently moving the peak is necessary to induce strong selective pressure
 favoring evolvability rather than organisms that only approximate the current
-peak.@@cite Each new epoch is thus a race to approach the new peak. The most
+peak.
+%@@cite
+Each new epoch is thus a race to approach the new peak. The most
 evolvable genotypes' lineages will approach the new peak faster than their
 less evolvable competitors. In this way, the experiments tend to reward
 evolvability especially strongly.
@@ -464,6 +494,12 @@ at the start of each epoch. In words, the phenotype is rewarded up to 10.0
 points for proximity to the peak, but only if the phenotype lies within $R$
 of the perimeter of the circle---a circular ridge. We set $r=0.5$ and $R=0.2$.
 
+Figure~\ref{fig:circle} shows one organism that evolved in this experiment. It
+has evolved canalization for phenotypes near the circular ridge and
+decanalization for phenotypes in the center of the circle (knob-turnings
+quickly move the phenotype away from the center). All phenotypes outside the
+circle are inaccessible in this organism's genotype--phenotype mapping.
+
 \begin{figure*}[t]
 \centering
 
@@ -486,12 +522,17 @@ slightly reduced; organisms with fitness zero are not allowed to
 reproduce; the ``islands'' where $\text{waves}(\phi) > 0$ are flat, so
 there is no gradient to climb within any one island; and the islands are
 spaced further apart than in the razorback experiment. So, organisms can only
-cross from one island to a higher island by a single mutation.
+cross from one island to a higher island by a single mutation. Ending the
+lineage of an organism that falls into the ``moat'' between islands simulates
+the tendency in nature for fitness landscapes be to ``holey''
+\citep{gavrilets1997evolution}, requiring leaps over regions of
+nonviable genotypes in order to improve fitness.
 
-Figure~\ref{fig:moats} shows an organism that successfully climbs the islands.
-It has evolved the trick of squeezing the islands closer together in the
-virtual fitness function so that single knob-turns can leap the moats between
-them, as well as limiting the range of the virtual fitness function to the line along the centers of the islands.
+Figure~\ref{fig:moats} shows an organism that successfully climbs the chain of
+islands.  It has evolved a genotype--phenotype mapping that squeezes the
+islands closer together in the virtual fitness function so that single
+knob-turns can leap the moats between them, as well as limiting the range of
+the virtual fitness function to the line along the centers of the islands.
 
 \section{Observations and Discussion}
 
@@ -510,11 +551,11 @@ genotype--phenotype mappings that the set of possible graphs can implement must
 itself afford an evolutionary path along which it can ``acclivate'' the virtual
 fitness function in response to success and failure of knob-turning.
 
-Properly speaking, the graph evolves a knob--phenotype mapping, not a
-genotype--phenotype mapping, since the graph is itself part of the genotype.
-But we will use the latter term since it's more standard and the
-knob--phenotype mappings studied here relate most closely to what are called
-genotype--phenotype mappings elsewhere in the literature.
+%Properly speaking, the graph evolves a knob--phenotype mapping, not a
+%genotype--phenotype mapping, since the graph is itself part of the genotype.
+%But we will use the latter term since it's more standard and the
+%knob--phenotype mappings studied here relate most closely to what are called
+%genotype--phenotype mappings elsewhere in the literature.
 
 \subsection{Genetic Memory}
 
@@ -572,15 +613,26 @@ virtual fitness functions. How should neutral plateaus count into the acclivity
 measure? How much should parts of the landscape far from the current knob
 settings count?
 
-So, in this paper we limit ourselves to interesting qualitative observations
-of the virtual fitness functions that emerged and analysis of their
-significance.
+%So, in this paper we limit ourselves to interesting qualitative observations
+%of the virtual fitness functions that emerged and analysis of their
+%significance.
 
 \subsection{Nonlocality and Epistasis}
 
 Contrary to what we usually observe in evolutionary algorithms, nonlocality in
 the genotype--phenotype mapping and epistasis among the contributions of
-different parts of the genotype actually improve evolvability.@@
+different parts of the genotype actually improve evolvability. Organisms in
+the ``Moats'' experiment gained evolvability by decanalizing, as described in
+\citet{hansen2006evolution}.
+
+It's hard to say for sure whether these experiments mark an exception to the
+principle that nonlocal genotype--phenotype mappings with low locality have
+worse evolvability \citep{rothlauf2006locality}, because what's becoming less
+local is actually the knob--phenotype mapping. The degree of locality of a
+genotype--phenotype mapping depends on the distance metrics chosen for the
+genotype space and the phenotype space. The graphs here are in effect evolving
+distance metrics for the knob--phenotype mapping, but they can't affect the
+genotype--phenotype mapping because they are themselves part of the genotype.
 
 \subsection{Mutation Rate}
 
@@ -713,7 +765,7 @@ there was much less acclivation. 20 iterations seemed to have little effect.
 %
 %@cite-chem-paper
 
-\section{Summary}
+%\section{Summary}
 
 
 % \subsection{Limitations and Future Work}
