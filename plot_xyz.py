@@ -36,7 +36,7 @@ def plot(X, Y, Z, scatter, show=True, filename='', ylim1=-1, ylim2=1, xlim1=-1,
         xlim2=1, zlim1=0, zlim2=11, linewidth=0, elev=33.0, cmapname='coolwarm', 
         azim=33.0, dpi=300, stride=1, pointsize=20, wtitle=''):
   cmap = plt.get_cmap(cmapname)
-  fig = plt.figure(num=wtitle)
+  fig = plt.figure(frameon=show, num=wtitle)
   ax = Axes3D(fig)
   if scatter:
     #ax.scatter3D(X, Y, Z)

@@ -304,7 +304,7 @@ GOOD_YXLINE1 = $(YX) --ridge_radius=0.2 --num_organisms=800 \
 yxline1-vfunc.png:
 	./sa $(GOOD_YXLINE1) > yxline1.out
 	echo "\
-plot vfitness show=False delta=0.005 azim=34.0 elev=64 dpi=100 filename=yxline1-vfunc.png\n\
+plot vfitness show=False delta=0.01 azim=80.0 elev=27 dpi=100 filename=yxline1-vfunc.png\n\
 exit\n\
 " | ./analyze.py ancestors
 
@@ -362,7 +362,7 @@ moats-phfunc.png moats-vfunc.png moats-phrange.png moats-graph.png: moats2.done
 moats2.done:
 	./sa $(CLOSE_BUMPS_ACCLIVATION2) > moats2.out
 	echo "\
-plot phfitness show=False delta=0.005 azim=111.0 elev=64 dpi=100 filename=moats-phfunc.png\n\
+plot phfitness show=False delta=0.005 azim=111.0 elev=44 dpi=100 filename=moats-phfunc.png\n\
 plot vfitness show=False delta=0.005 azim=34.0 elev=64 dpi=100 filename=moats-vfunc.png\n\
 plot phrange show=False delta=0.01 azim=34.0 elev=64 dpi=100 filename=moats-phrange.png\n\
 dot show=False filename=moats-graph format=png\n\
@@ -489,9 +489,9 @@ circle-vfunc.png circle-phfunc.png circle-phrange.png circle-graph.png: circle.d
 circle.done:
 	./sa $(REALLY_GOOD_CIRCLE1) > really-good-circle.out
 	echo "\
-plot phfitness show=False delta=0.005 azim=34.0 elev=64 dpi=100 filename=circle-phfunc.png\n\
-plot vfitness show=False delta=0.005 azim=34.0 elev=64 dpi=100 filename=circle-vfunc.png\n\
-plot phrange show=False delta=0.01 azim=34.0 elev=64 dpi=100 filename=circle-phrange.png\n\
+plot phfitness show=False delta=0.005 azim=-56.0 elev=44 dpi=100 filename=circle-phfunc.png\n\
+plot vfitness show=False delta=0.005 azim=20.0 elev=44 dpi=100 filename=circle-vfunc.png\n\
+plot phrange show=False delta=0.01 azim=-56.0 elev=44 dpi=100 filename=circle-phrange.png\n\
 dot show=False filename=circle-graph format=png\n\
 exit\n\
 " | ./analyze.py ancestors
