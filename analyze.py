@@ -522,6 +522,10 @@ class Runner(object):
                      StringArg('parents'), StringArg('children')
                 }),
             'world': Command('show current world parameters', {}),
+            'birthinfo':
+                Command('show generation winders birth info for epoch', {
+                    RegexArg('^([0-9*]+)$', '')
+                }),
             'help': Command('show help', {}),
         }
         readline.parse_and_bind('tab: complete')
@@ -727,10 +731,10 @@ class Runner(object):
                 self.getLineage(self.orgMap[parent], sofar, links)
         return links
 
-    def getMutationLabel(self, organism):
+    def getMutationLabel(self, organism, crossLabel=''):
         if organism.birth_info.type == sa.MUTATION:
             return sa.get_mutation_label(organism.birth_info.mutation_info[0].type)
-        return ''
+        return crossLabel
 
     def plotLineage(self, organism, show=True, filename=None, format='svg'):
         epoch,generation,oindex = self.revOrgMap[organism]
@@ -805,6 +809,31 @@ class Runner(object):
 
     def cmdWorld(self):
         sa.print_world_params(self.world, sys.stdout)
+
+    def dumpBirthInfoForEpoch(self, e):
+        lastFitness = -1000.0
+        for g in range(self.world.generations_per_epoch):
+            genWinnerId = self.getBestOrganism(e, g)
+            genWinner = self.orgMap[genWinnerId]
+            fitnessInc = '^^^' if genWinner.fitness > lastFitness else ''
+            mutType = self.getMutationLabel(genWinner, 'xover')
+            genWinnerIdStr = '%d.%d.%d' % genWinnerId
+            print('%s: %s %s' % (genWinnerIdStr.ljust(8), mutType.rjust(2), fitnessInc))
+            lastFitness = genWinner.fitness
+
+    def cmdBirthinfo(self, epochOrWild):
+        if epochOrWild[0] == '*':
+            epochs = range(0, self.world.num_epochs)
+        else:
+            e = int(epochOrWild[0])
+            if e < 1 or e > self.world.num_epochs:
+                print('1 <= epoch <= %d' % self.world.num_epochs)
+                return
+            epochs = range(e-1, e)
+        for e in epochs:
+            self.dumpBirthInfoForEpoch(e)
+            if e != epochs[-1]:
+                print
 
     def cmdSetWorld(self, cmd):
         try:
