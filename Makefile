@@ -349,9 +349,9 @@ TIGHT_FOLDING_FOR_LEAPING = $(THINYX_WITH_BUMPS) \
 moats1.done:
 	./sa $(TIGHT_FOLDING_FOR_LEAPING) > moats1.out
 	echo "\
-plot phfitness show=False delta=0.005 azim=34.0 elev=64 dpi=100 filename=moats-phfunc.png\n\
-plot vfitness show=False delta=0.005 azim=34.0 elev=64 dpi=100 filename=moats-vfunc.png\n\
-plot phrange show=False delta=0.01 azim=34.0 elev=64 dpi=100 filename=moats-phrange.png\n\
+plot phfitness show=False delta=0.005 azim=-29.0 elev=46 dpi=100 filename=moats-phfunc.png\n\
+plot vfitness show=False delta=0.005 azim=66.0 elev=69 dpi=100 filename=moats-vfunc.png\n\
+plot phrange show=False delta=0.01 azim=-29.0 elev=46 dpi=100 filename=moats-phrange.png\n\
 dot show=False filename=moats-graph format=png\n\
 exit\n\
 " | ./analyze.py ancestors
