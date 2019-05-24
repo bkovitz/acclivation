@@ -2237,6 +2237,8 @@ HILL_CLIMBING_RESULT phenotype_acclivity(World *w) {
 }
 
 HILL_CLIMBING_RESULT genotype_acclivity(World *w, Genotype *g) {
+  /* BEN Commenting out this closure for now (23-May-2019). I haven't been able
+   * to figure out how to get it to compile for SWIG on OSX.
   double gfitness(World *w, const double *gvector) {
     Genotype *gg = copy_genotype(g);
     set_gvector(gg, gvector[0], gvector[1]);
@@ -2246,6 +2248,9 @@ HILL_CLIMBING_RESULT genotype_acclivity(World *w, Genotype *g) {
     return fitness;
   }
   return measure_acclivity2(w, gfitness);
+  */
+  static HILL_CLIMBING_RESULT dummy_result = { 0.0, 0.0 };
+  return dummy_result;
 }
 
 int x2i(World *w, double x) {

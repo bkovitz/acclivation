@@ -30,24 +30,40 @@ bkovitz@indiana.edu}
 \begin{abstract}
 Any part of a genome, considered separately from the rest of the genome,
 evolves against a ``virtual fitness landscape'' that results when the rest of
-the genome is held constant. We show that each part of a genome is under
-selective pressure to provide the other parts with a virtual fitness landscape
-that maximizes the evolvability of the other parts.
+the genome is held constant. We show how analyzing a genome in this way can
+explain one form of progressively increasing evolvability.
 
-When one part of a genome is a vector of numbers (``knobs''), and the rest is a
-graph that determines the mapping from knobs to phenotype, the graph is under
-selective pressure to acclivate the virtual fitness function faced by the
-knobs---that is, to make it more hill-shaped. When there is an evolutionary
-path for the graph to respond to this pressure, a synergy develops between the
-incremental exploration of phenotypes by knob-mutations and the discontinuous
-exploration by graph-mutations.
+When one part of a genome is a vector of numbers (``knobs'') and the rest is a
+graph that determines the mapping from knobs to phenotype, the graph will
+respond to selective pressure to ``acclivate'' the virtual fitness function
+faced by the knobs---that is, to make it more hill-shaped. That is, for as
+long as the global fitness function provides opportunity for distorting it to
+make knob-turning mutations improve fitness, the graph experiences pressure to
+evolve those distortions as a side-effect of responding to its own virtual
+fitness function.
 
-This kind of genome exploits epistasis and non-locality of genotype--phenotype
-mapping to provide a mechanism by which organisms can evolve improved
-evolvability, especially against fitness functions that vary periodically while
-keeping some invariants unchanged. The graph accumulates a memory of the
-regions of the fitness landscape visited in previous generations, held in the
-form of bias limiting and directing future evolution.
+
+
+%We show that each part of a genome is under
+%selective pressure to provide the other parts with a virtual fitness landscape
+%that maximizes the evolvability of the other parts.
+
+%When one part of a genome is a vector of numbers (``knobs''), and the rest is a
+%graph that determines the mapping from knobs to phenotype, the graph is under
+%selective pressure to acclivate the virtual fitness function faced by the
+%knobs---that is, to make it more hill-shaped. When there is an evolutionary
+%path for the graph to respond to this pressure, a synergy develops between the
+%incremental exploration of phenotypes by knob-mutations and the discontinuous
+%exploration by graph-mutations.
+
+As the knobs' virtual fitness function grows more hill-shaped, the knobs track
+upward paths more easily and hence so does the organism as a whole. A synergy
+develops between incremental exploration of phenotypes by knob-mutations and
+discontinuous exploration by graph-mutations. A favorable condition for this
+is a global fitness function that frequently varies, changing constants but
+leaving structural invariants unchanged. The graph then accumulates a memory
+of the invariants as revealed across many previous epochs, held in the form of
+bias limiting and directing future evolution.
 \end{abstract}
 
 % Relevant topics to search in the literature:
@@ -57,8 +73,8 @@ form of bias limiting and directing future evolution.
 
 \section{Introduction}
 
-In previous work \citep{kovitz2015experiments}, we found that ``cascading
-designs''---organisms consisting of graphs that direct cascades of interactions
+In previous work \citep{kovitz2015experiments}, we found that cascading
+designs---organisms consisting of graphs that direct cascades of interactions
 among many parts---are well suited to evolve increasing evolvability, because
 a single mutation is likely to produce a coordinated change throughout the
 phenotype, preserving relationships among the parts of the phenotype that might
@@ -281,7 +297,7 @@ is publicly available at
 
 \section{Experiments}
 
-In each experiment, we ran the genome defined above against a different family
+In each experiment, we run the genome defined above against a different family
 of fitness functions and see what virtual fitness functions emerge. We only
 plot $v_{g_2}$, the virtual fitness function seen by the knobs, since we know
 of no way to plot fitness functions seen by a graph.

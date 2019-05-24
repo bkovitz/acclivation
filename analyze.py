@@ -1,4 +1,5 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python
+# Need Python 2.7
 import atexit
 import os
 import re
