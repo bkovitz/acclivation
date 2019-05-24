@@ -36,11 +36,11 @@ explain one form of progressively increasing evolvability.
 When one part of a genome is a vector of numbers (``knobs'') and the rest is a
 graph that determines the mapping from knobs to phenotype, the graph will
 respond to selective pressure to ``acclivate'' the virtual fitness function
-faced by the knobs---that is, to make it more hill-shaped. That is, for as
-long as the global fitness function provides opportunity for distorting it to
-make knob-turning mutations improve fitness, the graph experiences pressure to
-evolve those distortions as a side-effect of responding to its own virtual
-fitness function.
+faced by the knobs---that is, to make it more hill-shaped. For as
+long as the knobs' virtual fitness function provides opportunity for
+distorting it to make knob-turning mutations improve fitness, the graph
+experiences pressure to evolve those distortions as a side-effect of
+responding to its own virtual fitness function.
 
 
 
@@ -57,7 +57,7 @@ fitness function.
 %exploration by graph-mutations.
 
 As the knobs' virtual fitness function grows more hill-shaped, the knobs track
-upward paths more easily and hence so does the organism as a whole. A synergy
+upward paths more easily and hence so does the genotype as a whole. A synergy
 develops between incremental exploration of phenotypes by knob-mutations and
 discontinuous exploration by graph-mutations. A favorable condition for this
 is a global fitness function that frequently varies, changing constants but
@@ -86,13 +86,14 @@ networks, and even software systems where cascades of activity are propagated
 by function-calls or message-passing.
 
 In the present paper, we investigate a synergy between the ``knobs'' of a
-cascading design---elements subject to incremental, quantitative mutation---and
-the ``graph'' or ``topology'' of a cascading design---the structure of
-interactions that is subject to discontinuous, sometimes radical mutations.
-We find that the graph is under selective pressure to map the fitness landscape
-of the phenotype to a more hill-shaped landscape for the knobs, thereby
-providing a mechanism by which evolvability can evolve
-\citep{colegrave2008experimental}.
+cascading design---elements subject to incremental, quantitative
+mutation---and the ``graph'' or ``topology'' of a cascading design---the
+structure of interactions that is subject to discontinuous, sometimes radical
+mutations.  We find that under certain conditions, the graph faces selective
+pressure to map a rugged fitness landscape to a more hill-shaped virtual
+landscape for the knobs. The map often excludes the worst regions of the
+landscape from its range. The result is a mechanism by which evolvability can
+evolve \citep{colegrave2008experimental}.
 
 \section{Virtual Fitness Functions}
 %@@.\footnote{\cite{hogeweg2012toward}.}
@@ -137,16 +138,17 @@ $v_{g_{a1}}$ that $g_{a2}$ finds more evolvable than $v_{g_{b1}}$ is for
 $g_{b2}$, then the descendants of $g_a$ will evolve faster or further than the
 descendants of $g_b$ (according to how evolvability is defined).
 
-Therefore each partial genome is under selective pressure to create a virtual
-fitness landscape for the other partial genome that gives the latter greater
-evolvability. To illustrate with an unrealistically simple example, if the eye
-and the arm are governed by separate sets of genes, and some arm shapes make
-it easier for the eye to evolve, then there is selective pressure favoring
-alleles for those arm shapes. All other factors being equal, evolution favors
-arms that make eyes easier to evolve. This selective pressure happens
-indirectly; in any single generation, greater fitness wins. But over successive
-generations, descendants of organisms with greater evolvability will tend to
-have greater fitness than organisms with lesser evolvability.
+Therefore each partial genome responds to any available selective pressure to
+create a virtual fitness landscape for the other partial genome that gives the
+latter greater evolvability. To illustrate with an unrealistically simple
+example, if the eye and the arm are governed by separate sets of genes, and
+some arm shapes make it easier for the eye to evolve---say, by providing cues
+that the eye can track to for hand-eye coordination---then there is selective
+pressure favoring alleles for those arm shapes. All other factors being equal,
+evolution favors arms that make eyes easier to evolve. This selective pressure
+happens indirectly; in any single generation, greater fitness wins. But over
+successive generations, descendants of organisms with greater evolvability
+will tend to have greater fitness than organisms with lesser evolvability.
 %@@cite-Altenberg?
 
 The above considerations make no difference for homogeneous genomes, where
@@ -158,7 +160,7 @@ potential for each part to seek values that make the other part more
 evolvable, resulting in a period of progressively increasing evolvability for
 the organism as a whole.
 
-In the rest of this paper, we examine a natural and common way for this
+In the rest of this paper, we examine a simple and natural way for this
 synergy to occur: when $g_1$ consists of a vector of real numbers (``knobs'')
 and $g_2$ consists of a network that provides connections through which the
 numbers from $g_1$ interact.
@@ -536,15 +538,15 @@ circle are inaccessible in this organism's genotype--phenotype mapping.
 \subsection{Experiment 3: Moats}
 
 In this experiment, we run a modified version of the razorback fitness
-function: wherever $\text{waves}(\phi) \leq 0$, fitness is zero rather than
+function: wherever $\text{waves}(\phi) \leq 0.5$, fitness is zero rather than
 slightly reduced; organisms with fitness zero are not allowed to
-reproduce; the ``islands'' where $\text{waves}(\phi) > 0$ are flat, so
-there is no smooth gradient to climb within any one island; and the islands are
-spaced further apart than in the razorback experiment. So, organisms can only
-cross from one island to a higher island by a single mutation. Ending the
-lineage of an organism that falls into the ``moat'' between islands simulates
-the tendency in nature for fitness landscapes be to ``holey''
-\citep{gavrilets1997evolution}, requiring leaps over regions of
+reproduce; the ``islands'' where $\text{waves}(\phi) > 0.5$ have flat, neutral
+plateaus, so there is no smooth gradient to climb within any one island; and
+the islands are spaced further apart than in the razorback experiment. So,
+organisms can only cross from one island to a higher island by a single
+mutation. Ending the lineage of an organism that falls into the ``moat''
+between islands simulates the tendency in nature for fitness landscapes be to
+``holey'' \citep{gavrilets1997evolution}, requiring leaps over regions of
 nonviable genotypes in order to improve fitness.
 
 Figure~\ref{fig:moats} shows an organism that successfully climbs the chain of

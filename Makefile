@@ -427,7 +427,7 @@ rzwavy-vfunc.png rzwavy-phfunc.png rzwavy-phrange.png rzwavy-graph.png: rzwavy.d
 rzwavy.done:
 	./sa $(RZ_WAVY_SLOPE) --log=ancestors > rzwavy.out
 	echo "\
-plot phfitness show=False delta=0.01 azim=-109.0 elev=52 dpi=100 filename=rzwavy-phfunc.png\n\
+plot phfitness show=False delta=0.01 azim=-66.0 elev=52 dpi=100 filename=rzwavy-phfunc.png\n\
 plot vfitness show=False delta=0.005 azim=52.0 elev=15 dpi=100 filename=rzwavy-vfunc.png\n\
 plot phrange show=False delta=0.01 azim=-66.0 elev=52 dpi=100 filename=rzwavy-phrange.png\n\
 dot show=False filename=rzwavy-graph format=png\n\
