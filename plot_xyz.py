@@ -34,10 +34,14 @@ def read(filename, x_col, y_col, z_col):
 #
 def plot(X, Y, Z, scatter, show=True, filename='', ylim1=-1, ylim2=1, xlim1=-1,
         xlim2=1, zlim1=0, zlim2=11, linewidth=0, elev=33.0, cmapname='coolwarm', 
-        azim=33.0, dpi=300, stride=1, pointsize=20, wtitle=''):
+        azim=33.0, dpi=300, stride=1, pointsize=20,
+        xlabel='p1', ylabel='p2', wtitle=''):
   cmap = plt.get_cmap(cmapname)
   fig = plt.figure(frameon=show, num=wtitle)
   ax = Axes3D(fig)
+  ax.set_xlabel(xlabel)
+  ax.set_ylabel(ylabel)
+  ax.set_zlabel('fitness')
   if scatter:
     #ax.scatter3D(X, Y, Z)
     #ax.scatter3D(X, Y, Z, s=20, c=np.maximum(X+1.0, Y+1.0)/2.0, cmap='plasma', #perceptually uniform fade from origin to 1,1

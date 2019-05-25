@@ -215,10 +215,14 @@ connecting them.  The whole genome is a directed graph where:
 \subsection{Genotype--Phenotype Mapping}
 
 The phenotype is determined by a process of spreading activation, run for
-10 timesteps. Each timestep, the initial activations from the knobs flow into
-adjacent nodes, producing a number in $[-1.0, +1.0]$ called the node's
-\textit{activation}. The activation of a node $a_j$ at timestep $t+1$ is
-calculated according to the following function:
+10 timesteps. At each timestep, each node can have either an
+\textit{activation} in $[-1.0,+1.0]$ or no activation. At timestep~0, only the
+knobs have activations: the numbers stored in the genotype. Each successive
+timestep, activations spreads from from nodes (the ones with activations) to
+their neighbors. If none of a node's incoming neighbors has an activation, its
+own activation (or lack of one) is unchanged. Otherwise, the activation of a
+node $a_j$ at timestep $t+1$ is calculated according to the following
+function:
 \[
    a_j(t+1) = T(a_j(t) + \sum_iW_{ij}a_i(t))
 \]
@@ -256,14 +260,6 @@ to $p_1$ or~$p_2$.
 
 \subsubsection{Example}
 
-\begin{figure}[t]
-\centering
-\includegraphics[width=3in]{example_organism.pdf}
-\caption{A simple genotype. The knob nodes are at the top, the phenotype nodes
-are at the bottom, and there is one additional node.}
-\label{fig:simple-genotype}
-\end{figure}
-
 The following table shows step-by-step how the spreading-activation algorithm
 calculates the phenotype for the simple genotype in
 Figure~\ref{fig:simple-genotype}.
@@ -287,6 +283,14 @@ $t$ & $k_1$ & $k_2$ & $n_1$ & $p_1$ & $p_2$ \\
 \end{tabularx}
 
 \medskip
+
+\begin{figure}
+\centering
+\includegraphics[width=2.5in]{example_organism.pdf}
+\caption{A simple genotype. The knob nodes are at the top, the phenotype nodes
+are at the bottom, and there is one additional node.}
+\label{fig:simple-genotype}
+\end{figure}
 
 At $t{=}0$, the genotype provides the initial activations of the knob nodes.
 
@@ -322,7 +326,7 @@ activation is $0.971$, so this genotype's phenotype is $(0.700,0.971)$.
 \multicolumn{3}{c}{\subfloat[Virtual fitness]{\includegraphics[width=.7\textwidth]{rzwavy-vfunc.png}}} \\
 \end{tabular}
 
-\caption{One organism from experiment 1, ``Razorback''. The phenotype's
+\caption{One organism from experiment~1, ``Razorback''. The phenotype's
 fitness function, a landscape filled with local maxima and one wavy narrow
 ridge~(a), has become distorted into the roughly hill-climbable virtual
 fitness function~(d) seen by the ``knobs'' of the genotype~(c). In~(b), the
@@ -337,7 +341,7 @@ numbers are activation levels after 10 timesteps.}
 
 \subsection{Variation Operator}
 
-In generation 0 of the first epoch in each experiment, the population consists
+In generation~0 of the first epoch in each experiment, the population consists
 of genotypes containing only the two knob nodes and the two phenotype nodes,
 with up to four randomly placed edges with weights randomly chosen from $\{-1,
 +1\}$, and the knobs' initial activations chosen uniformly from $[-1.0, 1.0]$.
@@ -347,11 +351,12 @@ two parents from the previous generation by tournament selection and making a
 child by a single mutation or by crossover.  Crossover has a low probability,
 usually $0.02$ or $0.05$.
 
-The possible mutations are: add a node, remove a node, add an edge, remove an
-edge, move an edge, or turn a knob. Knob-turning has a probability roughly
-equal to the sum of all the graph-edit mutations. Depending on the experiment,
-turning a knob chooses a knob delta from $\{-0.02, +0.02\}$ or from a normal
-distribution with mean~0 and $\sigma = 0.0$.
+The possible mutations are: add a node, remove a node (but not a knob or
+phenotype node), add an edge, remove an edge, move an edge, or turn a knob.
+Knob-turning has a probability roughly equal to the sum of all the graph-edit
+mutations. Depending on the experiment, turning a knob chooses a knob delta
+from $\{-0.02, +0.02\}$ or from a normal distribution with mean~0 and
+$\sigma = 0.0$.
 
 Population sizes range from 60 to 800 depending on the experiment. We omit some
 details of the variation operator here for lack of importance. The source code

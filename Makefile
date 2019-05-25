@@ -84,7 +84,7 @@ rzwavy.done: $(PROGS)
 	./sa $(RZ_WAVY_SLOPE) --log=ancestors > rzwavy.out
 	echo "\
 plot phfitness show=False delta=0.01 azim=-66.0 elev=52 dpi=100 filename=rzwavy-phfunc.png\n\
-plot vfitness show=False delta=0.005 azim=52.0 elev=15 dpi=100 filename=rzwavy-vfunc.png\n\
+plot vfitness show=False delta=0.005 azim=52.0 elev=15 dpi=100 xlabel=k1 ylabel=k2 filename=rzwavy-vfunc.png\n\
 plot phrange show=False delta=0.01 azim=-66.0 elev=52 dpi=100 filename=rzwavy-phrange.png\n\
 dot show=False filename=rzwavy-graph format=png\n\
 exit\n" | ./analyze.py ancestors
@@ -105,7 +105,7 @@ circle.done: $(PROGS)
 	./sa $(REALLY_GOOD_CIRCLE1) > really-good-circle.out
 	echo "\
 plot phfitness show=False delta=0.005 azim=-56.0 elev=44 dpi=100 filename=circle-phfunc.png\n\
-plot vfitness show=False delta=0.005 azim=20.0 elev=44 dpi=100 filename=circle-vfunc.png\n\
+plot vfitness show=False delta=0.005 azim=20.0 elev=44 dpi=100 xlabel=k1 ylabel=k2 filename=circle-vfunc.png\n\
 plot phrange show=False delta=0.01 azim=-56.0 elev=44 dpi=100 filename=circle-phrange.png\n\
 dot show=False filename=circle-graph format=png\n\
 exit\n\
@@ -116,11 +116,24 @@ exit\n\
 
 moats-phfunc.png moats-vfunc.png moats-phrange.png moats-graph.png: moats.done
 
+THINYX_WITH_BUMPS = $(YXLINE) --ridge_radius=0.2 --bumps=1 --moat_ub=0.0 \
+	--knob_constant=0.02 --crossover_freq=0.05 --mutation_type_ub=16 --num_organisms=100 \
+	--input_accs=1 --activation_types=6 --sa_timesteps=10 --alpha=0.8 \
+	--edge_from_phnode=1 --edge_inheritance=5 --multi_edges=0 \
+	--num_epochs=40
+
+TIGHT_FOLDING_FOR_LEAPING = $(THINYX_WITH_BUMPS) \
+	--ridge_radius=0.1 --moat_ub=0.5 --bump_freq=30.0 \
+	--flat=1 --flat_multiplier=1.0 --down_bump=1 \
+	--num_organisms=80 --edge_inheritance=5 --knob_type=1 --knob_constant=0.01 \
+	--num_candidates=8 --num_epochs=60 --viability_lb=0.0 \
+	--seed=1207166735 --log=ancestors
+
 moats.done: $(PROGS)
 	./sa $(TIGHT_FOLDING_FOR_LEAPING) > moats.out
 	echo "\
 plot phfitness show=False delta=0.005 azim=-29.0 elev=46 dpi=100 filename=moats-phfunc.png\n\
-plot vfitness show=False delta=0.005 azim=66.0 elev=69 dpi=100 filename=moats-vfunc.png\n\
+plot vfitness show=False delta=0.005 azim=66.0 elev=69 dpi=100 xlabel=k1 ylabel=k2 filename=moats-vfunc.png\n\
 plot phrange show=False delta=0.01 azim=-29.0 elev=46 dpi=100 filename=moats-phrange.png\n\
 dot show=False filename=moats-graph format=png\n\
 exit\n\
@@ -223,7 +236,7 @@ swig_clean:
 	rm -rf *.pyc *.so a.out* build sa_wrap.c* sa.py
 
 graphics_clean:
-	rm -f $(GRAPHICS)
+	rm -f $(GRAPHICS) rzwavy.done circle.done moats.done
 
 prog_clean: swig_clean
 	rm -f sa *.o
