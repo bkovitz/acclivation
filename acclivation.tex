@@ -208,7 +208,7 @@ connecting them.  The whole genome is a directed graph where:
       activation}.
    \item Two other nodes, $p_1$ and $p_2$, are designated to hold the
       phenotype.
-   \item Zero or more additional nodes, $n_1, n_2, \ldots$.
+   \item Zero or more additional nodes $n_1, n_2, \ldots$.
    \item Each edge has a weight of either $+1.0$ or $-1.0$.
 \end{enumerate}
 
@@ -286,7 +286,7 @@ $t$ & $k_1$ & $k_2$ & $n_1$ & $p_1$ & $p_2$ \\
 
 \begin{figure}
 \centering
-\includegraphics[width=2.5in]{example_organism.pdf}
+\includegraphics[width=1.8in,trim=1cm 1cm 1cm 1cm,clip]{example_organism.pdf}
 \caption{A simple genotype. The knob nodes are at the top, the phenotype nodes
 are at the bottom, and there is one additional node.}
 \label{fig:simple-genotype}
@@ -316,29 +316,6 @@ $k_2$, scaled back each timestep by the $T$ function.
 Finally, after 10~timesteps, $p_1$'s activation is $0.700$ and $p_2$'s
 activation is $0.971$, so this genotype's phenotype is $(0.700,0.971)$.
 
-\begin{figure*}[h!]
-\centering
-
-\begin{tabular}{lll}
-\subfloat[Phenotype fitness]{\includegraphics[width=.3\textwidth]{rzwavy-phfunc.png}} &
-\subfloat[Phenotype range]{\includegraphics[width=.3\textwidth]{rzwavy-phrange.png}} &
-\subfloat[Genotype]{\includegraphics[width=.4\textwidth]{rzwavy-graph.png}} \\
-\multicolumn{3}{c}{\subfloat[Virtual fitness]{\includegraphics[width=.7\textwidth]{rzwavy-vfunc.png}}} \\
-\end{tabular}
-
-\caption{One organism from experiment~1, ``Razorback''. The phenotype's
-fitness function, a landscape filled with local maxima and one wavy narrow
-ridge~(a), has become distorted into the roughly hill-climbable virtual
-fitness function~(d) seen by the ``knobs'' of the genotype~(c). In~(b), the
-phenotype range, $x,y$ values indicate points in phenotype space that have a
-preimage in knob space when the knobs are mapped through $m_{g_2}$. The $z$
-values are the fitnesses of those phenotypes (the same as are plotted in~(a)).
-In~(c), the knob nodes are at the top, the phenotype nodes are at the bottom,
-numbers preceded by ``i='' are initial activation levels, and the other
-numbers are activation levels after 10 timesteps.}
-\label{fig:razorback}
-\end{figure*}
-
 \subsection{Variation Operator}
 
 In generation~0 of the first epoch in each experiment, the population consists
@@ -363,20 +340,6 @@ details of the variation operator here for lack of importance. The source code
 is publicly available at
 \href{https://github.com/bkovitz/acclivation}{https://github.com/bkovitz/acclivation}.
 
-\begin{figure*}[t]
-\centering
-
-\begin{tabular}{lll}
-\subfloat[Phenotype fitness]{\includegraphics[width=.3\textwidth]{circle-phfunc.png}} &
-\subfloat[Phenotype range]{\includegraphics[width=.3\textwidth]{circle-phrange.png}} &
-\subfloat[Genotype]{\includegraphics[width=.4\textwidth]{circle-graph.png}} \\
-\multicolumn{3}{c}{\subfloat[Virtual fitness]{\includegraphics[width=.7\textwidth]{circle-vfunc.png}}} \\
-\end{tabular}
-
-\caption{One organism from experiment 2, ``Circle''.}
-\label{fig:circle}
-\end{figure*}
-
 \section{Experiments}
 
 In each experiment, we run the genome defined above against a different family
@@ -384,152 +347,50 @@ of fitness functions and see what virtual fitness functions emerge. We only
 plot $v_{g_2}$, the virtual fitness function seen by the knobs, since we know
 of no way to plot fitness functions seen by a graph.
 
+We found no reliably meaningful measure of acclivation. We tried running a
+hill-climbing algorithm on the virtual fitness functions but this yielded
+ambiguous results. For example, a higher fitness reached by the hill-climbing
+algorithm in many cases resulted not from acclivation but from extreme
+canalization: the graph forced the phenotype to a predetermined point
+regardless of the knobs. So, we plot no temporal dynamics of populations.
+Instead, we show only some representative individuals to illustrate the kinds
+of virtual fitness functions found.
+
 Each experiment tries a ``family'' of fitness functions, because each
 experiment's fitness function has a constant that changes randomly once per
 epoch: every 20 generations. This constant moves the peak of the fitness
 function to different places in phenotype space.
 
-Frequently moving the peak is necessary to induce strong selective pressure
-favoring evolvability rather than organisms that only approximate the current
-peak.
-%@@cite
-Each new epoch is thus a race to approach the new peak. The most
-evolvable genotypes' lineages will approach the new peak faster than their
-less evolvable competitors. In this way, the experiments tend to reward
-evolvability especially strongly.
+%Frequently moving the peak is necessary to induce strong selective pressure
+%favoring evolvability rather than organisms that only approximate the current
+%peak.
+%%@@cite
+%Each new epoch is thus a race to approach the new peak. The most
+%evolvable genotypes' lineages will approach the new peak faster than their
+%less evolvable competitors. In this way, the experiments tend to reward
+%evolvability especially strongly.
 
-%\subsection{Experiment 1: Narrow Ridge}
-%
-%\begin{figure*}[t]
-%   \centering
-%   \begin{subfigure}[b]{0.2\textwidth}
-%   \includegraphics[width=2in]{yxline2-phfunc.eps}
-%   \caption{Phenotype fitness}
-%   \label{yxline2-phfunc}
-%   \end{subfigure}
-%   \begin{subfigure}[b]{0.2\textwidth}
-%   \includegraphics[width=2in]{yxline2-vfunc.eps}
-%   \caption{Virtual fitness}
-%   \label{yxline2-vfunc}
-%   \end{subfigure}
-%   \begin{subfigure}[b]{0.2\textwidth}
-%   \includegraphics[width=2in]{yxline2-phrange.eps}
-%   \caption{Phenotype range}
-%   \label{yxline2-phrange}
-%   \end{subfigure}
-%   \begin{subfigure}[b]{0.2\textwidth}
-%   \includegraphics[width=2in]{yxline2.pdf}
-%   \caption{Genotype}
-%   \label{yxline2-genotype}
-%   \end{subfigure}
-%
-%   \begin{subfigure}[b]{0.2\textwidth}
-%   \includegraphics[width=2in]{yxline1-phfunc.eps}
-%   \caption{Phenotype fitness}
-%   \label{yxline1-phfunc}
-%   \end{subfigure}
-%   \begin{subfigure}[b]{0.2\textwidth}
-%   \includegraphics[width=2in]{yxline1-vfunc.eps}
-%   \caption{Virtual fitness}
-%   \label{yxline1-vfunc}
-%   \end{subfigure}
-%   \begin{subfigure}[b]{0.2\textwidth}
-%   \includegraphics[width=2in]{yxline1-phrange.eps}
-%   \caption{Phenotype range}
-%   \label{yxline1-phrange}
-%   \end{subfigure}
-%   \begin{subfigure}[b]{0.2\textwidth}
-%   \includegraphics[width=2in]{yxline1.pdf}
-%   \caption{Genotype}
-%   \label{yxline1-genotype}
-%   \end{subfigure}
-%
-%
-%   \caption{Experiment~1: Narrow Ridge. (\subref{yxline2-phfunc}) has a
-%   ridge radius $R$ of $0.1$; (\subref{yxline1-phfunc}) has a ridge radius
-%   of $0.2$. $x,y$ values in phenotype ranges indicate points in phenotype
-%   space that have a preimage in knob space when the knobs are mapped through
-%   $m_{g_2}$. The $z$ values are the fitnesses of those phenotypes (the same
-%   as in (a) and (e)). Knobs are shown at the top of each graph, phenotype
-%nodes at the bottom. Numbers in nodes are activation levels at the end of
-%spreading activation. Numbers preceded by ``i='' are initial activation
-%levels.}
-%   \label{fig:narrow-ridge}
-%\end{figure*}
-%
-%In this experiment, we run the experimental genome against this fitness
-%function, plotted in Figures~\ref{yxline2-phfunc} and~\ref{yxline1-phfunc}:
-%\[
-%   w_\Phi(\phi) = 10.0 \cdot \hat{d}(\phi, P) \cdot \invv(|p_2 - p_1|; R)
-%\]
-%where
-%$R$ is a small radius, set to $0.1$ or $0.2$ in different runs of the
-%experiment,
-%$P$ is a point (the peak) chosen randomly along the $y=x$ line each epoch,
-%$\hat{d}(\phi, P)$ is a measure of the proximity of $\phi$ to $P$ equal to
-%$0.0$ for the maximum possible distance $M$ and $1.0$ for zero distance:
-%\[
-%  \hat{d}(\phi, P) = \frac{\max - d(\phi, P)}{\max}
-%\]
-%and \invv is the ``inverted-v function'' (like an inverted-U function but
-%peaking sharply at $x=0$ and returning zero outside the radius $R$):
-%\[
-%   \invv(x; R) =
-%   \begin{cases}
-%      0 & \text{if } |x|>R \\
-%      1 - (\frac{x}{R})^2 &
-%      \text{if } |x|\leq R
-%   \end{cases}
-%\]
-%So, the phenotype is rewarded up to 10.0 points for proximity to $P$, but only
-%if the phenotype lies along a narrow ridge running diagonally across phenotype
-%space. The diagonal direction is chosen to frustrate direct evolution: if the
-%knobs–-phenotype mapping is simply the identity function, $m_{g_2}(g_1)=g_1$,
-%then even if the phenotype lies along the ridge, a single knob-turn mutation
-%is likely to throw it off the ridge.
-%
-%In Figure~\ref{fig:narrow-ridge} we see two genotypes that evolved in this
-%experiment, illustrating two ways that the graph $g_2$ can provide a virtual
-%fitness function that affords more evolvability for the knobs than the
-%phenotype fitness function does.
-%
-%First, the virtual fitness function in (\subref{yxline2-vfunc}) illustrates
-%acclivation: is much wider and more gently sloped than the original fitness
-%function. The image of the ridge in knob-space is much easier to find and
-%navigate than the ridge in phenotype-space.
-%
-%Second, both virtual fitness functions, but especially the one in
-%(\subref{yxline1-vfunc}), illustrate another way to gain evolvability:
-%simply exclude the bad parts of the phenotype space from the range of
-%$m_{g_2}$. The phenotype ranges plotted in (\subref{yxline2-phrange})
-%and (\subref{yxline2-phrange})
-%do not permit \text{any} knob setting to map anywhere but along the very
-%center of the ridge. The vast ocean of zero-fitness points that lie off the
-%ridge in phenotype space is unreachable. The graphs accomplish this by simply
-%disconnecting one of the knobs.
-%
-%The relative sparsity of dots plotted in the middle of the phenotype range
-%in (\subref{yxline1-vfunc}) indicates that small knob-turnings in that range
-%move quickly, or relatively long distances, through phenotype space. The
-%relative density at the extremes indicates that knob-turnings move slowly
-%through phenotype space there. Note that this is the opposite of what would
-%promote greater evolvability for the knobs, since a knob-turning mutation is
-%likely to overshoot the peak or lose a lot of fitness when the phenotype is
-%near the peak, and will have little effect on the phenotype when the phenotype
-%is far from the peak.
-
-\begin{figure*}[t]
+\begin{figure*}[h!]
 \centering
 
-\begin{tabular}{lll}
-\subfloat[Phenotype fitness]{\includegraphics[width=.3\textwidth]{moats-phfunc.png}} &
-\subfloat[Phenotype range]{\includegraphics[width=.3\textwidth]{moats-phrange.png}} &
-\subfloat[Genotype]{\includegraphics[width=.4\textwidth]{moats-graph.png}} \\
-\multicolumn{3}{c}{\subfloat[Virtual fitness]{\includegraphics[width=.7\textwidth]{moats-vfunc.png}}} \\
+\begin{tabular}{cc}
+\subfloat[Phenotype fitness]{\includegraphics[width=.5\textwidth]{rzwavy-phfunc.png}} &
+\subfloat[Genotype]{\includegraphics[width=.5\textwidth]{rzwavy-graph.png}} \\
+\subfloat[Phenotype range]{\includegraphics[width=.5\textwidth]{rzwavy-phrange.png}} &
+\subfloat[Virtual fitness]{\includegraphics[width=.5\textwidth]{rzwavy-vfunc.png}} \\
 \end{tabular}
 
-\caption{One organism from experiment 3, ``Moats''.}
-\label{fig:moats}
+\caption{One organism from experiment~1, ``Razorback''. The phenotype's
+fitness function, a landscape filled with local maxima and one wavy narrow
+ridge~(a), has become distorted into the roughly hill-climbable virtual
+fitness function~(d) seen by the ``knobs'' of the genotype~(b). In~(c), the
+phenotype range, $x,y$ values indicate points in phenotype space that have a
+preimage in knob space when the knobs are mapped through $m_{g_2}$. The $z$
+values are the fitnesses of those phenotypes (the same as are plotted in~(a)).
+In~(b), the knob nodes are at the top, the phenotype nodes are at the bottom,
+numbers preceded by ``i='' are initial activation levels, and the other
+numbers are activation levels after 10 timesteps.}
+\label{fig:razorback}
 \end{figure*}
 
 \subsection{Experiment 1: Razorback}
@@ -595,6 +456,20 @@ to exclude bad parts of the phenotype space. The genotype--phenotype mapping
 does not allow access to any points in phenotype space other than those along
 the center of the ridge.
 
+\begin{figure*}[t]
+\centering
+
+\begin{tabular}{cc}
+\subfloat[Phenotype fitness]{\includegraphics[width=.5\textwidth]{circle-phfunc.png}} &
+\subfloat[Genotype]{\includegraphics[width=.5\textwidth]{circle-graph.png}} \\
+\subfloat[Phenotype range]{\includegraphics[width=.5\textwidth]{circle-phrange.png}} &
+\subfloat[Virtual fitness]{\includegraphics[width=.5\textwidth]{circle-vfunc.png}} \\
+\end{tabular}
+
+\caption{One organism from experiment 2, ``Circle''.}
+\label{fig:circle}
+\end{figure*}
+
 \subsection{Experiment 2: Circle}
 
 In this experiment, we ran the experimental genome against this fitness
@@ -614,6 +489,20 @@ has evolved canalization for phenotypes near the circular ridge and
 decanalization for phenotypes in the center of the circle (knob-turnings
 quickly move the phenotype away from the center). All phenotypes outside the
 circle are inaccessible in this organism's genotype--phenotype mapping.
+
+\begin{figure*}[t]
+\centering
+
+\begin{tabular}{cc}
+\subfloat[Phenotype fitness]{\includegraphics[width=.5\textwidth]{moats-phfunc.png}} &
+\subfloat[Genotype]{\includegraphics[width=.5\textwidth]{moats-graph.png}} \\
+\subfloat[Phenotype range]{\includegraphics[width=.5\textwidth]{moats-phrange.png}} &
+\subfloat[Virtual fitness]{\includegraphics[width=.5\textwidth]{moats-vfunc.png}} \\
+\end{tabular}
+
+\caption{One organism from experiment 3, ``Moats''.}
+\label{fig:moats}
+\end{figure*}
 
 \subsection{Experiment 3: Moats}
 
@@ -637,20 +526,22 @@ the virtual fitness function to the line along the centers of the islands.
 
 \section{Observations and Conclusions}
 
-The main result is that when a genome can evolve its genotype--phenotype
-mapping and consists of continuously varying ``knobs'' as well as a
-discontinuously varying topology or ``graph'', the graph is under selective
-pressure to present the knobs with a virtual fitness function that is easy for
-the knobs to follow upward---a hill-shaped function. This can't make any
-rugged fitness landscape smooth and tractable, of course, but it can reduce
-ruggedness in many situations.
+The main result is that against these fitness functions, filled with traps
+that flummox direct evolution, a genome with continuously varying ``knobs''
+mapped to its phenotype by a discontinuously varying topology or ``graph''
+tends to evolve increasing evolvability by (a)~presenting the knobs with a
+more hill-shaped virtual fitness function and (b)~restricting the range of the
+knob--phenotype mapping to exclude ``bad'' parts of the phenotype space.
+Close observation of genotypes and lineages revealed a number of subtleties
+regarding how and when this process happens, explained below.
 
-The selective pressure for acclivation is strongest if fitness is set up in a
-way that especially rewards evolvability, such as a fitness function with a
-constant that changes occasionally, shifting the peak. The family of
-genotype--phenotype mappings that the set of possible graphs can implement must
-itself afford an evolutionary path along which it can ``acclivate'' the virtual
-fitness function in response to success and failure of knob-turning.
+%when a genome can evolve its genotype--phenotype
+%mapping and consists of continuously varying ``knobs'' as well as a
+%discontinuously varying topology or ``graph'', the graph is under selective
+%pressure to present the knobs with a virtual fitness function that is easy for
+%the knobs to follow upward---a hill-shaped function. This can't make any
+%rugged fitness landscape smooth and tractable, of course, but it can reduce
+%ruggedness in many situations.
 
 %Properly speaking, the graph evolves a knob--phenotype mapping, not a
 %genotype--phenotype mapping, since the graph is itself part of the genotype.
@@ -658,7 +549,9 @@ fitness function in response to success and failure of knob-turning.
 %knob--phenotype mappings studied here relate most closely to what are called
 %genotype--phenotype mappings elsewhere in the literature.
 
-\subsection{Genetic Memory}
+\subsection{Limitations on Generality}
+
+\subsubsection{Modelable Fitness Functions and Genetic Memory}
 
 Over many generations, the graph accumulates a ``memory'' of the family of
 whole-genome fitness functions, encoded in the form of \textit{bias} in the way
@@ -666,28 +559,38 @@ its lineage searches the phenotype space. This bias reflects invariants in the
 fitness family, such as where ridges occur and how they're oriented, moat size,
 and where zero-fitness ``deserts'' consistently lie.
 
-The knobs exploit this bias by wandering only in regions with high fitness or
-regions where following (virtual) gradients tends to lead reliably to
-improvements. The graph also exploits the biased search that it has evolved,
-through discontinuous leaps rather than incrementally (but see ``Virtual
-Knobs'' below).
+In effect, the graphs tended to evolve into models of the invariants in the
+family of fitness functions. This means that difficulties in modeling the
+invariants with a graph will shut down acclivation. For example, a graph
+can easily model the Razorback family because it lies along $y=x$, by
+disconnecting one knob and linking the other knob to both phenotype nodes. But
+a shifted Razorback family, say along $y=2x-.4$, is much harder for the graph
+to model.
+
+%The knobs exploit this bias by wandering only in regions with high fitness or
+%regions where following (virtual) gradients tends to lead reliably to
+%improvements. The graph also exploits the biased search that it has evolved,
+%through discontinuous leaps rather than incrementally (but see ``Virtual
+%Knobs'' below).
 
 Knobs themselves cannot accumulate useful bias beyond being positioned where
 they will be mapped to high-quality phenotypes. This bias can be effective,
-though: in a single population, there may be several lineages with knobs
+though: we often observed several lineages in a single population with knobs
 positioned far apart, each ready to capitalize if the whole-genome fitness
 function or the genotype--phenotype mapping changes to favor them again.
 
-We frequently witnessed the decay of a population's genetic
-memory. Many times, a population that was responding quickly to shifts of the
-fitness peak, moving rapidly toward it one knob-turn per generation, lost its
-ability to do this when a few epochs went by with little or no movement in the
-fitness peak. When the peak stayed constant too long, selective pressure
-favored canalization: genotype--phenotype mappings that held the phenotype at
-the peak in the face of most mutations. In that circumstance, if knob-turning
-alters the phenotype at all, it lowers fitness, so selective pressure favors
-rendering it inert---that is, making a genotype--phenotype mapping in which all
-points in knob-space map to the same point in phenotype space.
+\subsubsection{Non-Stationary Fitness Function}
+
+We frequently witnessed the decay of a population's genetic memory. Many
+times, a population that was responding quickly to shifts of the fitness peak,
+moving rapidly toward it one knob-turn per generation, lost its ability to do
+this when a few epochs went by with little or no movement in the fitness peak.
+When the peak stayed constant too long, selective pressure favored
+canalization: genotype--phenotype mappings that held the phenotype at the peak
+in the face of most mutations. In that circumstance, if knob-turning alters
+the phenotype at all, it lowers fitness, so selective pressure favors
+rendering it inert---that is, making a genotype--phenotype mapping in which
+all points in knob-space map to the same point in phenotype space.
 
 Genetic memory also frequently decayed when a knob had a value of $-1.0$
 or $+1.0$. A knob-turning mutation that goes beyond the
@@ -695,53 +598,119 @@ limits has no effect. At these times, knob-turning often lost its
 sensitivity to the virtual fitness gradient---and so improvements in fitness
 had to come by graph-edits alone, which can spoil previous acclivation. 
 
-\subsection{No Measure of Acclivation}
+Thus a non-stationary fitness function is most favorable for acclivation: one
+that changes frequently, shifting the peak, while retaining invariants that
+the graph can model in a stable way. See \citet{reisinger2005towards} for
+discussion of evolvability in connection with this kind of nonstationary
+fitness function, including a measure, \textit{acquired evolvability}, of a
+genome's ability to ``represent'' its invariants.
 
-We present no measure of how often acclivation occurs or how much. We tried
-measuring the ``acclivity'' of a virtual fitness function by running a
-hill-climbing algorithm on it, but this yielded ambiguous results. Does a
-higher fitness reached by the hill-climber mean higher acclivation? Not if the
-genotype--phenotype mapping is constrained to a small range centered on the
-peak. Then the hill-climber reaches high fitness even though the virtual
-fitness function is not very hill-shaped. Do we measure how far the average
-hill-climber climbs?  That measure also gives misleading results for many
-virtual fitness functions. It is also unclear how neutral plateaus
-and parts of the landscape far from the current knob
-settings should count into a measure of acclivity.
+%way that especially rewards evolvability, such as a fitness function with a
+%constant that changes occasionally, shifting the peak. The family of
+%genotype--phenotype mappings that the set of possible graphs can implement must
+%itself afford an evolutionary path along which it can ``acclivate'' the virtual
+%fitness function in response to success and failure of knob-turning.
+
+%\subsection{No Measure of Acclivation}
+%
+%We present no measure of how often acclivation occurs or how much. We tried
+%measuring the ``acclivity'' of a virtual fitness function by running a
+%hill-climbing algorithm on it, but this yielded ambiguous results. Does a
+%higher fitness reached by the hill-climber mean higher acclivation? Not if the
+%genotype--phenotype mapping is constrained to a small range centered on the
+%peak. Then the hill-climber reaches high fitness even though the virtual
+%fitness function is not very hill-shaped. Do we measure how far the average
+%hill-climber climbs?  That measure also gives misleading results for many
+%virtual fitness functions. It is also unclear how neutral plateaus
+%and parts of the landscape far from the current knob
+%settings should count into a measure of acclivity.
 
 %So, in this paper we limit ourselves to interesting qualitative observations
 %of the virtual fitness functions that emerged and analysis of their
 %significance.
 
-\subsection{Nonlocality and Epistasis}
+%\subsection{Nonlocality and Epistasis}
+%
+%Contrary to what we usually observe in evolutionary algorithms, nonlocality in
+%the genotype--phenotype mapping and epistasis among the contributions of
+%different parts of the genotype actually improve evolvability. Organisms in
+%the ``Moats'' experiment gained evolvability by decanalizing, as described in
+%\citet{hansen2006evolution}.
+%
+%It's hard to say for sure whether these experiments mark an exception to the
+%principle that nonlocal genotype--phenotype mappings with low locality have
+%worse evolvability \citep{rothlauf2006locality}, because what's becoming less
+%local is actually the knob--phenotype mapping. The degree of locality of a
+%genotype--phenotype mapping depends on the distance metrics chosen for the
+%genotype space and the phenotype space. The graphs here are in effect evolving
+%distance metrics for the knob--phenotype mapping, but they can't affect the
+%genotype--phenotype mapping because they are themselves part of the genotype.
 
-Contrary to what we usually observe in evolutionary algorithms, nonlocality in
-the genotype--phenotype mapping and epistasis among the contributions of
-different parts of the genotype actually improve evolvability. Organisms in
-the ``Moats'' experiment gained evolvability by decanalizing, as described in
-\citet{hansen2006evolution}.
+\subsubsection{Mutation Rate}
 
-It's hard to say for sure whether these experiments mark an exception to the
-principle that nonlocal genotype--phenotype mappings with low locality have
-worse evolvability \citep{rothlauf2006locality}, because what's becoming less
-local is actually the knob--phenotype mapping. The degree of locality of a
-genotype--phenotype mapping depends on the distance metrics chosen for the
-genotype space and the phenotype space. The graphs here are in effect evolving
-distance metrics for the knob--phenotype mapping, but they can't affect the
-genotype--phenotype mapping because they are themselves part of the genotype.
+When instead of limiting each offspring to a single mutation from its parent,
+we allowed a number of mutations proportional to the size of the parent (the
+number of nodes), genotypes tended to ``bloat'', acquiring hundreds of
+disconnected nodes and edges. The problem is that when larger genotypes can
+make more mutations per generation, they have no incentive to optimize the way
+they respond to graph mutations.  When each organism can only vary from its
+parent by a single mutation, those who do not optimize their mutation exposure
+are at a disadvantage in the race to the new peak at the start of each epoch.
+A lineage with an unnecessarily large number of ways to make neutral mutations
+will tend to lose those races to lineages with the minimal amount of
+``padding''.
 
-\subsection{Mutation Rate}
+\subsubsection{The Transfer Function}
 
-When we
-allowed a number of mutations proportional to the size of a genotype, the
-genotypes tended to ``bloat'', acquiring hundreds of disconnected nodes and
-edges. The problem is that when larger genotypes can make more mutations per
-generation, they have no incentive to optimize the way they respond to graph
-mutations.  When each organism can only vary from its parent by a single
-mutation, those who do not optimize their mutation exposure are at a
-disadvantage in the race to the new peak at the start of each epoch. A lineage
-with an unnecessarily large number of ways to make neutral mutations will tend
-to lose those races to lineages with the minimal amount of ``padding''.
+We expected that nearly any transfer function typically used in simulated
+activation networks would induce acclivation of virtual functions (given
+appropriate fitness functions, etc.), but this was decidedly not the case.
+When we tried a simple $y=x$ function clamped within $[-1.0, 1.0]$, step
+functions, rectifier functions, and letting the constant in the $T$ function
+stray far from $S$ all produced much less acclivation as well as phenotypes of
+much lower fitness.  The graphs could not ``lock on'' to the ridge, making
+knob-turning nearly useless for navigating up the fitness functions.
+
+The $T$ function has a peculiar characteristic that makes it suitable for
+these experiments, where the only constants in the genotype that are allowed to
+vary in small increments are those in the knobs. $T$ is expansive in the range
+$-.28 < x < .28$ and contractive everywhere else. When a constant input, as
+from a knob, is fed into $T$ repeatedly ten times, this yields a function
+$T(x+T(x+T(\ldots)))$, which is expansive in $-.14 < x < .14$ and contractive
+everywhere else. This makes $T$ well suited to forming a wide variety of
+functions that simultaneously dilate and compress different ranges of the
+phenotype space, by composition with itself alone---without constants.
+Activations from incoming edges $a_{i}$ beyond the first edge make a node
+calculate the function $T(a + \sum_i a_i)$, giving compositions of $T$ the
+ability to shift their output right or left.
+
+%Figure~\ref{fig:yxline1} illustrates the compression of the phenotype space in the center of
+%knob space and the dilation toward the extremes. This virtual fitness function
+%evolved against a fitness function like that in experiment~1 but without the
+%``egg carton'': a simple diagonal ridge with no bumps. Note that the range of
+%expansion corresponds to compression of the phenotype function as seen through
+%$T$ and the range of contraction corresponds to dilation of the phenotype
+%function. (Where the image of a function contracts, the preimage dilates.)
+
+Compositions of linear transfer functions can shift phenotype space but they
+can't dilate or compress it. This makes it harder, perhaps impossible, to
+evolve an acclivated virtual fitness function. When the constant $S$ is varied
+too far from that in $T$, the resulting function's range of expansion quickly
+shrinks to a tiny region around $x=0$ or grows to nearly the whole interval
+$[-1.0, 1.0]$.
+
+%The need to compose many instances of $T$ seems to be important. When we ran
+%simulations that iterated spreading activation 3 or 5 times instead of 10,
+%there was much less acclivation. 20 iterations seemed to have little effect.
+
+%\begin{figure}[t]
+%\centering
+%\includegraphics[width=0.3\textwidth]{yxline1-vfunc.png}
+%\caption{A virtual fitness function that evolved against a narrow ridge
+%(without undulations or moats). A single knob feeds directly into both
+%phenotype nodes, making the operation of the transfer function $T$ visible.}
+%\label{fig:yxline1}
+%\end{figure}
 
 \subsection{Virtual Knobs}
 
@@ -770,86 +739,35 @@ virtual fitness functions whose domain is the knob settings, we had to purge
 the graph of all other constants capable of varying in small increments. This
 severely reduces evolvability.
 
-\begin{figure}[b]
-  \centering
-  \includegraphics[width=0.48\textwidth]{ratio.pdf}
-  \caption{A graph from \citet{kovitz2015experiments} that evolved against a
-    fitness function that rewards a constant ratio among the phenotype nodes,
-  varying the absolute numbers once each epoch.}
-  \label{fig:virtual-knob}
-\end{figure}
-
-\citet{kovitz2015experiments} reports experiments with ``cascading designs''
-where graphs evolve genotype--phenotype mappings for greater evolvability, also
-under pressure from fitness functions with constants that change once per epoch.
-All nodes in those graphs inherit constants that can mutate a small amount in
-each generation, like a knob. Those graphs, too, evolve virtual knobs, as shown
-in Figure~\ref{fig:virtual-knob}. The node that links directly to all four phenotype nodes functions
-as a virtual knob that approximately maintains an invariant relationship
-among the phenotype nodes.
-
-The other nodes, which occur in clusters, function as a large virtual knob for
-making fine-tuning adjustments to individual phenotype nodes.  The relative
-numbers of nodes in different clusters determine, in effect, the relative
-frequency of ``virtual-knob mutations'' and graph edits that don't alter a
-virtual knob. So, without a control for mutation frequencies explicitly provided
-in the program, the organisms evolved their own.
-
-There is no exact boundary around a virtual knob, since the same node can be
-selected to implement continuous variation along some axis as well as implement
-some part of graph topology (like maintaining an invariant relationship), or
-switch between these roles in different mutations.
-
-\begin{figure}[t]
-\centering
-\includegraphics[width=0.3\textwidth]{yxline1-vfunc.png}
-\caption{A virtual fitness function that evolved against a narrow ridge
-(without undulations or moats). A single knob feeds directly into both
-phenotype nodes, making the operation of the transfer function $T$ visible.}
-\label{fig:yxline1}
-\end{figure}
-
-\subsection{The Transfer Function}
-
-One might expect that nearly any transfer function typically used in simulated
-activation networks would produce similar acclivation, but we found that a
-simple $y=x$ function clamped within $[-1.0, 1.0]$, step functions, rectifier
-functions, and letting the constant in the $T$ function stray too far from $S$
-all produced much less acclivation as well as phenotypes of much lower fitness.
-The graphs could not ``lock on'' to the ridge, making knob-turning nearly
-useless for navigating up the fitness functions.
-
-The $T$ function has a peculiar characteristic that makes it suitable for
-these experiments, where the only constants in the genotype that are allowed to
-vary in small increments are those in the knobs. $T$ is expansive in the range
-$-.28 < x < .28$ and contractive everywhere else. When a constant input, as
-from a knob, is fed into $T$ repeatedly ten times, this yields a function
-$T(x+T(x+T(\ldots)))$, which is expansive in $-.14 < x < .14$ and contractive
-everywhere else. This makes $T$ well suited to forming a wide variety of
-functions that simultaneously dilate and compress different ranges of the
-phenotype space, by composition with itself alone---without constants.
-Activations from incoming edges $a_{i}$ beyond the first edge make a node
-calculate the function $T(a + \sum_i a_i)$, giving compositions of $T$ the
-ability to shift their output right or left.
-
-Figure~\ref{fig:yxline1} illustrates the compression of the phenotype space in the center of
-knob space and the dilation toward the extremes. This virtual fitness function
-evolved against a fitness function like that in experiment~1 but without the
-``egg carton'': a simple diagonal ridge with no bumps. Note that the range of
-expansion corresponds to compression of the phenotype function as seen through
-$T$ and the range of contraction corresponds to dilation of the phenotype
-function. (Where the image of a function contracts, the preimage dilates.)
-
-Compositions of the linear transfer functions can shift phenotype space but they
-can't dilate or compress it. This makes it harder, perhaps impossible, to
-evolve an acclivated virtual fitness function. When the constant $S$ is varied
-too far from that in $T$, the resulting function's range of expansion quickly
-shrinks to a tiny region around $x=0$ or grows to nearly the whole interval
-$[-1.0, 1.0]$.
-
-The need to compose many instances of $T$ seems to be important. When we ran
-simulations that iterated spreading activation 3 or 5 times instead of 10,
-there was much less acclivation. 20 iterations seemed to have little effect.
+%\begin{figure}[b]
+%  \centering
+%  \includegraphics[width=0.48\textwidth]{ratio.pdf}
+%  \caption{A graph from \citet{kovitz2015experiments} that evolved against a
+%    fitness function that rewards a constant ratio among the phenotype nodes,
+%  varying the absolute numbers once each epoch.}
+%  \label{fig:virtual-knob}
+%\end{figure}
+%
+%\citet{kovitz2015experiments} reports experiments with ``cascading designs''
+%where graphs evolve genotype--phenotype mappings for greater evolvability, also
+%under pressure from fitness functions with constants that change once per epoch.
+%All nodes in those graphs inherit constants that can mutate a small amount in
+%each generation, like a knob. Those graphs, too, evolve virtual knobs, as shown
+%in Figure~\ref{fig:virtual-knob}. The node that links directly to all four phenotype nodes functions
+%as a virtual knob that approximately maintains an invariant relationship
+%among the phenotype nodes.
+%
+%The other nodes, which occur in clusters, function as a large virtual knob for
+%making fine-tuning adjustments to individual phenotype nodes.  The relative
+%numbers of nodes in different clusters determine, in effect, the relative
+%frequency of ``virtual-knob mutations'' and graph edits that don't alter a
+%virtual knob. So, without a control for mutation frequencies explicitly provided
+%in the program, the organisms evolved their own.
+%
+%There is no exact boundary around a virtual knob, since the same node can be
+%selected to implement continuous variation along some axis as well as implement
+%some part of graph topology (like maintaining an invariant relationship), or
+%switch between these roles in different mutations.
 
 %\subsection{Biological Significance}
 %
@@ -868,9 +786,11 @@ there was much less acclivation. 20 iterations seemed to have little effect.
 
 We thank Jerry Swan (University of York), Zolt\'an Kocsis (University of
 Manchester), and Etienne Barnard (North-West University, South Africa) for
-helpful discussion and suggestions. And thanks to Joonas Ilmavirta
-(University of Jyv\"askyl\"a) for suggesting \textit{acclivus} as the
-appropriate Latin root for ``making sloped or hill-shaped.''
+helpful discussion and suggestions. We thank David Landy and Brad Rogers
+(Indiana University) and the anonymous reviewers for many valuable suggestions
+for improving the article. And thanks to Joonas Ilmavirta (University of
+Jyv\"askyl\"a) for suggesting \textit{acclivus} as the appropriate Latin root
+for ``making sloped or hill-shaped.''
 
 \bibliographystyle{apalike}
 \bibliography{acclivation} % replace by the name of your .bib file

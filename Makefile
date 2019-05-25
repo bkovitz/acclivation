@@ -83,8 +83,8 @@ rzwavy-vfunc.png rzwavy-phfunc.png rzwavy-phrange.png rzwavy-graph.png: rzwavy.d
 rzwavy.done: $(PROGS)
 	./sa $(RZ_WAVY_SLOPE) --log=ancestors > rzwavy.out
 	echo "\
-plot phfitness show=False delta=0.01 azim=-66.0 elev=52 dpi=100 filename=rzwavy-phfunc.png\n\
-plot vfitness show=False delta=0.005 azim=52.0 elev=15 dpi=100 xlabel=k1 ylabel=k2 filename=rzwavy-vfunc.png\n\
+plot phfitness show=False delta=0.01 azim=-66.0 elev=42 dpi=100 filename=rzwavy-phfunc.png\n\
+plot vfitness show=False delta=0.004 azim=52.0 elev=15 dpi=100 xlabel=k1 ylabel=k2 filename=rzwavy-vfunc.png\n\
 plot phrange show=False delta=0.01 azim=-66.0 elev=52 dpi=100 filename=rzwavy-phrange.png\n\
 dot show=False filename=rzwavy-graph format=png\n\
 exit\n" | ./analyze.py ancestors
@@ -104,7 +104,7 @@ circle-vfunc.png circle-phfunc.png circle-phrange.png circle-graph.png: circle.d
 circle.done: $(PROGS)
 	./sa $(REALLY_GOOD_CIRCLE1) > really-good-circle.out
 	echo "\
-plot phfitness show=False delta=0.005 azim=-56.0 elev=44 dpi=100 filename=circle-phfunc.png\n\
+plot phfitness show=False delta=0.005 azim=-56.0 elev=34 dpi=100 filename=circle-phfunc.png\n\
 plot vfitness show=False delta=0.005 azim=20.0 elev=44 dpi=100 xlabel=k1 ylabel=k2 filename=circle-vfunc.png\n\
 plot phrange show=False delta=0.01 azim=-56.0 elev=44 dpi=100 filename=circle-phrange.png\n\
 dot show=False filename=circle-graph format=png\n\
@@ -133,7 +133,7 @@ moats.done: $(PROGS)
 	./sa $(TIGHT_FOLDING_FOR_LEAPING) > moats.out
 	echo "\
 plot phfitness show=False delta=0.005 azim=-29.0 elev=46 dpi=100 filename=moats-phfunc.png\n\
-plot vfitness show=False delta=0.005 azim=66.0 elev=69 dpi=100 xlabel=k1 ylabel=k2 filename=moats-vfunc.png\n\
+plot vfitness show=False delta=0.004 azim=66.0 elev=69 dpi=100 xlabel=k1 ylabel=k2 filename=moats-vfunc.png\n\
 plot phrange show=False delta=0.01 azim=-29.0 elev=46 dpi=100 filename=moats-phrange.png\n\
 dot show=False filename=moats-graph format=png\n\
 exit\n\
