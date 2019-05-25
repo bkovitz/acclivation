@@ -1,0 +1,39 @@
+A Brief History -or- How All These Files Got In This Repository
+---------------------------------------------------------------
+
+In 2017, Ben Kovitz wrote some spreading-activation code in Clojure and
+tried running an evolutionary simulation of knobs+graph organisms
+(where knobs provide initial values to propagate by spreading activation
+through the graph to determine a phenotype at some designated nodes in
+the graph). It produced some visually spectacular acclivated virtual fitness
+functions with "buttes", but it wasn't clear what the result was.
+
+In 2018, Ben Kovitz and Marcela Poffald ran a bunch of experiments with
+varying parameters on the spreading-activation algorithm, and some
+"hill-climber" algorithms to try to measure how much acclivation occurs
+and under what conditions. Experiments took all night, and acclivation
+seemed to occur unpredictably. We still had to look at plots of the
+virtual fitness functions to see if acclivation had occurred. Under
+some parameters, it occurred seldom; tiny changes to the parameters would
+make it occur rarely, and it wasn't at all clear why.
+
+Dave Bender and Ben Kovitz rewrote the whole thing in C with some Python
+support to make it easier to see plots of the various functions. The
+simulations ran in seconds rather than hours, but it still wasn't clear
+what makes acclivation likely vs. unlikely. We added more parameters and
+tried more experiments but we did not get predictable results. Even under
+more-favorable parameter settings, acclivation did not as often as we though
+it should, given the simple idea for why it should work--and our old
+observations of runs with now-forgotten parameter settings where acclivation
+happened on almost every run.
+
+In 2019, we tried again, inspired by a suggestion from Etienne Barnard to
+try feed-forward (as opposed to spreading-activation) networks and to
+allow larger populations. The feed-forward networks performed even worse,
+but the new experiments led us to figure out that only a narrow range of
+the S constant in the transfer function (see the ALIFE paper) works, and
+why: only then do cyclic compositions of the transfer function create a highly
+tunable set of ranges of expansion and contraction of the global fitness
+function. The Clojure code in 2017 happened to have the S constant in this
+range. It had been chosen for an unrelated spreading-activation experiment
+in order to put attractors at -0.5 and +0.5.

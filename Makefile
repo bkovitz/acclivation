@@ -18,246 +18,40 @@ else
 VIEW_PDF = evince
 endif
 
-GRAPHICS = rzwavy-vfunc.png rzwavy-phfunc.png rzwavy-phrange.png rzwavy-graph.png \
-	circle-phfunc.png circle-vfunc.png circle-phrange.png circle-graph.png \
-	moats-phfunc.png moats-vfunc.png moats-phrange.png moats-graph.png \
-	yxline1-vfunc.png ratio.pdf
-
-acclivation.pdf: acclivation.tex acclivation.bib $(GRAPHICS)
-
-#Thin ridge along y=x
-YXLINE = --ridge_type=0 --c1_lb=-1 --c1_ub=1 
-
-OBLIQUE_LINE = $(YXLINE) --ridge_type=0 --c2=2.0 --c3=-0.45 --c1_lb=-0.275 --c1_ub=0.725
-
-#--c2=1 --c3=0 \
-#--c2=2.0 --c3=-0.45 \
-
-CIRCLE = --ridge_type=1 --bumps=0 --ridge_radius=0.1 --peak_movement=1 \
-	--c1_lb=-1 --c1_ub=1
-
-RESTRICTED =
-#RESTRICTED = --c1_lb=0.2 --c1_ub=0.9
-
-#A parameter set for experimentation. Try the good ideas here, run with
-#'make x', and save noteworthy parameter sets under a different name.
-X_ARGS = $(YXLINE) $(RESTRICTED) --bumps=0 \
-	--reward_coverage=0 \
-	--num_epochs=80 --generations_per_epoch=20 \
-	--num_organisms=80 --num_candidates=6 \
-	--num_nodes=4 --num_edges=1 \
-	--input_accs=1 --activation_types=3 --output_types=0 --knob_type=0 \
-	--mutation_type_ub=10 --extra_mutation_rate=0.00 --crossover_freq=0.1 \
-	--multi_edges=0 --allow_move_edge=0 --edge_weights=1 --edge_inheritance=1 \
-	--log=ancestors \
-	--spreading_rate=0.05 --decay=1.0 --log=ancestors --seed=968766798 --invu=1 #--seed=1043614093
-
-#QUESTION: What happens to the winner here when you turn a knob? What happens
-#when you make single graph edits? Why is this graph stuck?
-LOOK_AT_THIS = $(YXLINE) --bumps=1 \
-	--num_epochs=40 --generations_per_epoch=20 \
-	--num_organisms=80 --num_candidates=6 \
-	--num_nodes=4 --num_edges=4 \
-	--input_accs=1 --activation_types=3 --output_types=0 --knob_type=0 \
-	--mutation_type_ub=10 --extra_mutation_rate=0.00 --crossover_freq=0.05 \
-	--multi_edges=0 --allow_move_edge=0 --edge_weights=0 --edge_inheritance=5 \
-	--spreading_rate=0.2 --decay=0.6 --control_increment=0.02 --seed=1692985943
-
-OK_LINE_ARGS = --ridge_type=0 --bumps=1 --ridge_radius=0.2 \
-	--activation_types=1 --mutation_type_ub=10 --knob_type=0 --multi_edges=0 \
-	--peak_movement=0 --output_types=0 --c2=1 --c3=0 --spreading_rate=0.2 \
-	--edge_weights=0 --c1_lb=0.1 --c1_ub=0.9 --extra_mutation_rate=0.05 \
-	--decay=0.8 --allow_move_edge=0
-
-#CIRCLE_ARGS = --ridge_type=1 --bumps=1 --ridge_radius=0.1 \
-#	--activation_types=1 --mutation_type_ub=10 --knob_type=0 --multi_edges=0 \
-#	--peak_movement=0 --output_types=1 --c2=1 --c3=0 --spreading_rate=0.2 \
-#	--edge_weights=0 --c1_lb=0.1 --c1_ub=0.9 --extra_mutation_rate=0.05 \
-#	--decay=0.8 --allow_move_edge=0
-
-#This produced a near-optimal result
-GOOD_XLINE_ARGS = --num_epochs=60 --ridge_type=0 --bumps=0 --ridge_radius=0.2 \
-	--activation_types=1 --mutation_type_ub=10 --knob_type=0 --multi_edges=0 \
-	--peak_movement=1 --output_types=1 --c2=1 --c3=0 --spreading_rate=0.2 \
-	--edge_weights=1 --c1_lb=-1 --c1_ub=1 --extra_mutation_rate=0.00 \
-	--decay=0.8 --allow_move_edge=0 --crossover_freq=0.1 --edge_inheritance=4 \
-	--num_organisms=200
-
-#This produced a very hill-shaped hill for the y=x line
-#Until BEN disallowed initial activations that aren't evenly divisible
-#by knob_constant. 4-Apr-2018
-GOOD_YXLINE_RUN = --num_epochs=120 --ridge_type=0 --bumps=0 --ridge_radius=0.2 \
-	--activation_types=3 --mutation_type_ub=10 --knob_type=0 --multi_edges=0 \
-	--peak_movement=0 --output_types=0 --c2=1 --c3=0 --spreading_rate=0.1 \
-	--edge_weights=1 --c1_lb=-1 --c1_ub=1 --extra_mutation_rate=0.00 \
-	--decay=0.8 --allow_move_edge=0 --crossover_freq=0.1 --edge_inheritance=5 \
-	--num_organisms=80 --num_nodes=4 --num_edges=10 --seed=853488368
-
-#This produces a respectable line down the middle on y=x with bumps
-OK_YXLINE_BUMPS = #Oops, wrong params
-
-all: sa swig
-
-prog: sa swig
-
-$(PDFFILES): $(BIBFILES)
 %.pdf: %.tex
 	$(TEX) $<
 
 %.pdf: %.dot
 	$(DOT) < $< > $@
 
-#sds.o: sds.c sds.h sdsalloc.h
-#	gcc $(CFLAGS) -c sds.c -o sds.o
-#
-#sa.o: sa.c sds.o coordset.h sds.h
-#	gcc $(CFLAGS) -c sa.c -o sa.o
-#
-#coordset.o: coordset.c coordset.h
-#	gcc $(CFLAGS) -c coordset.c -o coordset.o
+###### All the text and graphics files needed to make the ALIFE paper
+
+GRAPHICS = \
+	rzwavy-vfunc.png rzwavy-phfunc.png rzwavy-phrange.png rzwavy-graph.png \
+	circle-phfunc.png circle-vfunc.png circle-phrange.png circle-graph.png \
+	moats-phfunc.png moats-vfunc.png moats-phrange.png moats-graph.png \
+	yxline1-vfunc.png ratio.pdf
+
+# The ALIFE paper
+acclivation.pdf: acclivation.tex acclivation.bib $(GRAPHICS)
+
+# These programs are needed to generate the graphics files
+progs: sa _sa.so
+
+$(PDFFILES): $(BIBFILES)
+
+###### ./sa : Spreading activation. This runs all the evolutionary simulations.
 
 sa: sa.o sds.o coordset.o
 
-#	gcc $(CFLAGS) $^ -o sa -lm
+# Default arguments to ./sa for runs for the ALIFE paper
+DEFS = --bumps=1 --down_bump=1 \
+	--knob_type=1 --knob_constant=0.02 --crossover_freq=0.02 --mutation_type_ub=16 \
+	--input_accs=1 --activation_types=6 --sa_timesteps=10 --alpha=0.8 \
+	--edge_from_phnode=0 --edge_inheritance=5 --multi_edges=0 --allow_move_edge=1 \
+	--num_organisms=200 --num_candidates=10 --num_epochs=40 \
 
-data: sa run.py add_param_set.py
-	./run.py > d.csv
-	./add_param_set.py d.csv > data.csv
-
-out: x
-#	./sa > out
-#	#grep "epoch fitness" out
-#	tail -4 out
-
-okline: sa
-	./sa $(OK_LINE_ARGS) > out
-	tail -4 out
-
-circle: sa
-	./sa $(CIRCLE_ARGS) > out
-	tail -4 out
-
-# Experimentation target
-x: sa
-	./sa $(X_ARGS) > out
-	tail -4 out
-	@echo
-
-lookatthis: sa
-	./sa $(LOOK_AT_THIS) > out
-	tail -4 out
-	@echo
-
-goodxline: sa
-	./sa $(GOOD_XLINE_ARGS) > out
-	tail -4 out
-	@echo
-
-goodyxline: sa
-	./sa $(GOOD_YXLINE_RUN) > out
-	tail -4 out
-	@echo
-
-outs: sa
-	./sa > out
-	tail -4 out
-	./sa >> out
-	tail -4 out
-	./sa >> out
-	tail -4 out
-	./sa >> out
-	tail -4 out
-	./sa >> out
-	tail -4 out
-
-outs2: sa
-	./sa --ridge_type=1 --bumps=0 --ridge_radius=0.05 --activation_types=1 \
---mutation_type_ub=10 --knob_type=0 --multi_edges=1 --peak_movement=1 \
---output_types=1 --c2=2 --c3=-.45 --spreading_rate=0.1 --edge_weights=1 \
---c1_lb=-1 --c1_ub=1 --extra_mutation_rate=0.01 --decay=0.8 --allow_move_edge=0 \
-> out
-	./sa --ridge_type=1 --bumps=0 --ridge_radius=0.05 --activation_types=1 \
---mutation_type_ub=10 --knob_type=0 --multi_edges=1 --peak_movement=1 \
---output_types=1 --c2=2 --c3=-.45 --spreading_rate=0.1 --edge_weights=1 \
---c1_lb=-1 --c1_ub=1 --extra_mutation_rate=0.01 --decay=0.8 --allow_move_edge=0 \
->> out
-	./sa --ridge_type=1 --bumps=0 --ridge_radius=0.05 --activation_types=1 \
---mutation_type_ub=10 --knob_type=0 --multi_edges=1 --peak_movement=1 \
---output_types=1 --c2=2 --c3=-.45 --spreading_rate=0.1 --edge_weights=1 \
---c1_lb=-1 --c1_ub=1 --extra_mutation_rate=0.01 --decay=0.8 --allow_move_edge=0 \
->> out
-	./sa --ridge_type=1 --bumps=0 --ridge_radius=0.05 --activation_types=1 \
---mutation_type_ub=10 --knob_type=0 --multi_edges=1 --peak_movement=1 \
---output_types=1 --c2=2 --c3=-.45 --spreading_rate=0.1 --edge_weights=1 \
---c1_lb=-1 --c1_ub=1 --extra_mutation_rate=0.01 --decay=0.8 --allow_move_edge=0 \
->> out
-	./sa --ridge_type=1 --bumps=0 --ridge_radius=0.05 --activation_types=1 \
---mutation_type_ub=10 --knob_type=0 --multi_edges=1 --peak_movement=1 \
---output_types=1 --c2=2 --c3=-.45 --spreading_rate=0.1 --edge_weights=1 \
---c1_lb=-1 --c1_ub=1 --extra_mutation_rate=0.01 --decay=0.8 --allow_move_edge=0 \
->> out
-
-test.dot: sa
-	./sa > test.dot
-
-test.pdf: test.dot
-	dot -Tpdf < test.dot > test.pdf
-
-dot: test.pdf
-	$(VIEW_PDF) test.pdf
-
-phplot:
-	sed -n '/BEGIN PHFUNC/,/END PHFUNC/ {//!p;}' out > phfunc
-	./plot_xyz.py phfunc 0 1 2
-
-vfplot:
-	sed -n '/BEGIN VFUNC/,/END VFUNC/ {//!p;}' out > vfunc
-	./plot_xyz.py vfunc 0 1 4
-
-phrangeplot:
-	sed -n '/BEGIN VFUNC/,/END VFUNC/ {//!p;}' out > vfunc
-	./plot_xyz.py vfunc 2 3 4 scatter
-
-plots:
-	make vfplot &
-	make phrangeplot &
-	make phplot &
-
-fitness: sa
-	./sa > fitness.out
-	./plot_fitness.py fitness.out
-
-OUT=out
-with_seed:
-	./sa `grep seed $(OUT) | cut -d'=' -f2`
-
-NRUNS = $(shell seq 2 20)
-many: sa
-	@./sa $(X_ARGS) --run=1 > /tmp/out
-	@tail -4 /tmp/out
-	@$(foreach i,$(NRUNS),./sa $(X_ARGS) --run=$i >> /tmp/out; tail -4 /tmp/out;)
-
-tom: sa
-	@./sa --seed=520664716 \
-			--num_epochs=200 \
-  		--ridge_radius=0.200000 \
-  		--c2=1.000000 \
-			--c3=0.000000 \
-			--decay=0.900000 \
-  		--spreading_rate=0.200000 \
-  		--distance_weight=10.000000 \
-  		--bumps=1 \
-  		--mutation_type_ub=16 \
-  		--extra_mutation_rate=0.100000 \
-  		--crossover_freq=0.300000 \
-  		--edge_inheritance=5 \
-  		--edge_weights=0 \
-  		--activation_types=1 \
-  		--num_candidates=7 \
-  		--generations_per_epoch=20 \
-  		--sa_timesteps=20
-
-swig: _sa.so
+###### SWIG file for Python interface to ./sa, called by ./analyze.py
 
 MACH := $(shell uname)
 ifeq ($(MACH),Darwin)
@@ -266,30 +60,94 @@ else
   EXTRA_WARN="-Wno-maybe-uninitialized"
 endif
 
+# The dynamic library file that lets Python talk to ./sa
 _sa.so: sa.i sa.c
 	swig -python sa.i
 	CFLAGS="-std=gnu99 -g -Wno-strict-prototypes -Wno-return-type $(EXTRA_WARN) -Wno-unused-variable" LDFLAGS="-lm" python setup_sa.py build_ext --inplace
 
-swig_clean:
-	rm -rf *.pyc *.so a.out* build sa_wrap.c* sa.py
-
 swig_test:
 	python -c "import sa; sa.tom()"
 
-clean: swig_clean
-	rm -f sa *.o test.pdf test.dot
+###### Razorback
 
-tags:
-	ctags *.[ch]
+RZ_WAVY_SLOPE = $(DEFS) --bumps=1 --seed=4152195160 #--log=ancestors
 
-.PHONY: tags run all dot clean plot fitness with_seed out tom swig_clean swig_test runs prog
+rzwavy-vfunc.png rzwavy-phfunc.png rzwavy-phrange.png rzwavy-graph.png: rzwavy.done
 
-# NEW EXPERIMENTS 2019-Mar-10 Inspired by Etienne Barnard's suggestion to look
-# at feed-forward networks.
+rzwavy.done: progs
+	./sa $(RZ_WAVY_SLOPE) --log=ancestors > rzwavy.out
+	echo "\
+plot phfitness show=False delta=0.01 azim=-66.0 elev=52 dpi=100 filename=rzwavy-phfunc.png\n\
+plot vfitness show=False delta=0.005 azim=52.0 elev=15 dpi=100 filename=rzwavy-vfunc.png\n\
+plot phrange show=False delta=0.01 azim=-66.0 elev=52 dpi=100 filename=rzwavy-phrange.png\n\
+dot show=False filename=rzwavy-graph format=png\n\
+exit\n" | ./analyze.py ancestors
+	@touch rzwavy.done
 
-GOOD = --sa_timesteps=20 --log=ancestors --bumps=0 --num_organisms=40 --multi_edges=0 --knob_constant=0.1
-X1 = --log=ancestors --sa_timesteps=20 --bumps=1 --moat_ub=0.0 --num_organisms=40 --multi_edges=0 --knob_constant=0.1 --activation_types=5 --alpha=0.0  #--num_epochs=1000
-#X = $(OBLIQUE_LINE) --log=ancestors --sa_timesteps=20 --bumps=1 --moat_ub=0.0 --num_organisms=40 --multi_edges=0 --knob_constant=0.1 --activation_types=5 --alpha=0.9  #--num_epochs=1000
+###### Circle
+
+CIRCLE = --ridge_type=1 --bumps=0 --ridge_radius=0.1 --peak_movement=1 \
+	--c1_lb=-1 --c1_ub=1
+
+REALLY_GOOD_CIRCLE1 = $(DEFS) $(CIRCLE) --ridge_radius=0.15 --bumps=0 \
+	--num_organisms=200 --num_candidates=40 --num_epochs=40 \
+  --dot=0 --log=ancestors --seed=1560864133
+
+circle-vfunc.png circle-phfunc.png circle-phrange.png circle-graph.png: circle.done
+
+circle.done: progs
+	./sa $(REALLY_GOOD_CIRCLE1) > really-good-circle.out
+	echo "\
+plot phfitness show=False delta=0.005 azim=-56.0 elev=44 dpi=100 filename=circle-phfunc.png\n\
+plot vfitness show=False delta=0.005 azim=20.0 elev=44 dpi=100 filename=circle-vfunc.png\n\
+plot phrange show=False delta=0.01 azim=-56.0 elev=44 dpi=100 filename=circle-phrange.png\n\
+dot show=False filename=circle-graph format=png\n\
+exit\n\
+" | ./analyze.py ancestors
+	@touch circle.done
+
+###### Moats
+
+moats-phfunc.png moats-vfunc.png moats-phrange.png moats-graph.png: moats.done
+
+moats.done: progs
+	./sa $(TIGHT_FOLDING_FOR_LEAPING) > moats.out
+	echo "\
+plot phfitness show=False delta=0.005 azim=-29.0 elev=46 dpi=100 filename=moats-phfunc.png\n\
+plot vfitness show=False delta=0.005 azim=66.0 elev=69 dpi=100 filename=moats-vfunc.png\n\
+plot phrange show=False delta=0.01 azim=-29.0 elev=46 dpi=100 filename=moats-phrange.png\n\
+dot show=False filename=moats-graph format=png\n\
+exit\n\
+" | ./analyze.py ancestors
+	@touch moats.done
+
+###### Like Moats, but consecutive islands touch at one point (easier)
+
+CLOSE_BUMPS_ACCLIVATION = $(THINYX_WITH_BUMPS) \
+	--moat_ub=0 --bump_freq=15.0 --flat=1 \
+	--num_organisms=80 --edge_inheritance=5 --knob_type=0 \
+	--num_candidates=8 --seed=3859373065 --log=ancestors
+
+CLOSE_BUMPS_ACCLIVATION2 = $(THINYX_WITH_BUMPS) \
+	--moat_ub=0 --bump_freq=15.0 --flat=1 \
+	--num_organisms=80 --edge_inheritance=5 --knob_type=0 \
+	--num_candidates=8 --viability_lb=0.0 --log=ancestors --seed=2722035180
+
+close-bumps.done: progs
+	./sa $(CLOSE_BUMPS_ACCLIVATION2) > close-bumps.out
+	echo "\
+plot phfitness show=False delta=0.005 azim=111.0 elev=44 dpi=100 filename=moats-phfunc.png\n\
+plot vfitness show=False delta=0.005 azim=34.0 elev=64 dpi=100 filename=moats-vfunc.png\n\
+plot phrange show=False delta=0.01 azim=111.0 elev=44 dpi=100 filename=moats-phrange.png\n\
+dot show=False filename=moats-graph format=png\n\
+exit\n\
+" | ./analyze.py ancestors
+	@touch close-bumps.done
+
+###### The easy example near the end of the paper
+
+#Thin ridge along y=x
+YXLINE = --ridge_type=0 --c1_lb=-1 --c1_ub=1 
 
 YX = $(YXLINE) --ridge_radius=0.1 --bumps=0 \
 	--knob_type=1 --knob_constant=0.02 --crossover_freq=0.05 --mutation_type_ub=16 \
@@ -308,191 +166,25 @@ plot vfitness show=False delta=0.01 azim=80.0 elev=27 dpi=100 filename=yxline1-v
 exit\n\
 " | ./analyze.py ancestors
 
+###### Makefile administration
 
-GOOD_YXLINE2 = $(YX) --log=ancestors --seed=2436093377
+swig_clean:
+	rm -rf *.pyc *.so a.out* build sa_wrap.c* sa.py
 
-THINYX_WITH_BUMPS = $(YXLINE) --ridge_radius=0.2 --bumps=1 --moat_ub=0.0 \
-	--knob_constant=0.02 --crossover_freq=0.05 --mutation_type_ub=16 --num_organisms=100 \
-	--input_accs=1 --activation_types=6 --sa_timesteps=10 --alpha=0.8 \
-	--edge_from_phnode=1 --edge_inheritance=5 --multi_edges=0 \
-	--num_epochs=40
+graphics_clean:
+	rm -f $(GRAPHICS)
 
-GOOD_THINYX_WITH_BUMPS = $(YXLINE) $(THINYX_WITH_BUMPS)
-	--dot=1 --log=ancestors --num_epochs=40  --seed=1583407075
+prog_clean: swig_clean
+	rm -f sa *.o
 
-X1 = $(THINYX_WITH_BUMPS) --ridge_radius=0.1 --moat_ub=0.5 --bump_freq=30.0 \
-	--flat=1 --flat_multiplier=1.0 --down_bump=1 \
-	--num_organisms=80 --edge_inheritance=5 --knob_type=1 --knob_constant=0.01 \
-	--num_candidates=8 --num_epochs=60 --viability_lb=0.0 \
-  #--seed=577086024 --log=ancestors
+latex_clean:
+	rm -f acclivation.pdf acclivation.log acclivation.out
+	rm -f *.aux *.bbl *.blg *.fdb_latexmk *.fls
 
-# thu night
-RUN1 = $(THINYX_WITH_BUMPS) --moat_ub=0.5 --bump_freq=15.0 \
-	--num_organisms=800 --edge_inheritance=5 --knob_type=0 \
-	--seed=3233094016 --log=ancestors
+clean: prog_clean graphics_clean latex_clean
+	rm -f ancestors out outs/* core
 
-CLOSE_BUMPS_ACCLIVATION = $(THINYX_WITH_BUMPS) --moat_ub=0 --bump_freq=15.0 --flat=1 \
-	--num_organisms=80 --edge_inheritance=5 --knob_type=0 \
-	--num_candidates=8 --seed=3859373065 --log=ancestors
+tags:
+	ctags *.[ch]
 
-CLOSE_BUMPS_ACCLIVATION2 = $(THINYX_WITH_BUMPS) --moat_ub=0 --bump_freq=15.0 --flat=1 \
-	--num_organisms=80 --edge_inheritance=5 --knob_type=0 \
-	--num_candidates=8 --viability_lb=0.0 --log=ancestors --seed=2722035180
-
-TIGHT_FOLDING_FOR_LEAPING = $(THINYX_WITH_BUMPS) \
-	--ridge_radius=0.1 --moat_ub=0.5 --bump_freq=30.0 \
-	--flat=1 --flat_multiplier=1.0 --down_bump=1 \
-	--num_organisms=80 --edge_inheritance=5 --knob_type=1 --knob_constant=0.01 \
-	--num_candidates=8 --num_epochs=60 --viability_lb=0.0 \
-	--seed=1207166735 --log=ancestors
-
-moats1.done:
-	./sa $(TIGHT_FOLDING_FOR_LEAPING) > moats1.out
-	echo "\
-plot phfitness show=False delta=0.005 azim=-29.0 elev=46 dpi=100 filename=moats-phfunc.png\n\
-plot vfitness show=False delta=0.005 azim=66.0 elev=69 dpi=100 filename=moats-vfunc.png\n\
-plot phrange show=False delta=0.01 azim=-29.0 elev=46 dpi=100 filename=moats-phrange.png\n\
-dot show=False filename=moats-graph format=png\n\
-exit\n\
-" | ./analyze.py ancestors
-	@touch moats1.done
-
-moats-phfunc.png moats-vfunc.png moats-phrange.png moats-graph.png: moats2.done
-
-moats2.done:
-	./sa $(CLOSE_BUMPS_ACCLIVATION2) > moats2.out
-	echo "\
-plot phfitness show=False delta=0.005 azim=111.0 elev=44 dpi=100 filename=moats-phfunc.png\n\
-plot vfitness show=False delta=0.005 azim=34.0 elev=64 dpi=100 filename=moats-vfunc.png\n\
-plot phrange show=False delta=0.01 azim=34.0 elev=64 dpi=100 filename=moats-phrange.png\n\
-dot show=False filename=moats-graph format=png\n\
-exit\n\
-" | ./analyze.py ancestors
-	@touch moats2.done
-
-
-OBLIQUE_WITH_BUMPS = $(OBLIQUE_LINE) --ridge_radius=1.0 --bumps=1 --moat_ub=0.0 \
-	--knob_constant=0.02 --crossover_freq=0.05 --mutation_type_ub=16 --num_organisms=200 \
-	--input_accs=1 --activation_types=6 --sa_timesteps=10 --alpha=0.8 \
-	--edge_from_phnode=1 --edge_inheritance=5 --multi_edges=0
-
-OK_OBLIQUE_WITH_BUMPS = $(OBLIQUE_WITH_BUMPS) \
-	--dot=1 --log=ancestors --num_epochs=40  --seed=2408275062
-
-X2 = $(OBLIQUE_WITH_BUMPS) --ridge_radius=0.2 \
-	--dot=0 --num_epochs=40 --sa_timesteps=3 \
-	--mutation_type_ub=16 --num_organisms=400 --generations_per_epoch=20
-
-OK = $(YXLINE) --ridge_radius=0.2 --bumps=1 --moat_ub=0.0 \
-	--knob_type=1 --knob_constant=0.02 --crossover_freq=0.02 --mutation_type_ub=100 --num_organisms=400 \
-	--input_accs=1 --activation_types=6 --sa_timesteps=5 --alpha=0.8 \
-	--edge_from_phnode=0 --edge_inheritance=5 --multi_edges=0 \
-	--num_epochs=50  --dot=0 #--log=ancestors #--seed=1583407075
-
-C0 =  $(CIRCLE) --ridge_radius=0.1 --bumps=1 --moat_ub=0.0 \
-	--knob_type=1 --knob_constant=0.02 --crossover_freq=0.02 --mutation_type_ub=16 --num_organisms=800 --num_candidates=80 \
-	--input_accs=1 --activation_types=6 --sa_timesteps=5 --alpha=0.8 \
-	--edge_from_phnode=0 --edge_inheritance=5 --multi_edges=0 \
-	--num_epochs=50  --dot=0 --log=ancestors --seed=1583407075
-
-# Defaults for runs for the ALIFE paper
-DEFS = --bumps=1 --down_bump=1 \
-	--knob_type=1 --knob_constant=0.02 --crossover_freq=0.02 --mutation_type_ub=16 \
-	--input_accs=1 --activation_types=6 --sa_timesteps=10 --alpha=0.8 \
-	--edge_from_phnode=0 --edge_inheritance=5 --multi_edges=0 --allow_move_edge=1 \
-	--num_organisms=200 --num_candidates=10 --num_epochs=40 \
-
-CIRCLE_NICE3 = $(DEFS) $(CIRCLE) --ridge_radius=0.2 --bumps=0 \
-	--allow_move_edge=0 \
-	--num_organisms=800 --num_candidates=7 --num_epochs=40 \
-	--log=ancestors --seed=4224274563
-
-CIRCLE_NICE4 = $(CIRCLE) $(DEFS) --ridge_radius=0.1 --bumps=0 --moat_ub=0.0 \
-	--allow_move_edge=0 \
-	--num_organisms=800 --num_candidates=7 --num_epochs=40 \
-	--log=ancestors --seed=1447085122
-
-C1 = $(DEFS) $(CIRCLE) --ridge_radius=0.1 --bumps=0 \
-	--num_organisms=200 --num_candidates=10 --num_epochs=40 \
-	--dot=0
-
-# outs-rz, outs-rz2
-RAZORBACK = $(DEFS) --bumps=1 --num_epochs=80
-
-# Should go into the ALIFE paper
-RZ_WAVY_SLOPE = $(DEFS) --bumps=1 --seed=4152195160 #--log=ancestors
-
-rzwavy-vfunc.png rzwavy-phfunc.png rzwavy-phrange.png rzwavy-graph.png: rzwavy.done
-
-rzwavy.done:
-	./sa $(RZ_WAVY_SLOPE) --log=ancestors > rzwavy.out
-	echo "\
-plot phfitness show=False delta=0.01 azim=-66.0 elev=52 dpi=100 filename=rzwavy-phfunc.png\n\
-plot vfitness show=False delta=0.005 azim=52.0 elev=15 dpi=100 filename=rzwavy-vfunc.png\n\
-plot phrange show=False delta=0.01 azim=-66.0 elev=52 dpi=100 filename=rzwavy-phrange.png\n\
-dot show=False filename=rzwavy-graph format=png\n\
-exit\n" | ./analyze.py ancestors
-	@touch rzwavy.done
-
-RZ = $(DEFS) --bumps=1 --num_epochs=40 --knob_type=0
-
-
-ARGS = $(CLOSE_BUMPS_ACCLIVATION2) # Change this to some other variable to run other parameters
-run: all
-	./sa $(ARGS) > out
-	@grep 'deltas' out
-
-N = $(shell seq 1 20)
-runs: prog
-	@echo "$(ARGS)"
-	@rm -f outs/out*
-	@$(foreach i,$(N),./sa $(ARGS) --run=$i --log=outs/ancestors$i > outs/out$i ; echo -n "$i: "; grep 'fitness deltas' outs/out$i;)
-
-# Targets for generating plots
-plot1:
-	echo "\
-select 4.4.4\n\
-plot phfitness show=False filename=e4g4o4phfit.png azim=30.0\n\
-exit\n\
-" | ./analyze.py
-
-plot_final_fittest:
-	echo "\
-select 41.20.77\n\
-plot phfitness show=False delta=0.005 azim=34.0 elev=64 cmapname=gnuplot_r\n\
-plot vfitness show=False delta=0.005 azim=34.0 elev=64 cmapname=gnuplot_r\n\
-plot phrange show=False delta=0.01 azim=34.0 elev=64 cmapname=plasma\n\
-dot show=False\n\
-exit\n\
-" | ./analyze.py
-
-# potentials
-GOOD_CIRCLE1 = $(DEFS) $(CIRCLE) --ridge_radius=0.15 --bumps=0 \
-	--num_organisms=400 --num_candidates=40 --num_epochs=40 \
-	--dot=0 --log=ancestors --seed=3929395322
-
-REALLY_GOOD_CIRCLE1 = $(DEFS) $(CIRCLE) --ridge_radius=0.15 --bumps=0 \
-	--num_organisms=200 --num_candidates=40 --num_epochs=40 \
-  --dot=0 --log=ancestors --seed=1560864133
-
-circleplots:
-	echo "\
-plot phfitness show=False delta=0.005 azim=34.0 elev=64 cmapname=gnuplot_r filename=circle-phfitness.png\n\
-plot vfitness show=False delta=0.005 azim=34.0 elev=64 cmapname=gnuplot_r filename=circle-vfitness.png\n\
-plot phrange show=False delta=0.01 azim=34.0 elev=64 cmapname=plasma filename=circle-phrange.png\n\
-dot show=False filename=circle-dot format=png\n\
-exit\n\
-" | ./analyze.py REALLY_GOOD_CIRCLE1/ancestors
-
-circle-vfunc.png circle-phfunc.png circle-phrange.png circle-graph.png: circle.done
-
-circle.done:
-	./sa $(REALLY_GOOD_CIRCLE1) > really-good-circle.out
-	echo "\
-plot phfitness show=False delta=0.005 azim=-56.0 elev=44 dpi=100 filename=circle-phfunc.png\n\
-plot vfitness show=False delta=0.005 azim=20.0 elev=44 dpi=100 filename=circle-vfunc.png\n\
-plot phrange show=False delta=0.01 azim=-56.0 elev=44 dpi=100 filename=circle-phrange.png\n\
-dot show=False filename=circle-graph format=png\n\
-exit\n\
-" | ./analyze.py ancestors
-	@touch circle.done
+.PHONY: tags run all dot clean plot fitness with_seed out tom swig_clean swig_test runs prog
