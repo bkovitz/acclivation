@@ -13,6 +13,8 @@
 \usepackage{tabularx}
 \usepackage{multirow}
 \usepackage{float}
+\usepackage{pgfplots}
+\usepackage{array}
 
 \newcommand{\gv}{$g$-vector}
 \newcommand{\phv}{$\phi$-vector}
@@ -206,6 +208,7 @@ connecting them.  The whole genome is a directed graph where:
       activation}.
    \item Two other nodes, $p_1$ and $p_2$, are designated to hold the
       phenotype.
+   \item Zero or more additional nodes, $n_1, n_2, \ldots$.
    \item Each edge has a weight of either $+1.0$ or $-1.0$.
 \end{enumerate}
 
@@ -227,9 +230,87 @@ node $j$, and $T$ is the following transfer function:
 where $S=2.1972274554893376$. This constant gives $T$, when iterated,
 attractors at $\pm0.5$ and a repellor at 0.
 
+\begin{figure}
+\centering
+\begin{tikzpicture}
+\begin{axis}[small, scale=0.9,
+             axis x line=middle, axis y line=middle,
+             xlabel=$x$, ylabel={$T(x)$}]
+  \addplot[domain=-2:2]
+    {2/(1+exp(-2.1972274554893376 * x)) - 1};
+\end{axis}
+\end{tikzpicture}
+\caption{The transfer function $T$ is a sigmoid function with attractors at
+$\pm0.5$ and a repellor at $0$.}
+\end{figure}
+
 If a node does not have an activation at time~$t$, then it does not figure
 into the above sum for calculating any other node's activation. At time~$t=0$,
 only the knobs have activations.
+
+The phenotype is the vector $(a_{p_1}(10), a_{p_2}(10))$, i.e.~the activations
+of the phenotype nodes after 10 timesteps. If $p_1$ or $p_2$ has not received
+an activation after 10 timesteps, then the genotype has no phenotype and is
+given a fitness of~0.0. This can happen if no edges provide a path from a knob
+to $p_1$ or~$p_2$.
+
+\subsubsection{Example}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=3in]{example_organism.pdf}
+\caption{A simple genotype. The knob nodes are at the top, the phenotype nodes
+are at the bottom, and there is one additional node.}
+\label{fig:simple-genotype}
+\end{figure}
+
+The following table shows step-by-step how the spreading-activation algorithm
+calculates the phenotype for the simple genotype in
+Figure~\ref{fig:simple-genotype}.
+
+\medskip
+
+\begin{tabularx}{\columnwidth}{rrrrrr}
+$t$ & $k_1$ & $k_2$ & $n_1$ & $p_1$ & $p_2$ \\
+\hline
+0 & $-0.659$ & $1.000$ & & & \\
+1 & $-0.659$ & $0.358$ & $-0.619$ & $-0.619$ & $0.800$ \\
+2 & $-0.044$ & $-0.319$ & $-0.970$ & $-0.886$ & $0.854$ \\
+3 & $0.769$ & $-0.379$ & $-0.975$ & $-0.771$ & $0.529$ \\
+4 & $0.958$ & $0.404$ & $-0.861$ & $-0.002$ & $0.164$ \\
+5 & $0.964$ & $0.905$ & $-0.686$ & $0.782$ & $0.554$ \\
+6 & $0.948$ & $0.968$ & $-0.420$ & $0.958$ & $0.922$ \\
+7 & $0.906$ & $0.971$ & $-0.118$ & $0.970$ & $0.970$ \\
+8 & $0.699$ & $0.968$ & $0.850$ & $0.968$ & $0.972$ \\
+9 & $-0.164$ & $0.950$ & $0.990$ & $0.950$ & $0.971$ \\
+10 & $-0.853$ & $0.698$ & $0.964$ & $0.700$ & $0.971$ \\
+\end{tabularx}
+
+\medskip
+
+At $t{=}0$, the genotype provides the initial activations of the knob nodes.
+
+At $t{=}1$, $n_1$ and $p_1$ each receive an input of $-0.659$ from $k_1$; each
+gets an activation of $T(-0.659)=-0.619$. Similarly, $p_2$ receives an input
+of $1.000$ from $k_2$, giving $p_2$ an activation of $T(1.000)=0.800$.
+Since the only input to $k_1$ comes from $n_1$, and $n_1$ had no activation on
+timestep~0, $k_1$'s activation is unchanged.
+
+At $t{=}2$, $n_1$ receives inputs along two edges: $-0.659$ from $k_1$ and
+$-0.619$ from itself. These add to $n_1$'s preceding activation, so $n_1$'s
+new activation becomes $T(-0.619 - 0.619 - 0.659)=-0.970$. $k_1$ now receives
+the $-0.619$ from $n_1$ but the edge has weight $-1$, so $k_1$'s activation
+becomes $T(-0.659 + 0.619)=0.044$. $k_2$ receives an input of $-0.659$ from
+$k_1$, so $k_2$'s activation becomes $T(0.358 - 0.659)=0.319$.  $p_1$'s
+activation becomes $T(-0.619 - 0.659)=-0.886$ and $p_2$'s becomes $T(0.800 +
+0.358)=0.854$.
+
+Now that all the nodes have activations, the cycle continues: $k_1$ and $n_1$
+interact and $p_1$ and $p_2$ essentially accumulate output from $k_1$ and
+$k_2$, scaled back each timestep by the $T$ function.
+
+Finally, after 10~timesteps, $p_1$'s activation is $0.700$ and $p_2$'s
+activation is $0.971$, so this genotype's phenotype is $(0.700,0.971)$.
 
 \begin{figure*}[h!]
 \centering
@@ -253,12 +334,6 @@ numbers preceded by ``i='' are initial activation levels, and the other
 numbers are activation levels after 10 timesteps.}
 \label{fig:razorback}
 \end{figure*}
-
-The phenotype is the vector $(a_{p_1}(10), a_{p_2}(10))$, i.e.~the activations
-of the phenotype nodes after 10 timesteps. If $p_1$ or $p_2$ has not received
-an activation after 10 timesteps, then the genotype has no phenotype and is
-given a fitness of~0.0. This can happen if no edges provide a path from a knob
-to $p_1$ or~$p_2$.
 
 \subsection{Variation Operator}
 

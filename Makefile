@@ -24,19 +24,25 @@ endif
 %.pdf: %.dot
 	$(DOT) < $< > $@
 
+%.eps: %.dot
+	$(DOT) < $< > $@
+
+%.png: %.dot
+	$(DOT) < $< > $@
+
 ###### All the text and graphics files needed to make the ALIFE paper
 
 GRAPHICS = \
 	rzwavy-vfunc.png rzwavy-phfunc.png rzwavy-phrange.png rzwavy-graph.png \
 	circle-phfunc.png circle-vfunc.png circle-phrange.png circle-graph.png \
 	moats-phfunc.png moats-vfunc.png moats-phrange.png moats-graph.png \
-	yxline1-vfunc.png ratio.pdf
+	yxline1-vfunc.png ratio.pdf example_organism.pdf
 
 # The ALIFE paper
 acclivation.pdf: acclivation.tex acclivation.bib $(GRAPHICS)
 
 # These programs are needed to generate the graphics files
-progs: sa _sa.so
+PROGS= sa _sa.so
 
 $(PDFFILES): $(BIBFILES)
 
@@ -49,7 +55,7 @@ DEFS = --bumps=1 --down_bump=1 \
 	--knob_type=1 --knob_constant=0.02 --crossover_freq=0.02 --mutation_type_ub=16 \
 	--input_accs=1 --activation_types=6 --sa_timesteps=10 --alpha=0.8 \
 	--edge_from_phnode=0 --edge_inheritance=5 --multi_edges=0 --allow_move_edge=1 \
-	--num_organisms=200 --num_candidates=10 --num_epochs=40 \
+	--num_organisms=200 --num_candidates=10 --num_epochs=40
 
 ###### SWIG file for Python interface to ./sa, called by ./analyze.py
 
@@ -74,7 +80,7 @@ RZ_WAVY_SLOPE = $(DEFS) --bumps=1 --seed=4152195160 #--log=ancestors
 
 rzwavy-vfunc.png rzwavy-phfunc.png rzwavy-phrange.png rzwavy-graph.png: rzwavy.done
 
-rzwavy.done: progs
+rzwavy.done: $(PROGS)
 	./sa $(RZ_WAVY_SLOPE) --log=ancestors > rzwavy.out
 	echo "\
 plot phfitness show=False delta=0.01 azim=-66.0 elev=52 dpi=100 filename=rzwavy-phfunc.png\n\
@@ -95,7 +101,7 @@ REALLY_GOOD_CIRCLE1 = $(DEFS) $(CIRCLE) --ridge_radius=0.15 --bumps=0 \
 
 circle-vfunc.png circle-phfunc.png circle-phrange.png circle-graph.png: circle.done
 
-circle.done: progs
+circle.done: $(PROGS)
 	./sa $(REALLY_GOOD_CIRCLE1) > really-good-circle.out
 	echo "\
 plot phfitness show=False delta=0.005 azim=-56.0 elev=44 dpi=100 filename=circle-phfunc.png\n\
@@ -110,7 +116,7 @@ exit\n\
 
 moats-phfunc.png moats-vfunc.png moats-phrange.png moats-graph.png: moats.done
 
-moats.done: progs
+moats.done: $(PROGS)
 	./sa $(TIGHT_FOLDING_FOR_LEAPING) > moats.out
 	echo "\
 plot phfitness show=False delta=0.005 azim=-29.0 elev=46 dpi=100 filename=moats-phfunc.png\n\
@@ -133,7 +139,7 @@ CLOSE_BUMPS_ACCLIVATION2 = $(THINYX_WITH_BUMPS) \
 	--num_organisms=80 --edge_inheritance=5 --knob_type=0 \
 	--num_candidates=8 --viability_lb=0.0 --log=ancestors --seed=2722035180
 
-close-bumps.done: progs
+close-bumps.done: $(PROGS)
 	./sa $(CLOSE_BUMPS_ACCLIVATION2) > close-bumps.out
 	echo "\
 plot phfitness show=False delta=0.005 azim=111.0 elev=44 dpi=100 filename=moats-phfunc.png\n\
@@ -148,6 +154,8 @@ exit\n\
 
 #Thin ridge along y=x
 YXLINE = --ridge_type=0 --c1_lb=-1 --c1_ub=1 
+
+OBLIQUE_LINE = $(YXLINE) --ridge_type=0 --c2=2.0 --c3=-0.45 --c1_lb=-0.275 --c1_ub=0.725
 
 YX = $(YXLINE) --ridge_radius=0.1 --bumps=0 \
 	--knob_type=1 --knob_constant=0.02 --crossover_freq=0.05 --mutation_type_ub=16 \
@@ -165,6 +173,49 @@ yxline1-vfunc.png:
 plot vfitness show=False delta=0.01 azim=80.0 elev=27 dpi=100 filename=yxline1-vfunc.png\n\
 exit\n\
 " | ./analyze.py ancestors
+
+###### How to experiment
+
+RESTRICTED =
+#RESTRICTED = --c1_lb=0.2 --c1_ub=0.9
+
+#A parameter set for experimentation. Try the good ideas here, run with
+#'make x', and save noteworthy parameter sets under a different name.
+X_ARGS = $(DEFS) $(OBLIQUE_LINE) \
+	--log=ancestors #--seed=968766798
+
+# Experimentation target
+x: sa
+	./sa $(X_ARGS) > out
+	tail -4 out
+	@echo
+
+# After generating 'out', run ./see-graph or ./analyze.py.
+
+N = $(shell seq 1 20)
+runs: prog
+	@echo "$(X_ARGS)"
+	@rm -f outs/out*
+	@$(foreach i,$(N),./sa $(X_ARGS) --run=$i --log=outs/ancestors$i > outs/out$i ; echo -n "$i: "; grep 'fitness deltas' outs/out$i;)
+
+###### Plotting the contents of the 'out' file
+
+phplot:
+	sed -n '/BEGIN PHFUNC/,/END PHFUNC/ {//!p;}' out > phfunc
+	./plot_xyz.py phfunc 0 1 2
+
+vfplot:
+	sed -n '/BEGIN VFUNC/,/END VFUNC/ {//!p;}' out > vfunc
+	./plot_xyz.py vfunc 0 1 4
+
+phrangeplot:
+	sed -n '/BEGIN VFUNC/,/END VFUNC/ {//!p;}' out > vfunc
+	./plot_xyz.py vfunc 2 3 4 scatter
+
+plots:
+	make vfplot &
+	make phrangeplot &
+	make phplot &
 
 ###### Makefile administration
 
@@ -187,4 +238,4 @@ clean: prog_clean graphics_clean latex_clean
 tags:
 	ctags *.[ch]
 
-.PHONY: tags run all dot clean plot fitness with_seed out tom swig_clean swig_test runs prog
+.PHONY: tags run all dot clean plot fitness with_seed out tom swig_clean swig_test runs

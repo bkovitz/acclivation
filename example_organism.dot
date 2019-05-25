@@ -1,0 +1,15 @@
+digraph example_organism {
+  { rank=source edge [style="invis"] n0 -> n1 }
+  { rank=sink edge [style="invis"] n2 -> n3 }
+  n0 [label="k1 -0.659"]
+  n1 [label="k2 1.000"]
+  n2 [label="p1"]
+  n3 [label="p2"]
+  n4 [label="n1"]
+  n0 -> n2 [label=1];
+  n1 -> n3 [label=1];
+  n0 -> n1 [label=1];
+  n4 -> n4 [label=1];
+  n4 -> n0 [label=-1];
+  n0 -> n4 [label=1];
+}
